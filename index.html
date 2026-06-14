@@ -128,12 +128,15 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .admin-title { color: white; font-size: 16px; font-weight: 600; }
 .admin-body { padding: 16px; }
 .section-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .4px; }
-.user-card { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+.user-card { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 12px 14px; margin-bottom: 8px; }
+.user-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .user-av { width: 36px; height: 36px; border-radius: 50%; background: var(--g-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--g); flex-shrink: 0; }
 .user-info { flex: 1; min-width: 0; }
 .user-nm { font-size: 14px; font-weight: 500; color: var(--text); }
 .user-branch { font-size: 12px; color: var(--text3); margin-top: 1px; }
-.user-edit-row { display: flex; gap: 6px; align-items: center; }
+.user-edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.user-edit-row .mini-btn { grid-column: 1; }
+.user-edit-row .del-btn { grid-column: 2; }
 .mini-input { width: 56px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: 'DM Mono', monospace; font-size: 13px; text-align: center; }
 .mini-select { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
 .mini-btn { background: var(--g-bg); border: none; border-radius: 7px; padding: 6px 10px; color: var(--g); font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 500; }
@@ -951,40 +954,43 @@ async function loadUsers() {
     const badge = roleBadge[u.role] ? `<span class="role-badge">${roleBadge[u.role]}</span>` : '';
 
     if (u.role === 'pending') {
-      // Pending user: manager & master bisa approve jadi karyawan
       return `<div class="user-card">
-        <div class="user-av">${nm[0].toUpperCase()}</div>
-        <div class="user-info">
-          <div class="user-nm">${nm} ${badge}</div>
-          <div class="user-branch">Menunggu approval</div>
+        <div class="user-card-top">
+          <div class="user-av">${nm[0].toUpperCase()}</div>
+          <div class="user-info">
+            <div class="user-nm">${nm} ${badge}</div>
+            <div class="user-branch">Menunggu approval</div>
+          </div>
         </div>
         <div class="user-edit-row">
-          <select class="mini-select" id="branch-${u.id}">
+          <select class="mini-select" id="branch-${u.id}" style="grid-column:1/3">
             <option value="melur">Melur</option>
             <option value="delima">Delima</option>
           </select>
-          <button class="mini-btn" onclick="approveUser('${u.id}')">✓ Approve</button>
+          <button class="mini-btn" style="grid-column:1/3" onclick="approveUser('${u.id}')">✓ Approve jadi Karyawan</button>
         </div>
       </div>`;
     }
 
     if (!isMaster) {
-      // Manager: read-only view untuk user yang bukan pending
       return `<div class="user-card">
-        <div class="user-av">${nm[0].toUpperCase()}</div>
-        <div class="user-info">
-          <div class="user-nm">${nm} ${badge}</div>
-          <div class="user-branch">${branchLabel}</div>
+        <div class="user-card-top">
+          <div class="user-av">${nm[0].toUpperCase()}</div>
+          <div class="user-info">
+            <div class="user-nm">${nm} ${badge}</div>
+            <div class="user-branch">${branchLabel}</div>
+          </div>
         </div>
       </div>`;
     }
 
-    // Master: full edit
     return `<div class="user-card">
-      <div class="user-av">${nm[0].toUpperCase()}</div>
-      <div class="user-info">
-        <div class="user-nm">${nm} ${badge}</div>
-        <div class="user-branch">${branchLabel}${u.pin?' • PIN: '+u.pin:''}</div>
+      <div class="user-card-top">
+        <div class="user-av">${nm[0].toUpperCase()}</div>
+        <div class="user-info">
+          <div class="user-nm">${nm} ${badge}</div>
+          <div class="user-branch">${branchLabel}${u.pin?' • PIN: '+u.pin:''}</div>
+        </div>
       </div>
       <div class="user-edit-row">
         <select class="mini-select" id="role-${u.id}">
@@ -997,9 +1003,9 @@ async function loadUsers() {
           <option value="delima" ${u.branch_id==='delima'?'selected':''}>Delima</option>
           <option value="" ${!u.branch_id?'selected':''}>Semua</option>
         </select>
-        <input class="mini-input" id="pin-${u.id}" value="${u.pin||''}" placeholder="PIN" maxlength="4">
+        <input class="mini-input" id="pin-${u.id}" value="${u.pin||''}" placeholder="PIN" maxlength="4" style="grid-column:1">
         <button class="mini-btn" onclick="updateUser('${u.id}')">Simpan</button>
-        <button class="del-btn" onclick="deleteUser('${u.id}','${nm}')">Hapus</button>
+        <button class="del-btn" style="grid-column:1/3" onclick="deleteUser('${u.id}','${nm}')">🗑️ Hapus user ini</button>
       </div>
     </div>`;
   }).join('') + (isMaster ? `
