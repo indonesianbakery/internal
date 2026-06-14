@@ -153,8 +153,13 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .dash-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
 
 /* CATEGORY HEADERS */
-.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; }
+.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.cat-header:active { opacity: 0.7; }
+.cat-chevron { margin-left: auto; font-size: 10px; color: var(--text3); transition: transform .2s; }
+.cat-chevron.open { transform: rotate(180deg); }
 .cat-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.cat-items { overflow: hidden; transition: max-height .25s ease; }
+.cat-items.collapsed { max-height: 0 !important; }
 
 /* PRODUCT MANAGEMENT SCREEN */
 #screen-products { background: var(--bg); padding-bottom: 40px; }
@@ -463,6 +468,7 @@ let meta = {};
 let filter = 'all';
 let thresholdSedikit = 3;
 let waMaster = '6281092249354';
+let collapsedCats = new Set(); // kategori yang di-collapse
 
 // ── AUTH ──
 function switchLoginTab(tab) {
@@ -862,13 +868,28 @@ function render() {
         return prod && prod.category_id === cat.id;
       });
       if (!catItems.length) return;
-      html += `<div class="cat-header">${cat.name}</div>`;
-      html += catItems.map(n => renderProdRow(n)).join('');
+      const isOpen = collapsedCats.has(cat.id) ? false : true;
+      const itemsHtml = catItems.map(n => renderProdRow(n)).join('');
+      html += `
+        <div class="cat-header" onclick="toggleCat(${cat.id}, this)">
+          ${cat.name}
+          <span class="cat-chevron ${isOpen?'open':''}">▼</span>
+        </div>
+        <div class="cat-items" id="cat-items-${cat.id}" style="max-height:${isOpen?'9999px':'0'}">
+          ${itemsHtml}
+        </div>`;
     });
 
     if (uncategorized.length) {
-      html += `<div class="cat-header">Lainnya</div>`;
-      html += uncategorized.map(n => renderProdRow(n)).join('');
+      const isOpen = !collapsedCats.has('other');
+      html += `
+        <div class="cat-header" onclick="toggleCat('other', this)">
+          Lainnya
+          <span class="cat-chevron ${isOpen?'open':''}">▼</span>
+        </div>
+        <div class="cat-items" id="cat-items-other" style="max-height:${isOpen?'9999px':'0'}">
+          ${uncategorized.map(n => renderProdRow(n)).join('')}
+        </div>`;
     }
 
     el.innerHTML = html;
@@ -907,7 +928,21 @@ function adj(n,d) { data[n]=Math.max(0,(data[n]||0)+d); render(); }
 function setVal(n,v) { data[n]=Math.max(0,parseInt(v)||0); render(); }
 function setFilter(f,el) { filter=f; document.querySelectorAll('.pill').forEach(b=>b.classList.remove('active')); el.classList.add('active'); render(); }
 
-function switchBranch(b) {
+function toggleCat(catId, headerEl) {
+  const itemsEl = document.getElementById('cat-items-' + catId);
+  const chevron = headerEl.querySelector('.cat-chevron');
+  if (collapsedCats.has(catId)) {
+    collapsedCats.delete(catId);
+    itemsEl.style.maxHeight = '9999px';
+    chevron.classList.add('open');
+  } else {
+    collapsedCats.add(catId);
+    itemsEl.style.maxHeight = '0';
+    chevron.classList.remove('open');
+  }
+}
+
+
   branch=b;
   document.getElementById('btn-melur').classList.toggle('active',b==='melur');
   document.getElementById('btn-delima').classList.toggle('active',b==='delima');
