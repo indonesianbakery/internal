@@ -1,0 +1,25 @@
+{
+  "name": "Indonesian Bakery — Sisa Produk",
+  "short_name": "IBP Sisa",
+  "description": "Sistem pencatatan sisa produk Indonesian Bakery Pekanbaru",
+  "start_url": "/internal/",
+  "scope": "/internal/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#2D6A4F",
+  "theme_color": "#2D6A4F",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
