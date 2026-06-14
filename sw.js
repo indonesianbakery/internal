@@ -1,4 +1,4 @@
-const CACHE = 'ibp-v1';
+const CACHE = 'ibp-v2';
 const ASSETS = [
   '/internal/',
   '/internal/index.html',
