@@ -641,7 +641,7 @@ async function doRename() {
   statusEl.textContent = 'Menyimpan...';
   statusEl.className = 'modal-status';
 
-  const { error } = await sb.from('products').update({ name: newName }).eq('id', renameProductId);
+  const { error } = await sb.from('products').update({ name: newName }).eq('id', parseInt(renameProductId));
   if (error) {
     statusEl.textContent = 'Gagal: ' + error.message;
     statusEl.className = 'modal-status err';
@@ -750,7 +750,7 @@ function render() {
     const lastInfo = (m && m.by && m.at) ? `<div class="last-update">🕐 ${m.by} • ${fmtDate(m.at)}</div>` : '';
     const prod = products.find(p => p.name === n);
     const renameBtn = (currentUser.role === 'master' && prod)
-      ? `<button class="rename-btn" onclick="openRenameModal('${prod.id}','${n.replace(/'/g,"\\'")}')">✏️</button>`
+      ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>`
       : '';
     return `<div class="prod-row ${rc}">
       <div class="dot ${dc}"></div>
