@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="IB PKU Stock">
+<meta name="apple-mobile-web-app-title" content="IBP Sisa">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#2D6A4F">
 <link rel="manifest" href="manifest.json">
@@ -149,6 +149,25 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .dash-pane.active { display: block; }
 .dash-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
 
+/* CATEGORY HEADERS */
+.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; }
+.cat-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* PRODUCT MANAGEMENT SCREEN */
+#screen-products { background: var(--bg); padding-bottom: 40px; }
+.add-card { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 14px; margin-bottom: 10px; }
+.add-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 10px; }
+.add-form { display: flex; flex-direction: column; gap: 8px; }
+.add-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; }
+.add-btn { padding: 10px 16px; background: var(--g); color: white; border: none; border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+.add-status { font-size: 12px; min-height: 16px; }
+.add-status.ok { color: var(--g3); }
+.add-status.err { color: var(--r); }
+.prod-manage-row { background: white; border: 1.5px solid var(--border); border-radius: var(--rad-sm); padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.prod-manage-name { flex: 1; font-size: 13px; color: var(--text); }
+.prod-manage-cat { font-size: 11px; color: var(--text3); }
+.inactive-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--r-bg); color: var(--r); }
+
 /* RENAME MODAL */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: none; align-items: flex-end; justify-content: center; }
 .modal-overlay.open { display: flex; }
@@ -271,7 +290,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       <svg class="search-ico" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input class="search-inp" type="search" id="search" placeholder="Cari produk..." oninput="render()">
     </div>
-    <div class="pills">
+    <div class="pills" id="filter-pills">
       <button class="pill active" onclick="setFilter('all',this)">Semua</button>
       <button class="pill" onclick="setFilter('zero',this)">🔴 Habis</button>
       <button class="pill" onclick="setFilter('low',this)">🟡 Sedikit</button>
@@ -298,6 +317,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
     <div class="section-title">Karyawan, Manager & Master</div>
     <div id="user-list"><div class="loading"><div class="spinner"></div></div></div>
     <div class="admin-link" onclick="showScreen('log')">📋 Lihat riwayat perubahan →</div>
+    <div class="admin-link" onclick="showScreen('products')">📦 Kelola Produk & Kategori →</div>
   </div>
 </div>
 
@@ -324,7 +344,46 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   </div>
 </div>
 
-<!-- RENAME MODAL -->
+<!-- PRODUCTS MANAGEMENT -->
+<div id="screen-products" class="screen">
+  <div class="admin-header">
+    <button class="back-btn" onclick="showScreen('admin')">← Kembali</button>
+    <span class="admin-title">Kelola Produk & Kategori</span>
+  </div>
+  <div class="admin-body">
+
+    <!-- Tambah Kategori -->
+    <div class="section-title">Tambah Kategori Baru</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-form">
+        <input class="form-input" id="new-cat-name" type="text" placeholder="Nama kategori...">
+        <button class="add-btn" onclick="addCategory()">+ Tambah Kategori</button>
+        <div class="add-status" id="cat-status"></div>
+      </div>
+    </div>
+
+    <!-- Daftar Kategori -->
+    <div class="section-title" style="margin-top:16px">Kategori</div>
+    <div id="cat-list"><div class="loading"><div class="spinner"></div></div></div>
+
+    <!-- Tambah Produk -->
+    <div class="section-title" style="margin-top:16px">Tambah Produk Baru</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-form">
+        <input class="form-input" id="new-prod-name" type="text" placeholder="Nama produk...">
+        <select class="add-select" id="new-prod-cat"></select>
+        <button class="add-btn" onclick="addProduct()">+ Tambah Produk</button>
+        <div class="add-status" id="prod-add-status"></div>
+      </div>
+    </div>
+
+    <!-- Daftar Produk -->
+    <div class="section-title" style="margin-top:16px">Semua Produk</div>
+    <div id="prod-manage-list"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- RENAME MODAL (juga untuk rename kategori) -->
 <div class="modal-overlay" id="rename-modal">
   <div class="modal-sheet">
     <div class="modal-title">Ganti nama produk</div>
@@ -392,13 +451,14 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 const BRANCH_NAMES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 
-let currentUser = null; // { nama, role, branch_id, mode: 'pin'|'google', email? }
+let currentUser = null;
 let branch = 'melur';
-let products = []; // {id, name}
+let products = []; // {id, name, category_id, is_active}
+let categories = []; // {id, name, sort_order}
 let data = {}, original = {};
-let meta = {}; // { [name]: { last_updated_by, last_updated_at } }
+let meta = {};
 let filter = 'all';
-let thresholdSedikit = 3; // default, akan dimuat dari settings
+let thresholdSedikit = 3;
 let waMaster = '6281092249354';
 
 // ── AUTH ──
@@ -484,7 +544,7 @@ function afterLogin() {
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
 
   showScreen('main');
-  loadProducts().then(() => { loadThreshold(); loadStock(); });
+  loadCategories().then(() => loadProducts().then(() => { loadThreshold(); loadStock(); }));
 }
 
 async function logout() {
@@ -503,6 +563,7 @@ function showScreen(name) {
   if (name === 'admin') loadUsers();
   if (name === 'log') loadLog();
   if (name === 'dashboard') loadDashboard();
+  if (name === 'products') loadProductManagement();
   if (name === 'settings') {
     document.getElementById('set-threshold').value = thresholdSedikit;
     document.getElementById('set-wa').value = waMaster;
@@ -641,6 +702,19 @@ async function doRename() {
   statusEl.textContent = 'Menyimpan...';
   statusEl.className = 'modal-status';
 
+  // Cek apakah rename kategori atau produk
+  if (String(renameProductId).startsWith('cat_')) {
+    const catId = parseInt(String(renameProductId).replace('cat_', ''));
+    const { error } = await sb.from('categories').update({ name: newName }).eq('id', catId);
+    if (error) { statusEl.textContent = 'Gagal: ' + error.message; statusEl.className = 'modal-status err'; return; }
+    const cat = categories.find(c => c.id === catId);
+    if (cat) cat.name = newName;
+    statusEl.textContent = 'Tersimpan ✓'; statusEl.className = 'modal-status ok';
+    setTimeout(() => { closeRenameModal(); loadProductManagement(); loadCategories(); }, 800);
+    return;
+  }
+
+  // Rename produk
   const { error } = await sb.from('products').update({ name: newName }).eq('id', parseInt(renameProductId));
   if (error) {
     statusEl.textContent = 'Gagal: ' + error.message;
@@ -648,12 +722,10 @@ async function doRename() {
     return;
   }
 
-  // Update local state
   const prod = products.find(p => p.id === renameProductId);
   if (prod) {
     const old = prod.name;
     prod.name = newName;
-    // Pindahkan data & meta ke nama baru
     if (data[old] !== undefined) { data[newName] = data[old]; delete data[old]; }
     if (original[old] !== undefined) { original[newName] = original[old]; delete original[old]; }
     if (meta[old]) { meta[newName] = meta[old]; delete meta[old]; }
@@ -664,13 +736,35 @@ async function doRename() {
   setTimeout(() => {
     closeRenameModal();
     render();
+    // Kalau lagi di screen products, refresh juga
+    if (document.getElementById('screen-products').classList.contains('active')) loadProductManagement();
   }, 800);
 }
 
 // ── DATA ──
+async function loadCategories() {
+  const { data: rows, error } = await sb.from('categories').select('*').order('sort_order');
+  if (!error && rows) {
+    categories = rows;
+    // Update filter pills dengan kategori
+    const pillsEl = document.getElementById('filter-pills');
+    const catPills = categories.map(c =>
+      `<button class="pill" onclick="setFilter('cat_${c.id}',this)">${c.name}</button>`
+    ).join('');
+    pillsEl.innerHTML = `
+      <button class="pill active" onclick="setFilter('all',this)">Semua</button>
+      <button class="pill" onclick="setFilter('zero',this)">🔴 Habis</button>
+      <button class="pill" onclick="setFilter('low',this)">🟡 Sedikit</button>
+      <button class="pill" onclick="setFilter('ok',this)">🟢 Aman</button>
+      <button class="pill" onclick="setFilter('changed',this)">✏️ Diubah</button>
+      ${catPills}
+    `;
+  }
+}
+
 async function loadProducts() {
   if (products.length) return;
-  const { data: rows, error } = await sb.from('products').select('id,name').order('sort_order');
+  const { data: rows, error } = await sb.from('products').select('id,name,category_id,is_active').order('sort_order');
   if (!error) products = rows;
 }
 
@@ -727,6 +821,9 @@ function render() {
   document.getElementById('save-btn').disabled = changed.length === 0;
   document.getElementById('save-lbl').textContent = changed.length ? `Simpan (${changed.length} diubah)` : 'Simpan';
 
+  const isCatFilter = filter.startsWith('cat_');
+  const catFilterId = isCatFilter ? parseInt(filter.replace('cat_','')) : null;
+
   const filtered = names.filter(n => {
     if (q && !n.toLowerCase().includes(q)) return false;
     const v = data[n];
@@ -734,6 +831,10 @@ function render() {
     if (filter==='low') return v>0&&v<=thresholdSedikit;
     if (filter==='ok') return v>thresholdSedikit;
     if (filter==='changed') return data[n]!==original[n];
+    if (isCatFilter) {
+      const prod = products.find(p => p.name === n);
+      return prod && prod.category_id === catFilterId;
+    }
     return true;
   });
 
@@ -741,31 +842,62 @@ function render() {
   if (!names.length) { el.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>'; return; }
   if (!filtered.length) { el.innerHTML = '<div class="empty">Tidak ada produk ditemukan</div>'; return; }
 
-  el.innerHTML = filtered.map(n => {
-    const v = data[n];
-    const rc = v===0?'zero':v<=thresholdSedikit?'low':'';
-    const dc = v===0?'dot-zero':v<=thresholdSedikit?'dot-low':'dot-ok';
-    const ch = data[n]!==original[n];
-    const m = meta[n];
-    const lastInfo = (m && m.by && m.at) ? `<div class="last-update">🕐 ${m.by} • ${fmtDate(m.at)}</div>` : '';
-    const prod = products.find(p => p.name === n);
-    const renameBtn = (currentUser.role === 'master' && prod)
-      ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>`
-      : '';
-    return `<div class="prod-row ${rc}">
-      <div class="dot ${dc}"></div>
-      <div class="pname-wrap">
-        <span class="pname">${n}${ch?'<span class="tag tag-changed">diubah</span>':''}</span>
-        ${lastInfo}
-      </div>
-      ${renameBtn}
-      <div class="qc">
-        <button class="qb" onclick="adj('${n}',-1)">−</button>
-        <input class="qn" type="number" min="0" value="${v}" onchange="setVal('${n}',this.value)">
-        <button class="qb" onclick="adj('${n}',1)">+</button>
-      </div>
-    </div>`;
-  }).join('');
+  // Group by category kalau filter = all atau category
+  const showHeaders = (filter === 'all' || isCatFilter) && !q && categories.length;
+
+  if (showHeaders) {
+    let html = '';
+    const uncategorized = filtered.filter(n => {
+      const prod = products.find(p => p.name === n);
+      return !prod || !prod.category_id;
+    });
+
+    categories.forEach(cat => {
+      if (isCatFilter && cat.id !== catFilterId) return;
+      const catItems = filtered.filter(n => {
+        const prod = products.find(p => p.name === n);
+        return prod && prod.category_id === cat.id;
+      });
+      if (!catItems.length) return;
+      html += `<div class="cat-header">${cat.name}</div>`;
+      html += catItems.map(n => renderProdRow(n)).join('');
+    });
+
+    if (uncategorized.length) {
+      html += `<div class="cat-header">Lainnya</div>`;
+      html += uncategorized.map(n => renderProdRow(n)).join('');
+    }
+
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = filtered.map(n => renderProdRow(n)).join('');
+  }
+}
+
+function renderProdRow(n) {
+  const v = data[n];
+  const rc = v===0?'zero':v<=thresholdSedikit?'low':'';
+  const dc = v===0?'dot-zero':v<=thresholdSedikit?'dot-low':'dot-ok';
+  const ch = data[n]!==original[n];
+  const m = meta[n];
+  const lastInfo = (m && m.by && m.at) ? `<div class="last-update">🕐 ${m.by} • ${fmtDate(m.at)}</div>` : '';
+  const prod = products.find(p => p.name === n);
+  const renameBtn = (currentUser.role === 'master' && prod)
+    ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>`
+    : '';
+  return `<div class="prod-row ${rc}">
+    <div class="dot ${dc}"></div>
+    <div class="pname-wrap">
+      <span class="pname">${n}${ch?'<span class="tag tag-changed">diubah</span>':''}</span>
+      ${lastInfo}
+    </div>
+    ${renameBtn}
+    <div class="qc">
+      <button class="qb" onclick="adj('${n}',-1)">−</button>
+      <input class="qn" type="number" min="0" value="${v}" onchange="setVal('${n}',this.value)">
+      <button class="qb" onclick="adj('${n}',1)">+</button>
+    </div>
+  </div>`;
 }
 
 function adj(n,d) { data[n]=Math.max(0,(data[n]||0)+d); render(); }
@@ -911,6 +1043,118 @@ async function addManualUser() {
   });
   if (error) alert('Gagal: ' + error.message);
   else loadUsers();
+}
+
+// ── PRODUCT MANAGEMENT ──
+async function loadProductManagement() {
+  // Load fresh dari DB
+  const { data: cats } = await sb.from('categories').select('*').order('sort_order');
+  const { data: prods } = await sb.from('products').select('*').order('sort_order');
+  if (cats) categories = cats;
+  if (prods) products = prods;
+
+  // Populate category dropdown untuk tambah produk
+  const catSel = document.getElementById('new-prod-cat');
+  catSel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Render category list
+  document.getElementById('cat-list').innerHTML = categories.map(c => `
+    <div class="prod-manage-row">
+      <span class="prod-manage-name">${c.name}</span>
+      <button class="mini-btn" onclick="openRenameModal('cat_${c.id}','${c.name.replace(/'/g,"\\'")}')">✏️ Rename</button>
+    </div>
+  `).join('') || '<div class="empty">Belum ada kategori</div>';
+
+  // Render product list grouped by category
+  let html = '';
+  categories.forEach(cat => {
+    const catProds = products.filter(p => p.category_id === cat.id);
+    if (!catProds.length) return;
+    html += `<div class="cat-header">${cat.name}</div>`;
+    html += catProds.map(p => `
+      <div class="prod-manage-row">
+        <div style="flex:1">
+          <div class="prod-manage-name">${p.name} ${!p.is_active ? '<span class="inactive-badge">nonaktif</span>' : ''}</div>
+        </div>
+        <select class="mini-select" onchange="moveProductCategory(${p.id}, this.value)">
+          ${categories.map(c => `<option value="${c.id}" ${c.id===p.category_id?'selected':''}>${c.name}</option>`).join('')}
+        </select>
+        <button class="mini-btn" onclick="openRenameModal(${p.id},'${p.name.replace(/'/g,"\\'")}')">✏️</button>
+        <button class="${p.is_active?'del-btn':'mini-btn'}" onclick="toggleProduct(${p.id},${p.is_active})">${p.is_active?'Nonaktif':'Aktifkan'}</button>
+      </div>
+    `).join('');
+  });
+
+  const uncatProds = products.filter(p => !p.category_id);
+  if (uncatProds.length) {
+    html += `<div class="cat-header">Tanpa Kategori</div>`;
+    html += uncatProds.map(p => `
+      <div class="prod-manage-row">
+        <span class="prod-manage-name">${p.name}</span>
+        <select class="mini-select" onchange="moveProductCategory(${p.id}, this.value)">
+          <option value="">— Pilih —</option>
+          ${categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+        </select>
+        <button class="mini-btn" onclick="openRenameModal(${p.id},'${p.name.replace(/'/g,"\\'")}')">✏️</button>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('prod-manage-list').innerHTML = html || '<div class="empty">Belum ada produk</div>';
+}
+
+async function addCategory() {
+  const name = document.getElementById('new-cat-name').value.trim();
+  const el = document.getElementById('cat-status');
+  if (!name) { el.textContent = 'Nama tidak boleh kosong'; el.className = 'add-status err'; return; }
+  const maxOrder = categories.length ? Math.max(...categories.map(c => c.sort_order)) : 0;
+  const { error } = await sb.from('categories').insert({ name, sort_order: maxOrder + 1 });
+  if (error) { el.textContent = 'Gagal: ' + error.message; el.className = 'add-status err'; }
+  else {
+    el.textContent = 'Kategori ditambahkan ✓'; el.className = 'add-status ok';
+    document.getElementById('new-cat-name').value = '';
+    setTimeout(() => { el.textContent = ''; loadProductManagement(); }, 1000);
+  }
+}
+
+async function addProduct() {
+  const name = document.getElementById('new-prod-name').value.trim();
+  const category_id = parseInt(document.getElementById('new-prod-cat').value);
+  const el = document.getElementById('prod-add-status');
+  if (!name) { el.textContent = 'Nama tidak boleh kosong'; el.className = 'add-status err'; return; }
+
+  // Insert ke products
+  const maxOrder = products.length ? Math.max(...products.map(p => p.sort_order || 0)) : 0;
+  const { data: newProd, error } = await sb.from('products')
+    .insert({ name, category_id, sort_order: maxOrder + 1, is_active: true })
+    .select().single();
+  if (error) { el.textContent = 'Gagal: ' + error.message; el.className = 'add-status err'; return; }
+
+  // Insert ke stock untuk kedua cabang
+  const { error: stockErr } = await sb.from('stock').insert([
+    { product_id: newProd.id, branch_id: 'melur', qty: 0 },
+    { product_id: newProd.id, branch_id: 'delima', qty: 0 }
+  ]);
+  if (stockErr) { el.textContent = 'Produk ditambah tapi gagal init stock: ' + stockErr.message; el.className = 'add-status err'; return; }
+
+  el.textContent = 'Produk ditambahkan ✓'; el.className = 'add-status ok';
+  document.getElementById('new-prod-name').value = '';
+  products = []; // reset supaya loadProducts fetch ulang
+  setTimeout(() => { el.textContent = ''; loadProductManagement(); }, 1000);
+}
+
+async function moveProductCategory(productId, categoryId) {
+  const { error } = await sb.from('products')
+    .update({ category_id: categoryId ? parseInt(categoryId) : null })
+    .eq('id', productId);
+  if (error) alert('Gagal pindah kategori: ' + error.message);
+  else { products = []; loadProductManagement(); }
+}
+
+async function toggleProduct(productId, currentActive) {
+  const { error } = await sb.from('products').update({ is_active: !currentActive }).eq('id', productId);
+  if (error) alert('Gagal: ' + error.message);
+  else { products = []; loadProductManagement(); }
 }
 
 // ── LOG ──
