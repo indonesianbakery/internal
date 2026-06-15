@@ -153,13 +153,12 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .dash-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
 
 /* CATEGORY HEADERS */
-.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; -webkit-user-select: none; margin: 0; border: none; background: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
 .cat-header:active { opacity: 0.7; }
-.cat-chevron { margin-left: auto; font-size: 10px; color: var(--text3); transition: transform .2s; }
-.cat-chevron.open { transform: rotate(180deg); }
 .cat-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.cat-chevron { font-size: 10px; color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+.cat-chevron.open { transform: rotate(180deg); }
 .cat-items { overflow: hidden; transition: max-height .25s ease; }
-.cat-items.collapsed { max-height: 0 !important; }
 
 /* PRODUCT MANAGEMENT SCREEN */
 #screen-products { background: var(--bg); padding-bottom: 40px; }
@@ -473,8 +472,8 @@ let collapsedCats = new Set(); // kategori yang di-collapse
 // ── AUTH ──
 function switchLoginTab(tab) {
   document.querySelectorAll('.login-tab').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='pin')||(i===1&&tab==='google')));
-  document.getElementById('tab-pin').style.display = tab==='pin' ? '' : 'none';
-  document.getElementById('tab-google').style.display = tab==='google' ? '' : 'none';
+  document.getElementById('tab-pin').style.display = tab==='pin' ? 'block' : 'none';
+  document.getElementById('tab-google').style.display = tab==='google' ? 'block' : 'none';
 }
 function pinNext(el, next) { if (el.value.length === 1 && next <= 3) document.getElementById('p'+next).focus(); }
 function pinDone() {}
