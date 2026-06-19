@@ -339,7 +339,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
   </div>
   <div id="dash-wa-wrap" style="padding:12px 16px 0;display:none">
     <a id="dash-wa-link" href="#" target="_blank" style="text-decoration:none;display:block">
-      <button style="width:100%;padding:12px;background:#25D366;color:white;border:none;border-radius:var(--rad-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">📱 Kirim laporan ke WhatsApp Master</button>
+      <button style="width:100%;padding:12px;background:#25D366;color:white;border:none;border-radius:var(--rad-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">📱 Kirim laporan via WhatsApp</button>
     </a>
   </div>
   <div class="dash-tab-row">
@@ -426,7 +426,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
       </div>
     </div>
 
-    <div class="section-title" style="margin-top:20px">Nomor WhatsApp Master</div>
+    <div class="section-title" style="margin-top:20px">Nomor WhatsApp Laporan</div>
     <div class="add-card" style="margin-top:0">
       <div class="add-title">Untuk notifikasi stok habis</div>
       <div class="add-form">
@@ -661,10 +661,9 @@ async function loadDashboard() {
     // Tombol WhatsApp kalau ada masalah
     if (totalZero + totalLow > 0) {
       const msg = encodeURIComponent(
-        `Halo Master, laporan stok Indonesian Bakery:\n\n` +
+        `Laporan Stok Cabang (nama cabang) :\n\n` +
         `🔴 Item HABIS: ${totalZero}\n` +
-        `🟡 Item SEDIKIT: ${totalLow}\n\n` +
-        `Mohon dicek di app ya 🙏`
+        `🟡 Item SEDIKIT: ${totalLow}\n\n`
       );
       document.getElementById('dash-wa-link').href = `https://wa.me/${waMaster}?text=${msg}`;
       document.getElementById('dash-wa-wrap').style.display = '';
