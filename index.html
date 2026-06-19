@@ -120,6 +120,8 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 .save-btn { width: 100%; padding: 14px; background: var(--g); color: white; border: none; border-radius: var(--rad); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; }
 .save-btn:active { transform: scale(0.98); }
 .save-btn:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; transform: none; }
+.wa-report-btn { width: 100%; padding: 12px; background: #25D366; color: white; border: none; border-radius: var(--rad); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; }
+.wa-report-btn:active { transform: scale(0.98); }
 .status { text-align: center; font-size: 12px; color: var(--text3); min-height: 16px; }
 .status.ok { color: var(--g3); }
 .status.err { color: var(--r); }
@@ -313,6 +315,7 @@ body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--t
 
   <div class="bottombar">
     <button class="save-btn" id="save-btn" onclick="saveData()" disabled>💾 <span id="save-lbl">Simpan</span></button>
+    <button class="wa-report-btn" onclick="kirimLaporanWA()">📱 Kirim Laporan ke WhatsApp</button>
     <div class="status" id="status"></div>
   </div>
 </div>
@@ -948,6 +951,46 @@ function switchBranch(b) {
   document.getElementById('btn-melur').classList.toggle('active',b==='melur');
   document.getElementById('btn-delima').classList.toggle('active',b==='delima');
   loadStock();
+}
+
+function kirimLaporanWA() {
+  const now = new Date();
+  const bulan = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const tgl = `${now.getDate()} ${bulan[now.getMonth()]} ${now.getFullYear()}`;
+  const namaCabang = BRANCH_NAMES[branch] || branch;
+
+  let pesan = `*Laporan Stock ${tgl}*\n`;
+  pesan += `Cabang: ${namaCabang}\n`;
+
+  const names = Object.keys(data);
+  let adaIsi = false;
+
+  categories.forEach(cat => {
+    const catItems = products
+      .filter(p => p.category_id === cat.id && data[p.name] !== undefined)
+      .map(p => p.name);
+    if (!catItems.length) return;
+    pesan += `\n*${cat.name}*\n`;
+    catItems.forEach(n => { pesan += `${n} - ${data[n]}\n`; });
+    adaIsi = true;
+  });
+
+  const uncat = names.filter(n => {
+    const p = products.find(x => x.name === n);
+    return !p || !p.category_id;
+  });
+  if (uncat.length) {
+    pesan += `\n*Lainnya*\n`;
+    uncat.forEach(n => { pesan += `${n} - ${data[n]}\n`; });
+    adaIsi = true;
+  }
+
+  if (!adaIsi) {
+    names.forEach(n => { pesan += `${n} - ${data[n]}\n`; });
+  }
+
+  const url = `https://wa.me/${waMaster}?text=${encodeURIComponent(pesan)}`;
+  window.open(url, '_blank');
 }
 
 async function saveData() {
