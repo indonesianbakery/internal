@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="IBP Sisa">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2D6A4F">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Sisa Roti - Indonesian Bakery</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --g: #2D6A4F; --g2: #40916C; --g3: #52B788; --g-bg: #D8F3DC; --g-light: #F0FBF3;
+  --y: #E9A825; --y-bg: #FFF8E1;
+  --r: #D62828; --r-bg: #FFEBEE;
+  --b: #1565C0; --b-bg: #E3F2FD;
+  --bg: #F4F7F5; --surface: #FFFFFF; --border: #DDE8E2;
+  --text: #1A2E24; --text2: #4A6B58; --text3: #8BA898;
+  --rad: 14px; --rad-sm: 9px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); overflow-x: hidden; }
+
+.screen { display: none; min-height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* LOGIN */
+#screen-login { background: var(--g); align-items: center; justify-content: center; padding: 2rem 1.5rem; width: 100%; }
+.login-logo { text-align: center; margin-bottom: 2rem; }
+.login-logo .icon { width: 72px; height: 72px; background: rgba(255,255,255,0.15); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 12px; }
+.login-logo h1 { color: white; font-size: 20px; font-weight: 600; }
+.login-logo p { color: rgba(255,255,255,0.6); font-size: 13px; margin-top: 2px; }
+.login-card { background: white; border-radius: var(--rad); padding: 1.5rem; width: 100%; max-width: 360px; }
+.login-tabs { display: flex; background: var(--bg); border-radius: var(--rad-sm); padding: 3px; margin-bottom: 1.25rem; }
+.login-tab { flex: 1; padding: 8px; border-radius: 7px; border: none; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; transition: all .2s; }
+.login-tab.active { background: white; color: var(--g); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.login-form { display: flex; flex-direction: column; gap: 10px; }
+.form-label { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 4px; display: block; }
+.form-input { width: 100%; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; transition: border-color .2s; }
+.form-input:focus { border-color: var(--g3); }
+.pin-wrap { display: flex; gap: 8px; max-width: 100%; }
+.pin-digit { flex: 1; min-width: 0; max-width: 60px; padding: 11px 6px; text-align: center; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Mono', monospace; font-size: 20px; font-weight: 500; color: var(--text); background: white; outline: none; transition: border-color .2s; }
+.pin-digit:focus { border-color: var(--g3); }
+.login-btn { width: 100%; padding: 13px; background: var(--g); color: white; border: none; border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; transition: all .15s; }
+.login-btn:active { transform: scale(0.98); background: #1B4332; }
+.login-btn:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; }
+.login-err { font-size: 12px; color: var(--r); text-align: center; min-height: 18px; margin-top: 2px; }
+.google-btn { width: 100%; padding: 11px; background: white; color: var(--text); border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: all .15s; margin-bottom: 4px; }
+.google-btn:active { background: var(--bg); }
+.google-icon { width: 18px; height: 18px; }
+.owner-note { font-size: 11px; color: var(--text3); text-align: center; margin-top: 8px; }
+
+/* PENDING SCREEN */
+#screen-pending { background: var(--bg); align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+#screen-pending .icon { font-size: 48px; margin-bottom: 1rem; }
+#screen-pending h2 { font-size: 18px; margin-bottom: 8px; }
+#screen-pending p { font-size: 13px; color: var(--text2); max-width: 320px; line-height: 1.5; }
+#screen-pending .login-btn { max-width: 200px; margin-top: 1.5rem; }
+
+/* MAIN */
+#screen-main { background: var(--bg); padding-bottom: 90px; }
+.topbar { background: var(--g); padding: 14px 16px 16px; position: sticky; top: 0; z-index: 40; }
+.topbar-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.user-pill { display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.15); border-radius: 20px; padding: 5px 10px 5px 6px; }
+.user-avatar { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: white; }
+.user-name { font-size: 12px; color: white; font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.logout-btn { background: rgba(255,255,255,0.12); border: none; border-radius: 8px; padding: 6px 10px; color: rgba(255,255,255,0.8); font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+.branch-row { display: flex; gap: 6px; }
+.br-btn { flex: 1; padding: 8px 10px; border-radius: var(--rad-sm); border: none; background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.br-btn.active { background: white; color: var(--g); }
+.br-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; padding: 12px 16px 8px; }
+.stat { background: white; border: 1px solid var(--border); border-radius: var(--rad); padding: 10px 8px; text-align: center; }
+.stat-n { font-size: 22px; font-weight: 600; font-family: 'DM Mono', monospace; line-height: 1.1; }
+.stat-l { font-size: 10px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .4px; }
+
+.controls { padding: 0 16px 10px; display: flex; flex-direction: column; gap: 8px; }
+.search-wrap { position: relative; }
+.search-ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; }
+.search-inp { width: 100%; padding: 10px 12px 10px 36px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; transition: border-color .2s; }
+.search-inp:focus { border-color: var(--g3); }
+.pills { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.pills::-webkit-scrollbar { display: none; }
+.pill { white-space: nowrap; padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: white; font-family: 'DM Sans', sans-serif; font-size: 12px; color: var(--text2); cursor: pointer; transition: all .15s; }
+.pill.active { background: var(--g); border-color: var(--g); color: white; }
+
+.prod-list { padding: 0 16px; display: flex; flex-direction: column; gap: 4px; }
+.prod-row { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 10px 12px; display: flex; align-items: center; gap: 8px; }
+.prod-row.zero { background: var(--r-bg); border-color: #FFCDD2; }
+.prod-row.low { background: var(--y-bg); border-color: #FFE082; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok { background: var(--g3); }
+.dot-low { background: var(--y); }
+.dot-zero { background: var(--r); }
+.pname { font-size: 13px; color: var(--text); }
+.pname-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.last-update { font-size: 10px; color: var(--text3); }
+.tag { font-size: 10px; font-weight: 500; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+.tag-changed { background: var(--b-bg); color: var(--b); }
+.qc { display: flex; align-items: center; gap: 3px; }
+.qb { width: 30px; height: 30px; border-radius: 7px; border: 1.5px solid var(--border); background: var(--bg); font-size: 18px; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform .1s; user-select: none; -webkit-user-select: none; }
+.qb:active { transform: scale(0.88); }
+.qn { width: 32px; text-align: center; font-size: 15px; font-weight: 600; font-family: 'DM Mono', monospace; border: none; background: transparent; color: var(--text); outline: none; }
+
+.loading { text-align: center; padding: 3rem 1rem; color: var(--text3); font-size: 13px; }
+.spinner { width: 22px; height: 22px; border: 2px solid var(--border); border-top-color: var(--g3); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 10px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty { text-align: center; padding: 2rem; font-size: 13px; color: var(--text3); }
+
+.bottombar { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 6px; }
+.save-btn { width: 100%; padding: 14px; background: var(--g); color: white; border: none; border-radius: var(--rad); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; }
+.save-btn:active { transform: scale(0.98); }
+.save-btn:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; transform: none; }
+.status { text-align: center; font-size: 12px; color: var(--text3); min-height: 16px; }
+.status.ok { color: var(--g3); }
+.status.err { color: var(--r); }
+
+/* ADMIN */
+#screen-admin { background: var(--bg); padding-bottom: 40px; }
+.admin-header { background: var(--g); padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+.back-btn { background: rgba(255,255,255,0.15); border: none; border-radius: 8px; padding: 7px 12px; color: white; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; }
+.admin-title { color: white; font-size: 16px; font-weight: 600; }
+.admin-body { padding: 16px; }
+.section-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .4px; }
+.user-card { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 12px 14px; margin-bottom: 8px; }
+.user-card-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.user-av { width: 36px; height: 36px; border-radius: 50%; background: var(--g-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; color: var(--g); flex-shrink: 0; }
+.user-info { flex: 1; min-width: 0; }
+.user-nm { font-size: 14px; font-weight: 500; color: var(--text); }
+.user-branch { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.user-edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.user-edit-row .mini-btn { grid-column: 1; }
+.user-edit-row .del-btn { grid-column: 2; }
+.mini-input { width: 56px; padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: 'DM Mono', monospace; font-size: 13px; text-align: center; }
+.mini-select { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 12px; }
+.mini-btn { background: var(--g-bg); border: none; border-radius: 7px; padding: 6px 10px; color: var(--g); font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 500; }
+.del-btn { background: var(--r-bg); border: none; border-radius: 7px; padding: 6px 10px; color: var(--r); font-size: 12px; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+.role-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--y-bg); color: var(--y); font-weight: 500; margin-left: 6px; }
+.admin-link { text-align: center; margin-top: 16px; font-size: 13px; color: var(--g); cursor: pointer; text-decoration: underline; }
+
+/* DASHBOARD TABS */
+.dash-tab-row { display: flex; gap: 6px; padding: 12px 16px 4px; }
+.dash-tab { flex: 1; padding: 9px; border-radius: var(--rad-sm); border: 1.5px solid var(--border); background: white; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; color: var(--text2); cursor: pointer; transition: all .15s; text-align: center; }
+.dash-tab.active { background: var(--g); border-color: var(--g); color: white; }
+.dash-pane { display: none; padding: 0 16px 16px; }
+.dash-pane.active { display: block; }
+.dash-summary { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 12px; }
+
+/* CATEGORY HEADERS */
+.cat-header { padding: 10px 16px 4px; font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: .6px; display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; -webkit-user-select: none; margin: 0; border: none; background: none; width: 100%; text-align: left; font-family: 'DM Sans', sans-serif; }
+.cat-header:active { opacity: 0.7; }
+.cat-header::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.cat-chevron { font-size: 10px; color: var(--text3); transition: transform .2s; flex-shrink: 0; }
+.cat-chevron.open { transform: rotate(180deg); }
+.cat-items { overflow: hidden; transition: max-height .25s ease; }
+
+/* PRODUCT MANAGEMENT SCREEN */
+#screen-products { background: var(--bg); padding-bottom: 40px; }
+.add-card { background: white; border: 1.5px solid var(--border); border-radius: var(--rad); padding: 14px; margin-bottom: 10px; }
+.add-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 10px; }
+.add-form { display: flex; flex-direction: column; gap: 8px; }
+.add-select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); background: white; outline: none; }
+.add-btn { padding: 10px 16px; background: var(--g); color: white; border: none; border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+.add-status { font-size: 12px; min-height: 16px; }
+.add-status.ok { color: var(--g3); }
+.add-status.err { color: var(--r); }
+.prod-manage-row { background: white; border: 1.5px solid var(--border); border-radius: var(--rad-sm); padding: 10px 12px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.prod-manage-name { flex: 1; font-size: 13px; color: var(--text); }
+.prod-manage-cat { font-size: 11px; color: var(--text3); }
+.inactive-badge { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: var(--r-bg); color: var(--r); }
+
+/* RENAME MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; display: none; align-items: flex-end; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-sheet { background: white; border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); width: 100%; max-width: 480px; }
+.modal-title { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.modal-sub { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+.modal-row { display: flex; gap: 8px; }
+.modal-inp { flex: 1; padding: 11px 14px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; }
+.modal-inp:focus { border-color: var(--g3); }
+.modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+.modal-cancel { flex: 1; padding: 12px; border: 1.5px solid var(--border); border-radius: var(--rad-sm); background: white; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text2); cursor: pointer; }
+.modal-save { flex: 2; padding: 12px; border: none; border-radius: var(--rad-sm); background: var(--g); color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+.modal-status { font-size: 12px; color: var(--text3); text-align: center; min-height: 16px; margin-top: 6px; }
+.modal-status.ok { color: var(--g3); }
+.modal-status.err { color: var(--r); }
+
+/* Rename button on product row */
+.rename-btn { background: none; border: none; padding: 4px 6px; color: var(--text3); font-size: 13px; cursor: pointer; opacity: 0.6; }
+.rename-btn:active { opacity: 1; }
+
+/* LOG */
+#screen-log { background: var(--bg); padding-bottom: 40px; }
+.log-header { background: var(--g); padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+.log-body { padding: 16px; }
+.log-row { background: white; border: 1px solid var(--border); border-radius: var(--rad-sm); padding: 10px 12px; margin-bottom: 6px; }
+.log-top { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.log-prod { font-size: 13px; font-weight: 500; color: var(--text); }
+.log-time { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; }
+.log-bottom { display: flex; align-items: center; gap: 6px; }
+.log-user { font-size: 12px; color: var(--text2); }
+.log-branch { font-size: 11px; padding: 1px 6px; background: var(--g-bg); color: var(--g); border-radius: 4px; }
+.log-change { font-size: 12px; color: var(--text3); margin-left: auto; font-family: 'DM Mono', monospace; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="screen-login" class="screen active">
+  <div class="login-logo">
+    <div class="icon">🍞</div>
+    <h1>Indonesian Bakery</h1>
+    <p>Pekanbaru — Sistem Sisa Produk</p>
+  </div>
+
+  <div class="login-card">
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="switchLoginTab('pin')">Karyawan</button>
+      <button class="login-tab" onclick="switchLoginTab('google')">Master/Manager</button>
+    </div>
+
+    <div id="tab-pin">
+      <div class="login-form">
+        <div>
+          <label class="form-label">Nama karyawan</label>
+          <input class="form-input" id="pin-nama" type="text" placeholder="Nama lengkap" autocomplete="off">
+        </div>
+        <div>
+          <label class="form-label">PIN (4 digit)</label>
+          <div class="pin-wrap">
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="p0" oninput="pinNext(this,1)">
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="p1" oninput="pinNext(this,2)">
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="p2" oninput="pinNext(this,3)">
+            <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" id="p3" oninput="pinDone()">
+          </div>
+        </div>
+        <button class="login-btn" onclick="loginPin()">Masuk</button>
+        <div class="login-err" id="pin-err"></div>
+      </div>
+    </div>
+
+    <div id="tab-google" style="display:none">
+      <div class="login-form">
+        <button class="google-btn" onclick="loginGoogle()">
+          <svg class="google-icon" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Masuk dengan Google
+        </button>
+        <div class="owner-note">Khusus untuk Master / Manager</div>
+        <div class="login-err" id="google-err"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PENDING (login Google sukses tapi belum di-set jadi owner) -->
+<div id="screen-pending" class="screen">
+  <div class="icon">⏳</div>
+  <h2>Menunggu persetujuan</h2>
+  <p>Akun <b id="pending-email"></b> sudah login, tapi belum di-approve. Minta Manager atau Master untuk approve akun ini di menu Admin, lalu login ulang.</p>
+  <button class="login-btn" onclick="logout()">Keluar</button>
+</div>
+
+<!-- MAIN -->
+<div id="screen-main" class="screen">
+  <div class="topbar">
+    <div class="topbar-row1">
+      <div class="user-pill">
+        <div class="user-avatar" id="user-av"></div>
+        <span class="user-name" id="user-name-lbl"></span>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="logout-btn" id="dashboard-btn" onclick="goDashboard()" style="display:none">📊 Dashboard</button>
+        <button class="logout-btn" id="admin-btn" onclick="goAdmin()" style="display:none">⚙️ Admin</button>
+        <button class="logout-btn" onclick="logout()">Keluar</button>
+      </div>
+    </div>
+    <div class="branch-row">
+      <button class="br-btn active" id="btn-melur" onclick="switchBranch('melur')">📍 Jl. Melur</button>
+      <button class="br-btn" id="btn-delima" onclick="switchBranch('delima')">📍 Jl. Delima</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat"><div class="stat-n" id="s-zero" style="color:var(--r)">-</div><div class="stat-l">Habis</div></div>
+    <div class="stat"><div class="stat-n" id="s-low" style="color:var(--y)">-</div><div class="stat-l">Sedikit</div></div>
+    <div class="stat"><div class="stat-n" id="s-ok" style="color:var(--g3)">-</div><div class="stat-l">Aman</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap">
+      <svg class="search-ico" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="search-inp" type="search" id="search" placeholder="Cari produk..." oninput="render()">
+    </div>
+    <div class="pills" id="filter-pills">
+      <button class="pill active" onclick="setFilter('all',this)">Semua</button>
+      <button class="pill" onclick="setFilter('zero',this)">🔴 Habis</button>
+      <button class="pill" onclick="setFilter('low',this)">🟡 Sedikit</button>
+      <button class="pill" onclick="setFilter('ok',this)">🟢 Aman</button>
+      <button class="pill" onclick="setFilter('changed',this)">✏️ Diubah</button>
+    </div>
+  </div>
+
+  <div class="prod-list" id="prod-list"><div class="loading"><div class="spinner"></div>Memuat data...</div></div>
+
+  <div class="bottombar">
+    <button class="save-btn" id="save-btn" onclick="saveData()" disabled>💾 <span id="save-lbl">Simpan</span></button>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="screen-admin" class="screen">
+  <div class="admin-header">
+    <button class="back-btn" onclick="showScreen('main')">← Kembali</button>
+    <span class="admin-title">Kelola Karyawan</span>
+  </div>
+  <div class="admin-body">
+    <div class="section-title">Karyawan, Manager & Master</div>
+    <div id="user-list"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="admin-link" onclick="showScreen('log')">📋 Lihat riwayat perubahan →</div>
+    <div class="admin-link" onclick="showScreen('products')">📦 Kelola Produk & Kategori →</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="screen-dashboard" class="screen">
+  <div class="admin-header">
+    <button class="back-btn" onclick="showScreen('main')">← Kembali</button>
+    <span class="admin-title">Dashboard</span>
+  </div>
+  <div id="dash-wa-wrap" style="padding:12px 16px 0;display:none">
+    <a id="dash-wa-link" href="#" target="_blank" style="text-decoration:none;display:block">
+      <button style="width:100%;padding:12px;background:#25D366;color:white;border:none;border-radius:var(--rad-sm);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer">📱 Kirim laporan ke WhatsApp 
+        </button>
+    </a>
+  </div>
+  <div class="dash-tab-row">
+    <button class="dash-tab active" id="dash-tab-melur" onclick="switchDashTab('melur')">📍 Jl. Melur</button>
+    <button class="dash-tab" id="dash-tab-delima" onclick="switchDashTab('delima')">📍 Jl. Delima</button>
+  </div>
+  <div class="dash-pane active" id="dash-pane-melur">
+    <div class="loading"><div class="spinner"></div>Memuat...</div>
+  </div>
+  <div class="dash-pane" id="dash-pane-delima">
+    <div class="loading"><div class="spinner"></div>Memuat...</div>
+  </div>
+</div>
+
+<!-- PRODUCTS MANAGEMENT -->
+<div id="screen-products" class="screen">
+  <div class="admin-header">
+    <button class="back-btn" onclick="showScreen('admin')">← Kembali</button>
+    <span class="admin-title">Kelola Produk & Kategori</span>
+  </div>
+  <div class="admin-body">
+
+    <!-- Tambah Kategori -->
+    <div class="section-title">Tambah Kategori Baru</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-form">
+        <input class="form-input" id="new-cat-name" type="text" placeholder="Nama kategori...">
+        <button class="add-btn" onclick="addCategory()">+ Tambah Kategori</button>
+        <div class="add-status" id="cat-status"></div>
+      </div>
+    </div>
+
+    <!-- Daftar Kategori -->
+    <div class="section-title" style="margin-top:16px">Kategori</div>
+    <div id="cat-list"><div class="loading"><div class="spinner"></div></div></div>
+
+    <!-- Tambah Produk -->
+    <div class="section-title" style="margin-top:16px">Tambah Produk Baru</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-form">
+        <input class="form-input" id="new-prod-name" type="text" placeholder="Nama produk...">
+        <select class="add-select" id="new-prod-cat"></select>
+        <button class="add-btn" onclick="addProduct()">+ Tambah Produk</button>
+        <div class="add-status" id="prod-add-status"></div>
+      </div>
+    </div>
+
+    <!-- Daftar Produk -->
+    <div class="section-title" style="margin-top:16px">Semua Produk</div>
+    <div id="prod-manage-list"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- RENAME MODAL (juga untuk rename kategori) -->
+<div class="modal-overlay" id="rename-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">Ganti nama produk</div>
+    <div class="modal-sub" id="rename-old-label">Nama lama: —</div>
+    <div class="modal-row">
+      <input class="modal-inp" id="rename-inp" type="text" placeholder="Nama baru..." maxlength="80">
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeRenameModal()">Batal</button>
+      <button class="modal-save" onclick="doRename()">Simpan</button>
+    </div>
+    <div class="modal-status" id="rename-status"></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="screen-settings" class="screen">
+  <div class="admin-header">
+    <button class="back-btn" onclick="showScreen('admin')">← Kembali</button>
+    <span class="admin-title">Pengaturan</span>
+  </div>
+  <div class="admin-body">
+    <div class="section-title">Batas stok "Sedikit"</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-title">Sisa 1 sampai berapa dianggap "Sedikit"?</div>
+      <div class="add-form">
+        <input class="form-input" id="set-threshold" type="number" min="1" placeholder="3">
+        <button class="add-btn" onclick="saveThreshold()">Simpan</button>
+        <div class="add-status" id="threshold-status"></div>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top:20px">Nomor WhatsApp Master</div>
+    <div class="add-card" style="margin-top:0">
+      <div class="add-title">Untuk notifikasi stok habis</div>
+      <div class="add-form">
+        <input class="form-input" id="set-wa" type="text" placeholder="6281092249354">
+        <button class="add-btn" onclick="saveWa()">Simpan</button>
+        <div class="add-status" id="wa-status"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div id="screen-log" class="screen">
+  <div class="log-header">
+    <button class="back-btn" onclick="showScreen('admin')">← Kembali</button>
+    <span class="admin-title" style="color:white">Riwayat Perubahan</span>
+  </div>
+  <div class="log-body" id="log-body"><div class="loading"><div class="spinner"></div>Memuat log...</div></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://usfehuwxyvqvjhveeoxx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZmVodXd4eXZxdmpodmVlb3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDg1MzcsImV4cCI6MjA5NjkyNDUzN30.8zEUKF1qcBUXyGu3a50k2v92UbdXKbZ2xhJnb2blobY';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    flowType: 'implicit'
+  }
+});
+
+const BRANCH_NAMES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
+
+let currentUser = null;
+let branch = 'melur';
+let products = []; // {id, name, category_id, is_active}
+let categories = []; // {id, name, sort_order}
+let data = {}, original = {};
+let meta = {};
+let filter = 'all';
+let thresholdSedikit = 3;
+let waMaster = '6281092249354';
+let collapsedCats = new Set(); // kategori yang di-collapse
+
+// ── AUTH ──
+function switchLoginTab(tab) {
+  document.querySelectorAll('.login-tab').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='pin')||(i===1&&tab==='google')));
+  document.getElementById('tab-pin').style.display = tab==='pin' ? 'block' : 'none';
+  document.getElementById('tab-google').style.display = tab==='google' ? 'block' : 'none';
+}
+function pinNext(el, next) { if (el.value.length === 1 && next <= 3) document.getElementById('p'+next).focus(); }
+function pinDone() {}
+function getPin() { return ['p0','p1','p2','p3'].map(id => document.getElementById(id).value).join(''); }
+
+async function loginPin() {
+  const nama = document.getElementById('pin-nama').value.trim();
+  const pin = getPin();
+  const errEl = document.getElementById('pin-err');
+  errEl.textContent = '';
+  if (!nama) { errEl.textContent = 'Masukkan nama dulu ya'; return; }
+  if (pin.length < 4) { errEl.textContent = 'PIN harus 4 digit'; return; }
+  try {
+    const { data: rows, error } = await sb.rpc('verify_pin', { p_nama: nama, p_pin: pin });
+    if (error) { errEl.textContent = 'Gagal — ' + error.message; return; }
+    if (!rows || !rows.length) { errEl.textContent = 'Nama atau PIN salah'; return; }
+    const row = rows[0];
+    const role = row.role || 'karyawan';
+    if (role === 'pending') { errEl.textContent = 'Akun belum di-approve, hubungi manager/master'; return; }
+    currentUser = { nama: row.nama, role, branch_id: row.branch_id, mode: 'pin' };
+    afterLogin();
+  } catch(e) { errEl.textContent = 'Koneksi gagal, coba lagi'; }
+}
+
+async function loginGoogle() {
+  document.getElementById('google-err').textContent = '';
+  await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+}
+
+async function checkSession(retry) {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  const user = session.user;
+  const { data: profile, error } = await sb.from('profiles').select('*').eq('id', user.id).single();
+
+  if (error || !profile) {
+    // Profile mungkin belum dibuat oleh trigger - coba lagi sebentar
+    if (!retry) {
+      setTimeout(() => checkSession(true), 1200);
+      return;
+    }
+    document.getElementById('pending-email').textContent = user.email;
+    showScreen('pending');
+    return;
+  }
+
+  if (profile.role === 'master' || profile.role === 'manager') {
+    currentUser = { nama: profile.full_name || user.email, email: user.email, role: profile.role, branch_id: profile.branch_id, mode: 'google', id: user.id };
+    afterLogin();
+  } else {
+    document.getElementById('pending-email').textContent = user.email;
+    showScreen('pending');
+  }
+}
+
+function afterLogin() {
+  const initial = (currentUser.nama || 'U')[0].toUpperCase();
+  document.getElementById('user-av').textContent = initial;
+  document.getElementById('user-name-lbl').textContent = currentUser.nama;
+
+  const isMaster = currentUser.role === 'master';
+  const isManager = currentUser.role === 'manager';
+  const isFullAccess = isMaster || isManager;
+
+  if (!isFullAccess && currentUser.branch_id) {
+    branch = currentUser.branch_id;
+  }
+  document.getElementById('btn-melur').classList.toggle('active', branch === 'melur');
+  document.getElementById('btn-delima').classList.toggle('active', branch === 'delima');
+
+  const lockBranch = !isFullAccess && currentUser.branch_id;
+  document.getElementById('btn-melur').disabled = !!(lockBranch && branch !== 'melur');
+  document.getElementById('btn-delima').disabled = !!(lockBranch && branch !== 'delima');
+
+  document.getElementById('admin-btn').style.display = isFullAccess ? '' : 'none';
+  document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
+
+  showScreen('main');
+  loadCategories().then(() => loadProducts().then(() => { loadThreshold(); loadStock(); }));
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  data = {}; original = {};
+  ['p0','p1','p2','p3'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('pin-nama').value = '';
+  showScreen('login');
+}
+
+// ── SCREENS ──
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  if (name === 'admin') loadUsers();
+  if (name === 'log') loadLog();
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'products') loadProductManagement();
+  if (name === 'settings') {
+    document.getElementById('set-threshold').value = thresholdSedikit;
+    document.getElementById('set-wa').value = waMaster;
+  }
+}
+function goAdmin() { showScreen('admin'); }
+function goDashboard() { showScreen('dashboard'); }
+
+async function saveThreshold() {
+  const val = parseInt(document.getElementById('set-threshold').value);
+  const el = document.getElementById('threshold-status');
+  if (!val || val < 1) { el.textContent = 'Masukkan angka valid'; el.className='add-status err'; return; }
+  const { error } = await sb.from('settings').update({ value: String(val) }).eq('key','threshold_sedikit_max');
+  if (error) { el.textContent = 'Gagal: '+error.message; el.className='add-status err'; }
+  else {
+    thresholdSedikit = val;
+    el.textContent = 'Tersimpan ✓'; el.className='add-status ok';
+    setTimeout(()=>el.textContent='',2000);
+  }
+}
+
+async function saveWa() {
+  const val = document.getElementById('set-wa').value.trim();
+  const el = document.getElementById('wa-status');
+  if (!val) { el.textContent = 'Masukkan nomor valid'; el.className='add-status err'; return; }
+  const { error } = await sb.from('settings').update({ value: val }).eq('key','whatsapp_master');
+  if (error) { el.textContent = 'Gagal: '+error.message; el.className='add-status err'; }
+  else {
+    waMaster = val;
+    el.textContent = 'Tersimpan ✓'; el.className='add-status ok';
+    setTimeout(()=>el.textContent='',2000);
+  }
+}
+
+async function loadDashboard() {
+  // Reset tabs
+  ['melur','delima'].forEach(b => {
+    document.getElementById('dash-pane-'+b).innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  });
+  document.getElementById('dash-wa-wrap').style.display = 'none';
+
+  try {
+    const { data: rows, error } = await sb
+      .from('stock')
+      .select('qty, branch_id, last_updated_by, last_updated_at, products(name)');
+    if (error) {
+      ['melur','delima'].forEach(b => {
+        document.getElementById('dash-pane-'+b).innerHTML = '<div class="empty">Gagal memuat</div>';
+      });
+      return;
+    }
+
+    let totalZero = 0, totalLow = 0;
+
+    ['melur','delima'].forEach(b => {
+      const items = rows.filter(r => r.branch_id === b);
+      const zero = items.filter(r => r.qty === 0);
+      const low = items.filter(r => r.qty > 0 && r.qty <= thresholdSedikit);
+      const ok = items.length - zero.length - low.length;
+      totalZero += zero.length;
+      totalLow += low.length;
+
+      let html = `<div class="dash-summary" style="margin-top:12px">
+        <div class="stat"><div class="stat-n" style="color:var(--r)">${zero.length}</div><div class="stat-l">Habis</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--y)">${low.length}</div><div class="stat-l">Sedikit</div></div>
+        <div class="stat"><div class="stat-n" style="color:var(--g3)">${ok}</div><div class="stat-l">Aman</div></div>
+      </div>`;
+
+      if (zero.length) {
+        html += `<div style="font-size:12px;color:var(--r);font-weight:500;margin:10px 0 6px">🔴 Habis:</div>`;
+        html += zero.map(r => `<div class="log-row"><div class="log-top"><span class="log-prod">${r.products.name}</span></div></div>`).join('');
+      }
+      if (low.length) {
+        html += `<div style="font-size:12px;color:var(--y);font-weight:500;margin:10px 0 6px">🟡 Sedikit:</div>`;
+        html += low.map(r => `<div class="log-row"><div class="log-top"><span class="log-prod">${r.products.name}</span><span class="log-time">sisa ${r.qty}</span></div></div>`).join('');
+      }
+      if (!zero.length && !low.length) {
+        html += `<div class="empty" style="padding:1rem">Semua aman ✓</div>`;
+      }
+
+      document.getElementById('dash-pane-'+b).innerHTML = html;
+    });
+
+    // Tombol WhatsApp kalau ada masalah
+    if (totalZero + totalLow > 0) {
+      const msg = encodeURIComponent(
+        `Halo Master, laporan stok Indonesian Bakery:\n\n` +
+        `🔴 Item HABIS: ${totalZero}\n` +
+        `🟡 Item SEDIKIT: ${totalLow}\n\n` +
+        `Mohon dicek di app ya 🙏`
+      );
+      document.getElementById('dash-wa-link').href = `https://wa.me/${waMaster}?text=${msg}`;
+      document.getElementById('dash-wa-wrap').style.display = '';
+    }
+  } catch(e) {
+    ['melur','delima'].forEach(b => {
+      document.getElementById('dash-pane-'+b).innerHTML = '<div class="empty">Gagal memuat dashboard</div>';
+    });
+  }
+}
+
+function switchDashTab(b) {
+  ['melur','delima'].forEach(x => {
+    document.getElementById('dash-tab-'+x).classList.toggle('active', x === b);
+    document.getElementById('dash-pane-'+x).classList.toggle('active', x === b);
+  });
+}
+
+// ── RENAME PRODUCT ──
+let renameProductId = null;
+let renameOldName = null;
+
+function openRenameModal(productId, oldName) {
+  renameProductId = productId;
+  renameOldName = oldName;
+  document.getElementById('rename-old-label').textContent = 'Nama lama: ' + oldName;
+  document.getElementById('rename-inp').value = oldName;
+  document.getElementById('rename-status').textContent = '';
+  document.getElementById('rename-status').className = 'modal-status';
+  document.getElementById('rename-modal').classList.add('open');
+  setTimeout(() => document.getElementById('rename-inp').focus(), 100);
+}
+
+function closeRenameModal() {
+  document.getElementById('rename-modal').classList.remove('open');
+  renameProductId = null;
+  renameOldName = null;
+}
+
+async function doRename() {
+  const newName = document.getElementById('rename-inp').value.trim();
+  const statusEl = document.getElementById('rename-status');
+  if (!newName) { statusEl.textContent = 'Nama tidak boleh kosong'; statusEl.className = 'modal-status err'; return; }
+  if (newName === renameOldName) { closeRenameModal(); return; }
+
+  statusEl.textContent = 'Menyimpan...';
+  statusEl.className = 'modal-status';
+
+  // Cek apakah rename kategori atau produk
+  if (String(renameProductId).startsWith('cat_')) {
+    const catId = parseInt(String(renameProductId).replace('cat_', ''));
+    const { error } = await sb.from('categories').update({ name: newName }).eq('id', catId);
+    if (error) { statusEl.textContent = 'Gagal: ' + error.message; statusEl.className = 'modal-status err'; return; }
+    const cat = categories.find(c => c.id === catId);
+    if (cat) cat.name = newName;
+    statusEl.textContent = 'Tersimpan ✓'; statusEl.className = 'modal-status ok';
+    setTimeout(() => { closeRenameModal(); loadProductManagement(); loadCategories(); }, 800);
+    return;
+  }
+
+  // Rename produk
+  const { error } = await sb.from('products').update({ name: newName }).eq('id', parseInt(renameProductId));
+  if (error) {
+    statusEl.textContent = 'Gagal: ' + error.message;
+    statusEl.className = 'modal-status err';
+    return;
+  }
+
+  const prod = products.find(p => p.id === renameProductId);
+  if (prod) {
+    const old = prod.name;
+    prod.name = newName;
+    if (data[old] !== undefined) { data[newName] = data[old]; delete data[old]; }
+    if (original[old] !== undefined) { original[newName] = original[old]; delete original[old]; }
+    if (meta[old]) { meta[newName] = meta[old]; delete meta[old]; }
+  }
+
+  statusEl.textContent = 'Tersimpan ✓';
+  statusEl.className = 'modal-status ok';
+  setTimeout(() => {
+    closeRenameModal();
+    render();
+    // Kalau lagi di screen products, refresh juga
+    if (document.getElementById('screen-products').classList.contains('active')) loadProductManagement();
+  }, 800);
+}
+
+// ── DATA ──
+async function loadCategories() {
+  const { data: rows, error } = await sb.from('categories').select('*').order('sort_order');
+  if (!error && rows) {
+    categories = rows;
+    // Update filter pills dengan kategori
+    const pillsEl = document.getElementById('filter-pills');
+    const catPills = categories.map(c =>
+      `<button class="pill" onclick="setFilter('cat_${c.id}',this)">${c.name}</button>`
+    ).join('');
+    pillsEl.innerHTML = `
+      <button class="pill active" onclick="setFilter('all',this)">Semua</button>
+      <button class="pill" onclick="setFilter('zero',this)">🔴 Habis</button>
+      <button class="pill" onclick="setFilter('low',this)">🟡 Sedikit</button>
+      <button class="pill" onclick="setFilter('ok',this)">🟢 Aman</button>
+      <button class="pill" onclick="setFilter('changed',this)">✏️ Diubah</button>
+      ${catPills}
+    `;
+  }
+}
+
+async function loadProducts() {
+  if (products.length) return;
+  const { data: rows, error } = await sb.from('products').select('id,name,category_id,is_active').order('sort_order');
+  if (!error) products = rows;
+}
+
+async function loadThreshold() {
+  const { data: rows, error } = await sb.from('settings').select('*');
+  if (!error && rows) {
+    rows.forEach(r => {
+      if (r.key === 'threshold_sedikit_max') thresholdSedikit = parseInt(r.value) || 3;
+      if (r.key === 'whatsapp_master') waMaster = r.value;
+    });
+  }
+}
+
+async function loadStock() {
+  document.getElementById('prod-list').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat dari Supabase...</div>';
+  document.getElementById('save-btn').disabled = true;
+  setStatus('');
+  try {
+    const { data: rows, error } = await sb
+      .from('stock')
+      .select('product_id, qty, last_updated_by, last_updated_at, products(name)')
+      .eq('branch_id', branch);
+    if (error) { setStatus('Gagal memuat: ' + error.message, 'err'); return; }
+    data = {}; original = {}; meta = {};
+    rows.forEach(r => {
+      const name = r.products.name;
+      data[name] = r.qty || 0;
+      original[name] = r.qty || 0;
+      meta[name] = { by: r.last_updated_by, at: r.last_updated_at };
+    });
+    setStatus('Data dimuat ✓', 'ok');
+    setTimeout(() => setStatus(''), 1500);
+  } catch(e) { setStatus('Gagal memuat — cek internet', 'err'); }
+  render();
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2,'0');
+  return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${String(d.getFullYear()).slice(2)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function render() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const names = Object.keys(data);
+  let zero=0,low=0,ok=0;
+  names.forEach(n => { const v=data[n]; if(v===0)zero++; else if(v<=thresholdSedikit)low++; else ok++; });
+  document.getElementById('s-zero').textContent = zero;
+  document.getElementById('s-low').textContent = low;
+  document.getElementById('s-ok').textContent = ok;
+
+  const changed = names.filter(n => data[n] !== original[n]);
+  document.getElementById('save-btn').disabled = changed.length === 0;
+  document.getElementById('save-lbl').textContent = changed.length ? `Simpan (${changed.length} diubah)` : 'Simpan';
+
+  const isCatFilter = filter.startsWith('cat_');
+  const catFilterId = isCatFilter ? parseInt(filter.replace('cat_','')) : null;
+
+  const filtered = names.filter(n => {
+    if (q && !n.toLowerCase().includes(q)) return false;
+    const v = data[n];
+    if (filter==='zero') return v===0;
+    if (filter==='low') return v>0&&v<=thresholdSedikit;
+    if (filter==='ok') return v>thresholdSedikit;
+    if (filter==='changed') return data[n]!==original[n];
+    if (isCatFilter) {
+      const prod = products.find(p => p.name === n);
+      return prod && prod.category_id === catFilterId;
+    }
+    return true;
+  });
+
+  const el = document.getElementById('prod-list');
+  if (!names.length) { el.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>'; return; }
+  if (!filtered.length) { el.innerHTML = '<div class="empty">Tidak ada produk ditemukan</div>'; return; }
+
+  // Group by category kalau filter = all atau category
+  const showHeaders = (filter === 'all' || isCatFilter) && !q && categories.length;
+
+  if (showHeaders) {
+    let html = '';
+    const uncategorized = filtered.filter(n => {
+      const prod = products.find(p => p.name === n);
+      return !prod || !prod.category_id;
+    });
+
+    categories.forEach(cat => {
+      if (isCatFilter && cat.id !== catFilterId) return;
+      const catItems = filtered.filter(n => {
+        const prod = products.find(p => p.name === n);
+        return prod && prod.category_id === cat.id;
+      });
+      if (!catItems.length) return;
+      const isOpen = collapsedCats.has(cat.id) ? false : true;
+      const itemsHtml = catItems.map(n => renderProdRow(n)).join('');
+      html += `
+        <div class="cat-header" onclick="toggleCat(${cat.id}, this)">
+          ${cat.name}
+          <span class="cat-chevron ${isOpen?'open':''}">▼</span>
+        </div>
+        <div class="cat-items" id="cat-items-${cat.id}" style="max-height:${isOpen?'9999px':'0'}">
+          ${itemsHtml}
+        </div>`;
+    });
+
+    if (uncategorized.length) {
+      const isOpen = !collapsedCats.has('other');
+      html += `
+        <div class="cat-header" onclick="toggleCat('other', this)">
+          Lainnya
+          <span class="cat-chevron ${isOpen?'open':''}">▼</span>
+        </div>
+        <div class="cat-items" id="cat-items-other" style="max-height:${isOpen?'9999px':'0'}">
+          ${uncategorized.map(n => renderProdRow(n)).join('')}
+        </div>`;
+    }
+
+    el.innerHTML = html;
+  } else {
+    el.innerHTML = filtered.map(n => renderProdRow(n)).join('');
+  }
+}
+
+function renderProdRow(n) {
+  const v = data[n];
+  const rc = v===0?'zero':v<=thresholdSedikit?'low':'';
+  const dc = v===0?'dot-zero':v<=thresholdSedikit?'dot-low':'dot-ok';
+  const ch = data[n]!==original[n];
+  const m = meta[n];
+  const lastInfo = (m && m.by && m.at) ? `<div class="last-update">🕐 ${m.by} • ${fmtDate(m.at)}</div>` : '';
+  const prod = products.find(p => p.name === n);
+  const renameBtn = (currentUser.role === 'master' && prod)
+    ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>`
+    : '';
+  return `<div class="prod-row ${rc}">
+    <div class="dot ${dc}"></div>
+    <div class="pname-wrap">
+      <span class="pname">${n}${ch?'<span class="tag tag-changed">diubah</span>':''}</span>
+      ${lastInfo}
+    </div>
+    ${renameBtn}
+    <div class="qc">
+      <button class="qb" onclick="adj('${n}',-1)">−</button>
+      <input class="qn" type="number" min="0" value="${v}" onchange="setVal('${n}',this.value)">
+      <button class="qb" onclick="adj('${n}',1)">+</button>
+    </div>
+  </div>`;
+}
+
+function adj(n,d) { data[n]=Math.max(0,(data[n]||0)+d); render(); }
+function setVal(n,v) { data[n]=Math.max(0,parseInt(v)||0); render(); }
+function setFilter(f,el) { filter=f; document.querySelectorAll('.pill').forEach(b=>b.classList.remove('active')); el.classList.add('active'); render(); }
+
+function toggleCat(catId, headerEl) {
+  const itemsEl = document.getElementById('cat-items-' + catId);
+  const chevron = headerEl.querySelector('.cat-chevron');
+  if (collapsedCats.has(catId)) {
+    collapsedCats.delete(catId);
+    itemsEl.style.maxHeight = '9999px';
+    chevron.classList.add('open');
+  } else {
+    collapsedCats.add(catId);
+    itemsEl.style.maxHeight = '0';
+    chevron.classList.remove('open');
+  }
+}
+
+
+  branch=b;
+  document.getElementById('btn-melur').classList.toggle('active',b==='melur');
+  document.getElementById('btn-delima').classList.toggle('active',b==='delima');
+  loadStock();
+}
+
+async function saveData() {
+  document.getElementById('save-btn').disabled = true;
+  document.getElementById('save-lbl').textContent = 'Menyimpan...';
+  setStatus('');
+  try {
+    const items = Object.keys(data).filter(n => data[n] !== original[n]).map(n => ({ nama:n, sisa:data[n] }));
+    if (!items.length) { render(); return; }
+    const { error } = await sb.rpc('update_stock', {
+      p_branch_id: branch,
+      p_user_name: currentUser.nama,
+      p_items: items
+    });
+    if (error) { setStatus('Gagal: ' + error.message, 'err'); }
+    else {
+      original = {...data};
+      const now = new Date().toISOString();
+      items.forEach(it => { meta[it.nama] = { by: currentUser.nama, at: now }; });
+      setStatus('Tersimpan ✓', 'ok');
+      setTimeout(()=>setStatus(''),2500);
+    }
+  } catch(e) { setStatus('Gagal — cek internet','err'); }
+  render();
+}
+
+// ── ADMIN ──
+async function loadUsers() {
+  document.getElementById('user-list').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const { data: rows, error } = await sb.from('profiles').select('*').order('full_name');
+  if (error) { document.getElementById('user-list').innerHTML = '<div class="empty">Gagal memuat</div>'; return; }
+  if (!rows.length) { document.getElementById('user-list').innerHTML = '<div class="empty">Belum ada user</div>'; return; }
+
+  const isMaster = currentUser.role === 'master';
+  const roleBadge = { master: 'master', manager: 'manager', pending: 'pending' };
+
+  document.getElementById('user-list').innerHTML = rows.map(u => {
+    const nm = u.full_name || u.email || '(tanpa nama)';
+    const branchLabel = u.branch_id ? BRANCH_NAMES[u.branch_id] : 'Semua cabang';
+    const badge = roleBadge[u.role] ? `<span class="role-badge">${roleBadge[u.role]}</span>` : '';
+
+    if (u.role === 'pending') {
+      return `<div class="user-card">
+        <div class="user-card-top">
+          <div class="user-av">${nm[0].toUpperCase()}</div>
+          <div class="user-info">
+            <div class="user-nm">${nm} ${badge}</div>
+            <div class="user-branch">Menunggu approval</div>
+          </div>
+        </div>
+        <div class="user-edit-row">
+          <select class="mini-select" id="branch-${u.id}" style="grid-column:1/3">
+            <option value="melur">Melur</option>
+            <option value="delima">Delima</option>
+          </select>
+          <button class="mini-btn" style="grid-column:1/3" onclick="approveUser('${u.id}')">✓ Approve jadi Karyawan</button>
+        </div>
+      </div>`;
+    }
+
+    if (!isMaster) {
+      return `<div class="user-card">
+        <div class="user-card-top">
+          <div class="user-av">${nm[0].toUpperCase()}</div>
+          <div class="user-info">
+            <div class="user-nm">${nm} ${badge}</div>
+            <div class="user-branch">${branchLabel}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    return `<div class="user-card">
+      <div class="user-card-top">
+        <div class="user-av">${nm[0].toUpperCase()}</div>
+        <div class="user-info">
+          <div class="user-nm">${nm} ${badge}</div>
+          <div class="user-branch">${branchLabel}${u.pin?' • PIN: '+u.pin:''}</div>
+        </div>
+      </div>
+      <div class="user-edit-row">
+        <select class="mini-select" id="role-${u.id}">
+          <option value="karyawan" ${u.role==='karyawan'?'selected':''}>Karyawan</option>
+          <option value="manager" ${u.role==='manager'?'selected':''}>Manager</option>
+          <option value="master" ${u.role==='master'?'selected':''}>Master</option>
+        </select>
+        <select class="mini-select" id="branch-${u.id}">
+          <option value="melur" ${u.branch_id==='melur'?'selected':''}>Melur</option>
+          <option value="delima" ${u.branch_id==='delima'?'selected':''}>Delima</option>
+          <option value="" ${!u.branch_id?'selected':''}>Semua</option>
+        </select>
+        <input class="mini-input" id="pin-${u.id}" value="${u.pin||''}" placeholder="PIN" maxlength="4" style="grid-column:1">
+        <button class="mini-btn" onclick="updateUser('${u.id}')">Simpan</button>
+        <button class="del-btn" style="grid-column:1/3" onclick="deleteUser('${u.id}','${nm}')">🗑️ Hapus user ini</button>
+      </div>
+    </div>`;
+  }).join('') + (isMaster ? `
+    <div class="admin-link" style="margin-top:12px" onclick="addManualUser()">+ Tambah karyawan manual (tanpa Google)</div>
+    <div class="admin-link" onclick="showScreen('settings')">⚙️ Atur threshold & WhatsApp →</div>
+  ` : '');
+}
+
+async function approveUser(id) {
+  const branch_id = document.getElementById('branch-'+id).value;
+  const { error } = await sb.from('profiles').update({ role: 'karyawan', branch_id }).eq('id', id);
+  if (error) alert('Gagal approve: ' + error.message);
+  else loadUsers();
+}
+
+async function deleteUser(id, nm) {
+  if (!confirm(`Hapus user "${nm}"? Tindakan ini permanen.`)) return;
+  const { error } = await sb.from('profiles').delete().eq('id', id);
+  if (error) alert('Gagal hapus: ' + error.message);
+  else loadUsers();
+}
+
+async function updateUser(id) {
+  const role = document.getElementById('role-'+id).value;
+  const branch_id = document.getElementById('branch-'+id).value || null;
+  const pin = document.getElementById('pin-'+id).value.trim();
+  const { error } = await sb.from('profiles').update({ role, branch_id, pin: pin || null }).eq('id', id);
+  if (error) alert('Gagal update: ' + error.message);
+  else loadUsers();
+}
+
+async function addManualUser() {
+  const nama = prompt('Nama karyawan:');
+  if (!nama) return;
+  const pin = prompt('PIN 4 digit:');
+  if (!pin || pin.length !== 4) { alert('PIN harus 4 digit'); return; }
+  const cabang = prompt('Cabang (melur / delima):', 'melur');
+  if (!['melur','delima'].includes(cabang)) { alert('Cabang harus "melur" atau "delima"'); return; }
+  const { error } = await sb.from('profiles').insert({
+    id: crypto.randomUUID(), full_name: nama, role: 'karyawan', branch_id: cabang, pin
+  });
+  if (error) alert('Gagal: ' + error.message);
+  else loadUsers();
+}
+
+// ── PRODUCT MANAGEMENT ──
+async function loadProductManagement() {
+  // Load fresh dari DB
+  const { data: cats } = await sb.from('categories').select('*').order('sort_order');
+  const { data: prods } = await sb.from('products').select('*').order('sort_order');
+  if (cats) categories = cats;
+  if (prods) products = prods;
+
+  // Populate category dropdown untuk tambah produk
+  const catSel = document.getElementById('new-prod-cat');
+  catSel.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+
+  // Render category list
+  document.getElementById('cat-list').innerHTML = categories.map(c => `
+    <div class="prod-manage-row">
+      <span class="prod-manage-name">${c.name}</span>
+      <button class="mini-btn" onclick="openRenameModal('cat_${c.id}','${c.name.replace(/'/g,"\\'")}')">✏️ Rename</button>
+    </div>
+  `).join('') || '<div class="empty">Belum ada kategori</div>';
+
+  // Render product list grouped by category
+  let html = '';
+  categories.forEach(cat => {
+    const catProds = products.filter(p => p.category_id === cat.id);
+    if (!catProds.length) return;
+    html += `<div class="cat-header">${cat.name}</div>`;
+    html += catProds.map(p => `
+      <div class="prod-manage-row">
+        <div style="flex:1">
+          <div class="prod-manage-name">${p.name} ${!p.is_active ? '<span class="inactive-badge">nonaktif</span>' : ''}</div>
+        </div>
+        <select class="mini-select" onchange="moveProductCategory(${p.id}, this.value)">
+          ${categories.map(c => `<option value="${c.id}" ${c.id===p.category_id?'selected':''}>${c.name}</option>`).join('')}
+        </select>
+        <button class="mini-btn" onclick="openRenameModal(${p.id},'${p.name.replace(/'/g,"\\'")}')">✏️</button>
+        <button class="${p.is_active?'del-btn':'mini-btn'}" onclick="toggleProduct(${p.id},${p.is_active})">${p.is_active?'Nonaktif':'Aktifkan'}</button>
+      </div>
+    `).join('');
+  });
+
+  const uncatProds = products.filter(p => !p.category_id);
+  if (uncatProds.length) {
+    html += `<div class="cat-header">Tanpa Kategori</div>`;
+    html += uncatProds.map(p => `
+      <div class="prod-manage-row">
+        <span class="prod-manage-name">${p.name}</span>
+        <select class="mini-select" onchange="moveProductCategory(${p.id}, this.value)">
+          <option value="">— Pilih —</option>
+          ${categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+        </select>
+        <button class="mini-btn" onclick="openRenameModal(${p.id},'${p.name.replace(/'/g,"\\'")}')">✏️</button>
+      </div>
+    `).join('');
+  }
+
+  document.getElementById('prod-manage-list').innerHTML = html || '<div class="empty">Belum ada produk</div>';
+}
+
+async function addCategory() {
+  const name = document.getElementById('new-cat-name').value.trim();
+  const el = document.getElementById('cat-status');
+  if (!name) { el.textContent = 'Nama tidak boleh kosong'; el.className = 'add-status err'; return; }
+  const maxOrder = categories.length ? Math.max(...categories.map(c => c.sort_order)) : 0;
+  const { error } = await sb.from('categories').insert({ name, sort_order: maxOrder + 1 });
+  if (error) { el.textContent = 'Gagal: ' + error.message; el.className = 'add-status err'; }
+  else {
+    el.textContent = 'Kategori ditambahkan ✓'; el.className = 'add-status ok';
+    document.getElementById('new-cat-name').value = '';
+    setTimeout(() => { el.textContent = ''; loadProductManagement(); }, 1000);
+  }
+}
+
+async function addProduct() {
+  const name = document.getElementById('new-prod-name').value.trim();
+  const category_id = parseInt(document.getElementById('new-prod-cat').value);
+  const el = document.getElementById('prod-add-status');
+  if (!name) { el.textContent = 'Nama tidak boleh kosong'; el.className = 'add-status err'; return; }
+
+  // Insert ke products
+  const maxOrder = products.length ? Math.max(...products.map(p => p.sort_order || 0)) : 0;
+  const { data: newProd, error } = await sb.from('products')
+    .insert({ name, category_id, sort_order: maxOrder + 1, is_active: true })
+    .select().single();
+  if (error) { el.textContent = 'Gagal: ' + error.message; el.className = 'add-status err'; return; }
+
+  // Insert ke stock untuk kedua cabang
+  const { error: stockErr } = await sb.from('stock').insert([
+    { product_id: newProd.id, branch_id: 'melur', qty: 0 },
+    { product_id: newProd.id, branch_id: 'delima', qty: 0 }
+  ]);
+  if (stockErr) { el.textContent = 'Produk ditambah tapi gagal init stock: ' + stockErr.message; el.className = 'add-status err'; return; }
+
+  el.textContent = 'Produk ditambahkan ✓'; el.className = 'add-status ok';
+  document.getElementById('new-prod-name').value = '';
+  products = []; // reset supaya loadProducts fetch ulang
+  setTimeout(() => { el.textContent = ''; loadProductManagement(); }, 1000);
+}
+
+async function moveProductCategory(productId, categoryId) {
+  const { error } = await sb.from('products')
+    .update({ category_id: categoryId ? parseInt(categoryId) : null })
+    .eq('id', productId);
+  if (error) alert('Gagal pindah kategori: ' + error.message);
+  else { products = []; loadProductManagement(); }
+}
+
+async function toggleProduct(productId, currentActive) {
+  const { error } = await sb.from('products').update({ is_active: !currentActive }).eq('id', productId);
+  if (error) alert('Gagal: ' + error.message);
+  else { products = []; loadProductManagement(); }
+}
+
+// ── LOG ──
+async function loadLog() {
+  document.getElementById('log-body').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat log...</div>';
+  const { data: rows, error } = await sb
+    .from('stock_log')
+    .select('created_at, branch_id, user_name, qty_old, qty_new, products(name)')
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error || !rows.length) { document.getElementById('log-body').innerHTML = '<div class="empty">Belum ada riwayat</div>'; return; }
+  document.getElementById('log-body').innerHTML = rows.map(l => `
+    <div class="log-row">
+      <div class="log-top">
+        <span class="log-prod">${l.products.name}</span>
+        <span class="log-time">${new Date(l.created_at).toLocaleString('id-ID')}</span>
+      </div>
+      <div class="log-bottom">
+        <span class="log-user">👤 ${l.user_name}</span>
+        <span class="log-branch">${BRANCH_NAMES[l.branch_id]}</span>
+        <span class="log-change">${l.qty_old} → ${l.qty_new}</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── HELPERS ──
+function setStatus(msg,type='') {
+  const el=document.getElementById('status');
+  el.textContent=msg; el.className='status'+(type?' '+type:'');
+}
+
+// ── SERVICE WORKER: nonaktifkan & bersihkan cache lama ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
+  });
+  if (window.caches) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
+  }
+}
+
+// Tunggu Supabase selesai parse token dari URL (kalau ada #access_token=...)
+sb.auth.onAuthStateChange((event, session) => {
+  if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+    // Bersihkan hash token dari URL biar rapi
+    if (window.location.hash.includes('access_token')) {
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+    }
+    if (session) checkSession();
+  }
+});
+
+// Fallback: kalau setelah 2.5s belum ada perubahan dan masih di login screen, cek manual
+setTimeout(() => {
+  if (document.getElementById('screen-login').classList.contains('active')) {
+    checkSession();
+  }
+}, 2500);
+</script>
+</body>
+</html>
