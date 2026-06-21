@@ -298,6 +298,12 @@ body.font-xl{zoom:1.25;}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.prod-manage-price{display:flex;align-items:center;gap:4px;margin-top:5px;}
+.prod-manage-price .pm-rp,.prod-manage-price .pm-pcs{font-size:11px;color:var(--text3);}
+.prod-manage-price .mini-input{width:72px;}
+.prod-manage-price-ro{font-size:11px;color:var(--text3);margin-top:3px;}
+.price-save-status{font-size:11px;color:var(--text3);min-width:14px;}
+.price-save-status.ok{color:var(--g3);}.price-save-status.err{color:var(--r);}
 .prod-manage-name{flex:1;font-size:13px;}
 .inactive-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--r-bg);color:var(--r);}
 
@@ -1350,9 +1356,11 @@ function ovRowHtml(n, draggable=false) {
   const prod = products.find(p=>p.name===n);
   const renameBtn = (currentUser.role==='master'&&prod&&!draggable)
     ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>` : '';
+  const canSeePrice = currentUser.role==='master'||currentUser.role==='manager';
+  const hargaTxt = (canSeePrice && prod && prod.cost_price>0) ? ` · ${fmtRp(prod.cost_price)}/pcs` : '';
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
-    <div class="ov-info"><div class="ov-name">${n}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}</div></div>
+    <div class="ov-info"><div class="ov-name">${n}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}${hargaTxt}</div></div>
     ${renameBtn}
     <div class="ov-now ${st}"><b>${s.now}</b><small>di rak</small></div>
   </div>`;
@@ -1727,6 +1735,7 @@ async function addManualUser(){ const nama=prompt('Nama karyawan:'); if(!nama)re
 // ===== PRODUCTS MGMT =====
 async function loadProductManagement() {
   await loadCategories(); await loadProducts();
+  const isMaster = currentUser.role==='master';
   document.getElementById('new-prod-cat').innerHTML=categories.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
   document.getElementById('cat-list').innerHTML=categories.map(c=>'<div class="prod-manage-row"><span class="prod-manage-name">'+c.name+'</span><button class="mini-btn" onclick="openRenameModal(\'cat_'+c.id+'\',\''+c.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F Rename</button></div>').join('')||'<div class="empty">Belum ada</div>';
   let html='';
@@ -1734,9 +1743,23 @@ async function loadProductManagement() {
     const cp=products.filter(p=>p.category_id===cat.id);
     if(!cp.length)return;
     html+='<div class="cat-header">'+cat.name+'</div>';
-    html+=cp.map(p=>'<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div></div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button></div>').join('');
+    html+=cp.map(p=>{
+      const priceRow = isMaster
+        ? '<div class="prod-manage-price"><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:72px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="pm-pcs">/pcs</span><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
+        : (p.cost_price>0 ? '<div class="prod-manage-price-ro">'+fmtRp(p.cost_price)+'/pcs</div>' : '');
+      return '<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button></div>';
+    }).join('');
   });
   document.getElementById('prod-manage-list').innerHTML=html||'<div class="empty">Belum ada produk</div>';
+}
+async function updateProductPrice(id, val, el) {
+  const price = Math.max(0, parseFloat(val)||0);
+  const statusEl = document.getElementById('price-status-'+id);
+  if (statusEl) statusEl.textContent='...';
+  const { error } = await sb.from('products').update({cost_price:price}).eq('id',id);
+  if (error) { if(statusEl){statusEl.textContent='Gagal';statusEl.className='price-save-status err';} return; }
+  const p = products.find(p=>p.id===id); if (p) p.cost_price = price;
+  if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
 }
 async function addCategory(){ const name=document.getElementById('new-cat-name').value.trim(); const el=document.getElementById('cat-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=categories.length?Math.max.apply(null,categories.map(c=>c.sort_order)):0; const {error}=await sb.from('categories').insert({name,sort_order:mo+1}); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';}else{el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-cat-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800);} }
 async function addProduct(){ const name=document.getElementById('new-prod-name').value.trim(); const cid=parseInt(document.getElementById('new-prod-cat').value); const el=document.getElementById('prod-add-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=products.length?Math.max.apply(null,products.map(p=>p.sort_order||0)):0; const {data:np,error}=await sb.from('products').insert({name,category_id:cid,sort_order:mo+1,is_active:true}).select().single(); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';return;} await sb.from('stock').insert([{product_id:np.id,branch_id:'melur',qty:0},{product_id:np.id,branch_id:'delima',qty:0}]); el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-prod-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800); }
