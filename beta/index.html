@@ -22,8 +22,8 @@
   --bg:#F4F7F5; --surface:#FFFFFF; --border:#DDE8E2;
   --text:#1A2E24; --text2:#4A6B58; --text3:#8BA898; --rad:14px; --rad-sm:9px;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+html,body{height:100%;touch-action:manipulation;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;max-width:480px;margin:0 auto;}
 body.font-s{zoom:0.9;}
 body.font-m{zoom:1;}
@@ -1356,7 +1356,7 @@ function ovRowHtml(n, draggable=false) {
   const prod = products.find(p=>p.name===n);
   const renameBtn = (currentUser.role==='master'&&prod&&!draggable)
     ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>` : '';
-  const canSeePrice = currentUser.role==='master'||currentUser.role==='manager';
+  const canSeePrice = true;
   const hargaTxt = (canSeePrice && prod && prod.cost_price>0) ? ` · ${fmtRp(prod.cost_price)}/pcs` : '';
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
