@@ -25,6 +25,10 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;max-width:480px;margin:0 auto;}
+body.font-s{zoom:0.9;}
+body.font-m{zoom:1;}
+body.font-l{zoom:1.12;}
+body.font-xl{zoom:1.25;}
 .screen{display:none;min-height:100vh;flex-direction:column;}
 .screen.active{display:flex;}
 
@@ -87,9 +91,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 .bo-check{color:var(--g);font-weight:700;}
 
 /* FOCUS TITLE */
-.focus-title{padding:18px 16px 6px;}
-.ft-eyebrow{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;font-weight:600;}
-.ft-h1{font-size:26px;font-weight:700;color:var(--g);line-height:1.1;margin-top:4px;display:flex;align-items:center;gap:8px;}
+.focus-title{padding:18px 16px 10px;}
+.ft-eyebrow{font-size:11px;color:var(--g3);text-transform:uppercase;letter-spacing:1px;font-weight:700;}
+.ft-h1{font-size:30px;font-weight:700;color:var(--g);line-height:1.05;margin-top:5px;display:flex;align-items:center;gap:8px;}
+.ft-card{background:linear-gradient(135deg,var(--g-light),#fff);border:1.5px solid var(--g-bg);border-radius:18px;margin:10px 16px 0;padding:16px;box-shadow:0 2px 12px rgba(45,106,79,.06);}
+.ft-card .ft-eyebrow{margin-bottom:2px;}
+.ft-card .ft-h1{font-size:28px;margin-top:2px;}
 
 /* STATS */
 .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 16px;}
@@ -384,7 +391,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
 <div id="screen-overview" class="screen">
   <div class="topbar">
     <div class="topbar-row1">
-      <div class="brand"><span class="logo">🍞</span> <span id="user-name-lbl">Indonesian Bakery</span></div>
+      <div class="brand" onclick="openProfile()" style="cursor:pointer"><span class="logo">🍞</span> <span id="user-name-lbl">Indonesian Bakery</span> <span style="font-size:10px;opacity:.6">▾</span></div>
       <div class="top-actions">
         <button class="top-btn" onclick="openHelp()">❓</button>
         <button class="top-btn" id="dashboard-btn" onclick="show('dashboard')" style="display:none">📊</button>
@@ -404,15 +411,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
     </div>
   </div>
 
-  <div class="focus-title">
+  <div class="ft-card">
     <div class="ft-eyebrow">Kondisi stok sekarang</div>
     <h1 class="ft-h1"><span>📍</span><span id="focus-name">Jl. Melur</span></h1>
-  </div>
-
-  <div class="stats-grid">
-    <div class="stat alert-z"><div class="stat-n" id="ov-zero" style="color:var(--r)">-</div><div class="stat-l">Habis</div></div>
-    <div class="stat alert-l"><div class="stat-n" id="ov-low" style="color:var(--y)">-</div><div class="stat-l">Sedikit</div></div>
-    <div class="stat"><div class="stat-n" id="ov-ok" style="color:var(--g3)">-</div><div class="stat-l">Aman</div></div>
+    <div class="stats-grid" style="padding:12px 0 0">
+      <div class="stat alert-z"><div class="stat-n" id="ov-zero" style="color:var(--r)">-</div><div class="stat-l">Habis</div></div>
+      <div class="stat alert-l"><div class="stat-n" id="ov-low" style="color:var(--y)">-</div><div class="stat-l">Sedikit</div></div>
+      <div class="stat"><div class="stat-n" id="ov-ok" style="color:var(--g3)">-</div><div class="stat-l">Aman</div></div>
+    </div>
   </div>
 
   <div class="action-row">
@@ -550,6 +556,54 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);ove
   </div>
 </div>
 
+<!-- PROFILE -->
+<div id="screen-profile" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">Profil Saya</span>
+  </div>
+  <div class="sub-body">
+    <div class="add-card">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <div class="user-av" id="prof-av" style="width:48px;height:48px;font-size:18px"></div>
+        <div><div style="font-size:15px;font-weight:600" id="prof-role-lbl">—</div><div style="font-size:12px;color:var(--text3)" id="prof-branch-lbl">—</div></div>
+      </div>
+    </div>
+
+    <div class="section-label">Nama tampilan</div>
+    <div class="add-card">
+      <input class="form-input" id="prof-display" placeholder="Nama tampilan...">
+      <button class="add-btn" onclick="saveProfileName()">Simpan Nama</button>
+      <div class="add-status" id="prof-name-status"></div>
+    </div>
+
+    <div class="section-label">Username & PIN (untuk login cepat)</div>
+    <div class="add-card">
+      <div style="font-size:12px;color:var(--text2)">Set username + PIN biar bisa login tanpa Google. Akun tetap terhubung.</div>
+      <input class="form-input" id="prof-username" placeholder="Username (huruf kecil, tanpa spasi)">
+      <input class="form-input" id="prof-pin" type="number" placeholder="PIN 4 digit" maxlength="4">
+      <button class="add-btn" onclick="saveProfileCreds()">Simpan Username & PIN</button>
+      <div class="add-status" id="prof-creds-status"></div>
+    </div>
+
+    <div class="section-label">Ukuran Huruf</div>
+    <div class="add-card">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Hanya untuk tampilan kamu sendiri.</div>
+      <div class="period-row" id="font-row">
+        <button class="period-btn" onclick="setFont('s',this)">Kecil</button>
+        <button class="period-btn active" onclick="setFont('m',this)">Normal</button>
+        <button class="period-btn" onclick="setFont('l',this)">Besar</button>
+        <button class="period-btn" onclick="setFont('xl',this)">XL</button>
+      </div>
+    </div>
+
+    <div class="section-label" style="color:var(--text3)">Akan datang</div>
+    <div class="add-card" style="opacity:.55">
+      <div style="font-size:13px;color:var(--text2)">📅 Cuti & izin · 💰 Gaji · 🕐 Absensi — segera hadir</div>
+    </div>
+  </div>
+</div>
+
 <!-- FAQ -->
 <div id="screen-faq" class="screen">
   <div class="sub-header">
@@ -657,7 +711,7 @@ async function loginPin() {
     const row = rows[0];
     const role = row.role||'karyawan';
     if (role==='pending') { errEl.textContent='Akun belum di-approve'; return; }
-    currentUser = { nama: row.nama, role, branch_id: row.branch_id, mode:'pin' };
+    currentUser = { nama: row.nama, role, branch_id: row.branch_id, mode:'pin', id: row.id||null, username: row.username||null };
     afterLogin();
   } catch(e){ errEl.textContent='Koneksi gagal, coba lagi'; }
 }
@@ -678,7 +732,7 @@ async function checkSession(retry) {
     show('pending'); return;
   }
   if (profile.role==='master'||profile.role==='manager') {
-    currentUser = { nama: profile.full_name||user.email, email:user.email, role:profile.role, branch_id:profile.branch_id, mode:'google', id:user.id };
+    currentUser = { nama: profile.full_name||user.email, email:user.email, role:profile.role, branch_id:profile.branch_id, mode:'google', id:user.id, username:profile.username };
     afterLogin();
   } else {
     document.getElementById('pending-email').textContent = user.email;
@@ -689,7 +743,9 @@ async function checkSession(retry) {
 async function afterLogin() {
   document.getElementById('user-name-lbl').textContent = currentUser.nama;
   const isFullAccess = currentUser.role==='master'||currentUser.role==='manager';
-  if (!isFullAccess && currentUser.branch_id) branch = currentUser.branch_id;
+  // home branch: karyawan & manager -> branch sendiri; master -> melur default
+  if (currentUser.branch_id) { branch = currentUser.branch_id; currentUser.homeBranch = currentUser.branch_id; }
+  else { currentUser.homeBranch = 'melur'; }
   document.getElementById('admin-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
 
@@ -700,6 +756,35 @@ async function afterLogin() {
   await loadSettings();
   await loadUserPrefs();
   await loadStockNow();
+  updateEditPermission();
+}
+
+// canEdit: master selalu bisa. manager hanya di home branch. karyawan hanya branch sendiri.
+function canEdit() {
+  if (!currentUser) return false;
+  if (currentUser.role==='master') return true;
+  if (currentUser.role==='manager') return branch===currentUser.homeBranch;
+  if (currentUser.role==='karyawan') return branch===currentUser.branch_id;
+  return false;
+}
+function updateEditPermission() {
+  const editable = canEdit();
+  // sembunyikan tombol Catat Masuk/Sisa kalau tidak boleh edit
+  const actionRow = document.querySelector('#screen-overview .action-row');
+  if (actionRow) actionRow.style.display = editable ? '' : 'none';
+  // banner read-only
+  let banner = document.getElementById('readonly-banner');
+  if (!editable) {
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'readonly-banner';
+      banner.style.cssText = 'background:var(--y-bg);color:var(--y);font-size:12px;text-align:center;padding:8px 16px;font-weight:500;';
+      banner.textContent = '👁️ Mode lihat saja — cabang ini bukan cabang kamu';
+      const card = document.querySelector('#screen-overview .ft-card');
+      if (card) card.parentNode.insertBefore(banner, card.nextSibling);
+    }
+    banner.style.display = '';
+  } else if (banner) { banner.style.display = 'none'; }
 }
 
 async function logout() {
@@ -733,6 +818,7 @@ function selectBranch(b){
   document.getElementById('bsw').classList.remove('open');
   renderBranchMenu();
   loadStockNow();
+  updateEditPermission();
 }
 
 // ===== DATA LOADING =====
@@ -759,8 +845,11 @@ async function loadUserPrefs() {
     manualCatOrder = (data.manual_cat_order && data.manual_cat_order.length) ? data.manual_cat_order : categories.map(c=>c.id);
     manualItemOrder = data.manual_item_order && Object.keys(data.manual_item_order).length ? data.manual_item_order : {};
     document.getElementById('sort-select').value = sortMode;
+    currentUser.font = data.font_size || 'm';
+    applyFont(currentUser.font);
   } else {
     initManualOrder();
+    applyFont('m');
   }
   if (!Object.keys(manualItemOrder).length) initManualOrder();
 }
@@ -1166,6 +1255,71 @@ async function doRename(){
 
 // ===== HELP / TOUR / FAQ =====
 function helpRole(){ return currentUser&&(currentUser.role==='master'||currentUser.role==='manager')?'master':'karyawan'; }
+
+// ===== PROFILE =====
+const ROLE_LABEL = { master:'Master', manager:'Manager', karyawan:'Karyawan', pending:'Pending' };
+function openProfile() {
+  if (!currentUser) return;
+  document.getElementById('prof-av').textContent = (currentUser.nama||'U')[0].toUpperCase();
+  document.getElementById('prof-role-lbl').textContent = ROLE_LABEL[currentUser.role]||currentUser.role;
+  document.getElementById('prof-branch-lbl').textContent = currentUser.branch_id ? BRANCHES[currentUser.branch_id] : 'Semua cabang';
+  document.getElementById('prof-display').value = currentUser.nama||'';
+  document.getElementById('prof-username').value = currentUser.username||'';
+  document.getElementById('prof-pin').value = '';
+  document.getElementById('prof-name-status').textContent='';
+  document.getElementById('prof-creds-status').textContent='';
+  // highlight font aktif
+  const f = currentUser.font||'m';
+  document.querySelectorAll('#font-row .period-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.toLowerCase()===({s:'kecil',m:'normal',l:'besar',xl:'xl'})[f]);
+  });
+  show('profile');
+}
+async function saveProfileName() {
+  const nm = document.getElementById('prof-display').value.trim();
+  const el = document.getElementById('prof-name-status');
+  if (!nm) { el.textContent='Nama kosong'; el.className='add-status err'; return; }
+  if (!currentUser.id) { el.textContent='Akun PIN tidak bisa ubah di sini'; el.className='add-status err'; return; }
+  const { error } = await sb.from('profiles').update({ full_name: nm }).eq('id', currentUser.id);
+  if (error) { el.textContent='Gagal: '+error.message; el.className='add-status err'; return; }
+  currentUser.nama = nm;
+  document.getElementById('user-name-lbl').textContent = nm;
+  el.textContent='✓ Tersimpan'; el.className='add-status ok'; setTimeout(()=>el.textContent='',1500);
+}
+async function saveProfileCreds() {
+  const u = document.getElementById('prof-username').value.trim().toLowerCase();
+  const pin = document.getElementById('prof-pin').value.trim();
+  const el = document.getElementById('prof-creds-status');
+  if (u && /\s/.test(u)) { el.textContent='Username tidak boleh ada spasi'; el.className='add-status err'; return; }
+  if (pin && pin.length!==4) { el.textContent='PIN harus 4 digit'; el.className='add-status err'; return; }
+  if (!currentUser.id) { el.textContent='Akun ini belum terhubung Google'; el.className='add-status err'; return; }
+  const upd = {};
+  if (u) upd.username = u;
+  if (pin) upd.pin = pin;
+  if (!Object.keys(upd).length) { el.textContent='Isi username atau PIN dulu'; el.className='add-status err'; return; }
+  const { error } = await sb.from('profiles').update(upd).eq('id', currentUser.id);
+  if (error) { el.textContent='Gagal: '+(error.message.includes('duplicate')?'username sudah dipakai':error.message); el.className='add-status err'; return; }
+  if (u) currentUser.username = u;
+  el.textContent='✓ Tersimpan. Sekarang bisa login pakai username+PIN'; el.className='add-status ok';
+  document.getElementById('prof-pin').value='';
+}
+
+// ===== FONT (per user, simpan di preferences) =====
+function applyFont(f) {
+  document.body.className = document.body.className.replace(/font-\w+/g,'').trim();
+  document.body.classList.add('font-'+(f||'m'));
+}
+function setFont(f, el) {
+  if (currentUser) currentUser.font = f;
+  applyFont(f);
+  document.querySelectorAll('#font-row .period-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  // simpan ke user_preferences
+  if (currentUser && currentUser.id) {
+    sb.from('user_preferences').upsert({ user_id: currentUser.id, font_size: f, updated_at: new Date().toISOString() });
+  }
+}
+
 function openHelp(){ document.getElementById('help-modal').classList.add('open'); }
 function closeHelp(){ document.getElementById('help-modal').classList.remove('open'); }
 var tourSteps={
