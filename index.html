@@ -331,6 +331,100 @@ body.font-xl{zoom:1.25;}
 .spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--g3);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .empty{text-align:center;padding:2rem;font-size:13px;color:var(--text3);}
+
+/* ===== ABSEN / JADWAL / SHIFT (baru) ===== */
+:root{ --pagi:#B45309; --pagi-bg:#FEF3C7; --sore:#1565C0; --sore-bg:#E3F2FD; --malam:#6D28D9; --malam-bg:#EDE4FC; --libur:#6B7280; --libur-bg:#F1F2F4; }
+.shift-chip{font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:4px;}
+.shift-chip.pagi{background:var(--pagi-bg);color:var(--pagi);}
+.shift-chip.sore{background:var(--sore-bg);color:var(--sore);}
+.shift-chip.malam{background:var(--malam-bg);color:var(--malam);}
+.shift-chip.libur{background:var(--libur-bg);color:var(--libur);}
+.shift-chip.none{background:#F1F2F4;color:var(--text3);}
+.absen-date{font-size:12px;color:var(--text2);margin-bottom:2px;}
+.absen-shift-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.absen-status-grid{display:flex;gap:10px;margin-top:14px;}
+.absen-stat{flex:1;background:white;border-radius:12px;padding:10px;text-align:center;border:1px solid var(--border);}
+.absen-stat .lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.3px;}
+.absen-stat .val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace;margin-top:3px;}
+.absen-stat.tepat .val{color:var(--g);}
+.absen-stat.telat .val{color:var(--r);}
+.absen-stat.empty .val{color:var(--text3);}
+.clock-btn{width:100%;margin-top:16px;padding:18px;border:none;border-radius:18px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.clock-btn.masuk{background:linear-gradient(135deg,var(--g2),var(--g));}
+.clock-btn.pulang{background:linear-gradient(135deg,#E08A3C,var(--out));}
+.clock-btn:disabled{background:var(--border);color:var(--text3);box-shadow:none;}
+.clock-btn .sub{display:block;font-size:11px;font-weight:400;opacity:.85;}
+.gps-banner{margin-top:10px;padding:10px 12px;border-radius:10px;font-size:12px;display:flex;align-items:center;gap:8px;}
+.gps-banner.ok{background:var(--g-bg);color:var(--g);}
+.gps-banner.checking{background:#F1F2F4;color:var(--text2);}
+.gps-banner.fail{background:var(--r-bg);color:var(--r);}
+.week-strip{display:flex;gap:5px;margin-top:14px;overflow-x:auto;}
+.week-day{flex:1;min-width:40px;background:white;border:1.5px solid var(--border);border-radius:10px;padding:7px 3px;text-align:center;}
+.week-day.today{border-color:var(--g3);background:var(--g-light);}
+.week-day .wd-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;}
+.week-day .wd-shift{font-size:13px;margin-top:4px;}
+.hist-wrap{margin-bottom:7px;}
+.hist-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:11px 13px;display:flex;align-items:center;gap:10px;cursor:pointer;}
+.hist-wrap.open .hist-row{border-color:var(--g3);background:var(--g-light);}
+.hist-date{flex-shrink:0;width:50px;}
+.hist-date .d1{font-size:13px;font-weight:600;}
+.hist-date .d2{font-size:10px;color:var(--text3);}
+.hist-emp{font-size:11px;color:var(--g);font-weight:600;background:var(--g-bg);padding:2px 7px;border-radius:5px;flex-shrink:0;}
+.hist-mid{flex:1;font-size:12px;color:var(--text2);font-family:'DM Mono',monospace;}
+.hist-badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;flex-shrink:0;}
+.hist-badge.tepat{background:var(--g-bg);color:var(--g);}
+.hist-badge.telat{background:var(--r-bg);color:var(--r);}
+.hist-badge.belum{background:#F1F2F4;color:var(--text3);}
+.hist-chevron{font-size:9px;color:var(--text3);transition:transform .2s;}
+.hist-wrap.open .hist-chevron{transform:rotate(180deg);}
+.hist-detail{display:none;padding:10px 13px 12px;background:var(--g-light);border:1.5px solid var(--g-bg);border-top:none;border-radius:0 0 var(--rad) var(--rad);margin-top:-8px;font-size:12px;}
+.hist-wrap.open .hist-detail{display:block;}
+.hist-detail-row{display:flex;justify-content:space-between;padding:3px 0;color:var(--text2);}
+.hist-detail-row b{color:var(--text);font-family:'DM Mono',monospace;font-weight:600;}
+.hist-group-header{font-size:12px;font-weight:700;color:var(--g);margin:16px 0 6px;display:flex;align-items:center;gap:8px;}
+.hist-group-header:first-child{margin-top:0;}
+.hist-group-header::after{content:'';flex:1;height:1px;background:var(--g-bg);}
+.branch-tabs{display:flex;gap:6px;margin-bottom:14px;background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:3px;}
+.branch-tabs button{flex:1;padding:8px;border:none;background:transparent;border-radius:7px;font-family:inherit;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;}
+.branch-tabs button.active{background:var(--g);color:#fff;}
+.locked-branch-banner{background:var(--g-light);border:1.5px solid var(--g-bg);border-radius:var(--rad-sm);padding:10px 12px;font-size:12px;color:var(--g);font-weight:600;margin-bottom:14px;}
+.week-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.week-nav button{background:white;border:1.5px solid var(--border);border-radius:8px;padding:7px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
+.week-nav .wn-label{font-size:13px;font-weight:600;}
+.copy-week-btn{width:100%;padding:10px;background:var(--g-light);border:1.5px dashed var(--g3);border-radius:var(--rad-sm);color:var(--g);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;margin-bottom:12px;}
+.grid-wrap{overflow-x:auto;border-radius:var(--rad);border:1.5px solid var(--border);background:white;}
+table.jadwal-grid{border-collapse:collapse;width:100%;min-width:560px;}
+table.jadwal-grid th{font-size:10px;text-transform:uppercase;color:var(--text3);font-weight:600;padding:8px 4px;text-align:center;border-bottom:1.5px solid var(--border);background:var(--bg);position:sticky;top:0;}
+table.jadwal-grid th.emp-col{text-align:left;padding-left:12px;min-width:110px;}
+table.jadwal-grid td{padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);}
+table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;font-weight:500;white-space:nowrap;}
+.jcell{display:inline-block;width:100%;min-width:54px;padding:6px 4px;border-radius:8px;font-size:10px;font-weight:600;cursor:pointer;}
+.jcell.pagi{background:var(--pagi-bg);color:var(--pagi);}
+.jcell.sore{background:var(--sore-bg);color:var(--sore);}
+.jcell.malam{background:var(--malam-bg);color:var(--malam);}
+.jcell.libur{background:var(--libur-bg);color:var(--libur);}
+.jcell.kosong{background:#fff;color:var(--text3);border:1.5px dashed var(--border);}
+.tmpl-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
+.tmpl-dot{width:12px;height:12px;border-radius:4px;flex-shrink:0;}
+.tmpl-dot.pagi{background:var(--pagi);}.tmpl-dot.sore{background:var(--sore);}.tmpl-dot.malam{background:var(--malam);}
+.tmpl-info{flex:1;}
+.tmpl-info .nm{font-size:14px;font-weight:500;}
+.tmpl-info .tm{font-size:11px;color:var(--text3);margin-top:1px;}
+.loc-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:10px;}
+.loc-card .nm{font-size:14px;font-weight:600;}
+.loc-card .coord{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin:4px 0 10px;}
+.set-loc-btn{width:100%;padding:11px;background:var(--g-bg);color:var(--g);border:1.5px solid var(--g3);border-radius:var(--rad-sm);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+.loc-method-row{display:flex;gap:8px;}
+.loc-method-row .set-loc-btn{flex:1;padding:11px 6px;font-size:12px;}
+.set-loc-btn.alt{background:var(--b-bg);color:var(--b);border-color:var(--b);}
+.map-input-wrap{margin-top:8px;background:var(--bg);border-radius:10px;padding:10px;}
+.found-suggestion{margin-top:8px;background:var(--y-bg);border:1.5px dashed var(--y);border-radius:9px;padding:9px 10px;font-size:11px;color:var(--text2);cursor:pointer;line-height:1.5;}
+.found-suggestion b{color:var(--text);}
+.radius-row{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--text2);}
+.radius-row input{width:64px;padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Mono',monospace;text-align:center;}
+.shift-pick{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.shift-pick-opt{padding:12px;border:1.5px solid var(--border);border-radius:var(--rad-sm);display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:500;}
+.shift-pick-opt.sel{border-color:var(--g3);background:var(--g-light);}
 </style>
 </head>
 <body>
@@ -394,6 +488,7 @@ body.font-xl{zoom:1.25;}
       <div class="brand" onclick="openProfile()" style="cursor:pointer"><span class="logo">🍞</span> <span id="user-name-lbl">Indonesian Bakery</span> <span style="font-size:10px;opacity:.6">▾</span></div>
       <div class="top-actions">
         <button class="top-btn" onclick="openHelp()">❓</button>
+        <button class="top-btn" id="absen-btn" onclick="openAbsen()" style="display:none">🕒</button>
         <button class="top-btn" id="dashboard-btn" onclick="show('dashboard')" style="display:none">📊</button>
         <button class="top-btn" id="admin-btn" onclick="show('admin')" style="display:none">⚙️</button>
         <button class="top-btn" onclick="logout()">Keluar</button>
@@ -503,6 +598,27 @@ body.font-xl{zoom:1.25;}
     <div id="user-list"><div class="loading"><div class="spinner"></div></div></div>
     <div class="admin-link" onclick="show('products')">📦 Kelola Produk & Kategori →</div>
     <div class="admin-link" onclick="show('settings')">⚙️ Atur threshold & WhatsApp →</div>
+    <div class="section-label" style="margin-top:22px">Absen & Jadwal</div>
+    <div class="tmpl-card" onclick="openJadwal()" style="cursor:pointer">
+      <div class="tmpl-dot pagi"></div>
+      <div class="tmpl-info"><div class="nm">🗓️ Jadwal Mingguan</div><div class="tm">Atur shift tiap karyawan per hari</div></div>
+      <span style="color:var(--text3)">›</span>
+    </div>
+    <div class="tmpl-card" onclick="openShiftTemplate()" style="cursor:pointer">
+      <div class="tmpl-dot sore"></div>
+      <div class="tmpl-info"><div class="nm">⏰ Shift Template</div><div class="tm">Jenis-jenis shift per cabang</div></div>
+      <span style="color:var(--text3)">›</span>
+    </div>
+    <div class="tmpl-card" onclick="openLokasi()" style="cursor:pointer">
+      <div class="tmpl-dot malam"></div>
+      <div class="tmpl-info"><div class="nm">📍 Lokasi Toko</div><div class="tm">Set titik GPS & radius absen</div></div>
+      <span style="color:var(--text3)">›</span>
+    </div>
+    <div class="tmpl-card" onclick="openRiwayatAdmin()" style="cursor:pointer">
+      <div class="tmpl-dot" style="background:var(--text3)"></div>
+      <div class="tmpl-info"><div class="nm">📋 Riwayat Absensi</div><div class="tm">Cek histori semua karyawan kapan aja</div></div>
+      <span style="color:var(--text3)">›</span>
+    </div>
   </div>
 </div>
 
@@ -599,7 +715,7 @@ body.font-xl{zoom:1.25;}
 
     <div class="section-label" style="color:var(--text3)">Akan datang</div>
     <div class="add-card" style="opacity:.55">
-      <div style="font-size:13px;color:var(--text2)">📅 Cuti & izin · 💰 Gaji · 🕐 Absensi — segera hadir</div>
+      <div style="font-size:13px;color:var(--text2)">📅 Cuti & izin · 💰 Gaji — segera hadir</div>
     </div>
   </div>
 </div>
@@ -613,7 +729,152 @@ body.font-xl{zoom:1.25;}
   <div class="sub-body" id="faq-body"></div>
 </div>
 
+<!-- ============ ABSEN (karyawan/manager) ============ -->
+<div id="screen-absen" class="screen">
+  <div class="topbar">
+    <div class="topbar-row1">
+      <div class="brand"><span class="logo">🍞</span> <span id="absen-user-lbl">Absen</span></div>
+      <div class="top-actions"><button class="top-btn" onclick="show('overview')">← Overview</button></div>
+    </div>
+  </div>
+  <div class="ft-card">
+    <div class="ft-eyebrow">Absen Hari Ini</div>
+    <div class="absen-date" id="absen-date">-</div>
+    <div class="absen-shift-row"><span class="shift-chip none" id="absen-shift-chip">Memuat jadwal...</span></div>
+    <div class="absen-status-grid">
+      <div class="absen-stat empty" id="stat-masuk"><div class="lbl">Masuk</div><div class="val">--:--</div></div>
+      <div class="absen-stat empty" id="stat-pulang"><div class="lbl">Pulang</div><div class="val">--:--</div></div>
+      <div class="absen-stat empty" id="stat-status"><div class="lbl">Status</div><div class="val">-</div></div>
+    </div>
+    <button class="clock-btn masuk" id="clock-btn" onclick="startClockFlow()" disabled>Memuat...</button>
+    <div id="gps-banner-area"></div>
+  </div>
+  <div class="sub-body" style="padding-top:0">
+    <div class="section-label">Jadwal Minggu Ini</div>
+    <div class="week-strip" id="my-week-strip"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="section-label" style="margin-top:20px">Riwayat Absen Saya</div>
+    <div id="absen-history"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- ============ JADWAL MINGGUAN (admin) ============ -->
+<div id="screen-jadwal" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('admin')">← Kembali</button>
+    <span class="sub-title">Jadwal Mingguan</span>
+  </div>
+  <div class="sub-body">
+    <div class="branch-tabs" id="jadwal-branch-tabs">
+      <button class="active" onclick="setJadwalBranch('melur',this)">Jl. Melur</button>
+      <button onclick="setJadwalBranch('delima',this)">Jl. Delima</button>
+    </div>
+    <div class="locked-branch-banner" id="jadwal-locked-banner" style="display:none">🔒 Cabang: <b></b> <span style="color:var(--text3);font-weight:400">(manager cuma bisa atur cabang sendiri)</span></div>
+    <div class="week-nav">
+      <button onclick="shiftWeek(-1)">‹ Minggu lalu</button>
+      <div class="wn-label" id="jadwal-week-label">-</div>
+      <button onclick="shiftWeek(1)">Minggu depan ›</button>
+    </div>
+    <button class="copy-week-btn" onclick="copyLastWeek()">📋 Copy jadwal minggu lalu ke minggu ini</button>
+    <div class="grid-wrap"><table class="jadwal-grid" id="jadwal-table"></table></div>
+    <div class="note" style="font-size:11px;color:var(--text3);margin-top:10px">Tap salah satu sel buat ganti shift karyawan di hari itu.</div>
+  </div>
+</div>
+
+<!-- ============ SHIFT TEMPLATE (admin) ============ -->
+<div id="screen-shifttemplate" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('admin')">← Kembali</button>
+    <span class="sub-title">Shift Template</span>
+  </div>
+  <div class="sub-body">
+    <div class="branch-tabs" id="tmpl-branch-tabs">
+      <button class="active" onclick="setTmplBranch('melur',this)">Jl. Melur</button>
+      <button onclick="setTmplBranch('delima',this)">Jl. Delima</button>
+    </div>
+    <div class="locked-branch-banner" id="tmpl-locked-banner" style="display:none">🔒 Cabang: <b></b> <span style="color:var(--text3);font-weight:400">(manager cuma bisa atur cabang sendiri)</span></div>
+    <div id="tmpl-list"></div>
+    <div class="section-label">Tambah Shift Baru</div>
+    <div class="add-card">
+      <input class="form-input" id="tmpl-name" placeholder="Nama shift (cth: Shift Pagi)">
+      <select class="form-input" id="tmpl-type">
+        <option value="pagi">🌅 Pagi</option>
+        <option value="sore">🌇 Sore</option>
+        <option value="malam">🌙 Malam</option>
+      </select>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="tmpl-start" type="time" value="07:00">
+        <input class="form-input" id="tmpl-end" type="time" value="15:00">
+      </div>
+      <button class="add-btn" onclick="addTemplate()">+ Tambah Shift</button>
+      <div class="add-status" id="tmpl-add-status"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOKASI TOKO (admin) ============ -->
+<div id="screen-lokasi" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('admin')">← Kembali</button>
+    <span class="sub-title">Lokasi Toko</span>
+  </div>
+  <div class="sub-body" id="lokasi-body"><div class="loading"><div class="spinner"></div></div></div>
+</div>
+
+<!-- ============ RIWAYAT ABSENSI (admin, standalone) ============ -->
+<div id="screen-riwayat" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('admin')">← Kembali</button>
+    <span class="sub-title">Riwayat Absensi</span>
+  </div>
+  <div class="sub-body">
+    <div class="branch-tabs" id="riwayat-branch-tabs">
+      <button class="active" onclick="setRiwayatBranch('melur',this)">Jl. Melur</button>
+      <button onclick="setRiwayatBranch('delima',this)">Jl. Delima</button>
+    </div>
+    <div class="locked-branch-banner" id="riwayat-locked-banner" style="display:none">🔒 Cabang: <b></b> <span style="color:var(--text3);font-weight:400">(manager cuma bisa lihat cabang sendiri)</span></div>
+    <div class="period-row">
+      <button class="period-btn active" onclick="setRiwayatPeriod('minggu',this)">Minggu Ini</button>
+      <button class="period-btn" onclick="setRiwayatPeriod('bulan',this)">Bulan Ini</button>
+      <button class="period-btn" onclick="setRiwayatPeriod('semua',this)">Semua</button>
+    </div>
+    <select class="sort-select" id="riwayat-emp-filter" style="width:100%;margin-bottom:12px" onchange="renderRiwayatAdmin()">
+      <option value="all">Semua Karyawan</option>
+    </select>
+    <div class="absen-status-grid" style="margin-bottom:14px" id="riwayat-summary"></div>
+    <div id="riwayat-list"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- ABSEN PIN MODAL -->
+<div class="modal-overlay" id="absen-pin-modal">
+  <div class="modal-sheet">
+    <div class="modal-title" id="absen-pin-title">Konfirmasi Absen Masuk</div>
+    <div class="modal-sub">Masukkan PIN kamu buat konfirmasi</div>
+    <div class="pin-wrap">
+      <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="ap0" oninput="absenPinNext(this,1)">
+      <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="ap1" oninput="absenPinNext(this,2)">
+      <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="ap2" oninput="absenPinNext(this,3)">
+      <input class="pin-digit" type="password" maxlength="1" inputmode="numeric" id="ap3" oninput="confirmClock()">
+    </div>
+    <div class="modal-status" id="absen-pin-status"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeAbsenPinModal()">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHIFT PICK MODAL -->
+<div class="modal-overlay" id="shift-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">Atur Shift</div>
+    <div class="modal-sub" id="shift-modal-sub">-</div>
+    <div class="shift-pick" id="shift-pick-list"></div>
+    <button class="modal-cancel" style="width:100%" onclick="closeModalById('shift-modal')">Tutup</button>
+  </div>
+</div>
+
 <!-- RENAME MODAL -->
+
 <div class="modal-overlay" id="rename-modal">
   <div class="modal-sheet">
     <div class="modal-title" id="rename-modal-title">Ganti nama produk</div>
@@ -748,6 +1009,7 @@ async function afterLogin() {
   else { currentUser.homeBranch = 'melur'; }
   document.getElementById('admin-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
+  document.getElementById('absen-btn').style.display = currentUser.role==='master' ? 'none' : '';
 
   renderBranchMenu();
   show('overview');
@@ -1377,6 +1639,404 @@ sb.auth.onAuthStateChange(function(event,session){
   }
 });
 setTimeout(function(){ if(document.getElementById('screen-login').classList.contains('active')) checkSession(); },2500);
+// ===================================================================
+// ===================== ABSEN & JADWAL (baru) ======================
+// ===================================================================
+const SHIFT_TYPE_OF = {}; // cache id -> {type,label,start,end} biar warna chip konsisten
+function inferShiftType(label){
+  const l=(label||'').toLowerCase();
+  if(l.includes('pagi')) return 'pagi';
+  if(l.includes('sore')) return 'sore';
+  if(l.includes('malam')) return 'malam';
+  return 'pagi';
+}
+function ymd(d){ const p=x=>String(x).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function getMonday(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+function fmtDateLabel(dstr){ const d=new Date(dstr+'T00:00:00'); const days=['Min','Sen','Sel','Rab','Kam','Jum','Sab']; return {d1:`${d.getDate()} ${['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()]}`, d2:days[d.getDay()]}; }
+
+// ---- ABSEN (karyawan/manager pribadi) ----
+function openAbsen(){
+  show('absen');
+  document.getElementById('absen-user-lbl').textContent = currentUser.nama;
+  loadAbsenToday();
+  loadMyWeek();
+  loadAbsenHistory();
+}
+async function loadAbsenToday(){
+  const myBranch = currentUser.homeBranch || currentUser.branch_id;
+  const { data, error } = await sb.rpc('get_attendance_today', { p_user_id: currentUser.id, p_branch_id: myBranch });
+  const today = new Date();
+  document.getElementById('absen-date').textContent = today.toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  if(error || !data){ document.getElementById('absen-shift-chip').textContent='Gagal memuat jadwal'; return; }
+  window._absenToday = data;
+  const chip = document.getElementById('absen-shift-chip');
+  if(data.shift){
+    const t = inferShiftType(data.shift.label);
+    chip.className='shift-chip '+t;
+    chip.textContent = `${data.shift.label} · ${data.shift.start_time?.slice(0,5)}–${data.shift.end_time?.slice(0,5)}`;
+  } else {
+    chip.className='shift-chip none';
+    chip.textContent='Tidak ada jadwal hari ini';
+  }
+  const sM=document.getElementById('stat-masuk'), sP=document.getElementById('stat-pulang'), sS=document.getElementById('stat-status');
+  const btn=document.getElementById('clock-btn');
+  sM.querySelector('.val').textContent = data.check_in_at||'--:--';
+  sM.className = 'absen-stat '+(data.check_in_at?(data.status==='telat'?'telat':'tepat'):'empty');
+  sP.querySelector('.val').textContent = data.check_out_at||'--:--';
+  sP.className = 'absen-stat '+(data.check_out_at?'tepat':'empty');
+  sS.querySelector('.val').textContent = data.status==='telat'?'Telat':(data.status==='tepat'?'Tepat':'-');
+  sS.className = 'absen-stat '+(data.status==='telat'?'telat':(data.status==='tepat'?'tepat':'empty'));
+
+  btn.disabled=false;
+  if(!data.check_in_at){
+    btn.className='clock-btn masuk';
+    btn.innerHTML='📍 Absen Masuk<span class="sub">Lokasi & PIN akan diminta</span>';
+  } else if(!data.check_out_at){
+    btn.className='clock-btn pulang';
+    btn.innerHTML='📍 Absen Pulang<span class="sub">Lokasi & PIN akan diminta</span>';
+  } else {
+    btn.className='clock-btn'; btn.disabled=true;
+    btn.innerHTML='✅ Absen Hari Ini Selesai';
+  }
+  document.getElementById('gps-banner-area').innerHTML='';
+}
+let _pendingGps=null;
+function startClockFlow(){
+  const area=document.getElementById('gps-banner-area');
+  area.innerHTML='<div class="gps-banner checking">📡 Mengecek lokasi GPS...</div>';
+  if(!navigator.geolocation){ area.innerHTML='<div class="gps-banner fail">❌ HP/browser kamu tidak mendukung GPS</div>'; return; }
+  navigator.geolocation.getCurrentPosition(pos=>{
+    _pendingGps = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    area.innerHTML='<div class="gps-banner ok">✅ Lokasi ditemukan</div>';
+    openAbsenPinModal();
+  }, err=>{
+    area.innerHTML='<div class="gps-banner fail">❌ Gagal ambil lokasi: '+(err.message||'izin GPS ditolak')+'</div>';
+  }, { enableHighAccuracy:true, timeout:10000 });
+}
+function openAbsenPinModal(){
+  const isMasuk = !window._absenToday || !window._absenToday.check_in_at;
+  document.getElementById('absen-pin-title').textContent = isMasuk?'Konfirmasi Absen Masuk':'Konfirmasi Absen Pulang';
+  document.getElementById('absen-pin-status').textContent='';
+  ['ap0','ap1','ap2','ap3'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('absen-pin-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('ap0').focus(),100);
+}
+function closeAbsenPinModal(){ document.getElementById('absen-pin-modal').classList.remove('open'); _pendingGps=null; }
+function absenPinNext(el,next){ if(el.value.length===1&&next<=3) document.getElementById('ap'+next).focus(); }
+async function confirmClock(){
+  const pin = ['ap0','ap1','ap2','ap3'].map(id=>document.getElementById(id).value).join('');
+  if(pin.length<4||!_pendingGps) return;
+  const statusEl=document.getElementById('absen-pin-status');
+  statusEl.textContent='Memproses...'; statusEl.className='modal-status';
+  const isMasuk = !window._absenToday || !window._absenToday.check_in_at;
+  const myBranch = currentUser.homeBranch || currentUser.branch_id;
+  const fn = isMasuk ? 'record_checkin' : 'record_checkout';
+  const { data, error } = await sb.rpc(fn, { p_user_id: currentUser.id, p_pin: pin, p_branch_id: myBranch, p_lat: _pendingGps.lat, p_lng: _pendingGps.lng });
+  if(error || !data || !data.ok){
+    const reasons = { pin_salah:'PIN salah', lokasi_belum_diset:'Lokasi toko belum diset master', di_luar_radius:`Kamu di luar radius toko (jarak ${data?.distance_m||'?'}m)`, sudah_absen_masuk:'Sudah absen masuk hari ini', belum_absen_masuk:'Belum absen masuk', sudah_absen_pulang:'Sudah absen pulang hari ini' };
+    statusEl.textContent = '❌ '+(reasons[data?.reason] || error?.message || 'Gagal, coba lagi');
+    statusEl.className='modal-status err';
+    return;
+  }
+  closeAbsenPinModal();
+  loadAbsenToday();
+  loadAbsenHistory();
+}
+async function loadMyWeek(){
+  const wrap=document.getElementById('my-week-strip');
+  const monday = getMonday(new Date());
+  const { data, error } = await sb.rpc('get_week_schedule', { p_user_id: currentUser.id, p_start_date: ymd(monday) });
+  if(error||!data){ wrap.innerHTML='<div class="empty">Gagal memuat</div>'; return; }
+  const todayStr = ymd(new Date());
+  wrap.innerHTML = data.map(row=>{
+    const isToday = row.date===todayStr;
+    const t = row.shift_label ? inferShiftType(row.shift_label) : null;
+    const emoji = t==='pagi'?'🌅':t==='sore'?'🌇':t==='malam'?'🌙':'💤';
+    const lbl = fmtDateLabel(row.date);
+    return `<div class="week-day${isToday?' today':''}"><div class="wd-lbl">${lbl.d2}</div><div class="wd-shift">${emoji}</div></div>`;
+  }).join('');
+}
+async function loadAbsenHistory(){
+  const wrap=document.getElementById('absen-history');
+  const { data, error } = await sb.rpc('get_my_attendance_history', { p_user_id: currentUser.id, p_limit: 14 });
+  if(error){ wrap.innerHTML='<div class="empty">Gagal memuat riwayat</div>'; return; }
+  if(!data || !data.length){ wrap.innerHTML='<div class="empty">Belum ada riwayat absen</div>'; return; }
+  wrap.innerHTML = data.map((h,i)=>{
+    const lbl=fmtDateLabel(h.date);
+    const badge = h.status==='tepat'?'<span class="hist-badge tepat">Tepat</span>':h.status==='telat'?'<span class="hist-badge telat">Telat</span>':'<span class="hist-badge belum">Tidak Absen</span>';
+    const mid = h.check_in_at ? `${h.check_in_at} → ${h.check_out_at||'...'}` : '—';
+    const detail = h.check_in_at ? `
+      <div class="hist-detail-row"><span>Shift</span><b>${h.shift_label||'-'}</b></div>
+      <div class="hist-detail-row"><span>Jarak GPS saat masuk</span><b>${h.gps_in_m!=null?h.gps_in_m+'m':'-'}</b></div>
+      <div class="hist-detail-row"><span>Jarak GPS saat pulang</span><b>${h.gps_out_m!=null?h.gps_out_m+'m':'-'}</b></div>
+      <div class="hist-detail-row"><span>Keterlambatan</span><b>${h.telat_minutes>0?h.telat_minutes+' menit':'Tidak telat'}</b></div>
+    ` : `<div class="hist-detail-row"><span>Tidak ada catatan absen hari ini</span></div>`;
+    return `<div class="hist-wrap" id="myhist-${i}">
+      <div class="hist-row" onclick="document.getElementById('myhist-${i}').classList.toggle('open')">
+        <div class="hist-date"><div class="d1">${lbl.d1}</div><div class="d2">${lbl.d2}</div></div>
+        <div class="hist-mid">${mid}</div>${badge}<span class="hist-chevron">▾</span>
+      </div>
+      <div class="hist-detail">${detail}</div>
+    </div>`;
+  }).join('');
+}
+
+// ---- branch lock helper (dipakai jadwal/tmpl/riwayat) ----
+function applyBranchLock(ctx, currentVal, setter){
+  const tabs = document.getElementById(ctx+'-branch-tabs');
+  const banner = document.getElementById(ctx+'-locked-banner');
+  const isMaster = currentUser.role==='master';
+  if(!isMaster){
+    const home = currentUser.homeBranch || currentUser.branch_id || 'melur';
+    tabs.style.display='none';
+    banner.style.display='block';
+    banner.querySelector('b').textContent = BRANCHES[home];
+    setter(home);
+  } else {
+    tabs.style.display='flex';
+    banner.style.display='none';
+  }
+}
+
+// ---- JADWAL MINGGUAN (admin) ----
+let jadwalBranch='melur', jadwalWeekStart=getMonday(new Date());
+function openJadwal(){ show('jadwal'); applyBranchLock('jadwal', jadwalBranch, b=>jadwalBranch=b); renderJadwalGrid(); }
+function setJadwalBranch(b,el){ jadwalBranch=b; document.querySelectorAll('#jadwal-branch-tabs button').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderJadwalGrid(); }
+function shiftWeek(d){ jadwalWeekStart=new Date(jadwalWeekStart.getTime()+d*7*86400000); renderJadwalGrid(); }
+async function copyLastWeek(){
+  const fromMon = new Date(jadwalWeekStart.getTime()-7*86400000);
+  const { error } = await sb.rpc('copy_week_schedule', { p_branch_id: jadwalBranch, p_from_monday: ymd(fromMon), p_to_monday: ymd(jadwalWeekStart) });
+  if(error){ alert('Gagal copy: '+error.message); return; }
+  renderJadwalGrid();
+}
+let _jadwalTemplates=[], _jadwalEmployees=[];
+async function renderJadwalGrid(){
+  const monday = jadwalWeekStart;
+  const days = [...Array(7)].map((_,i)=>{ const d=new Date(monday.getTime()+i*86400000); return ymd(d); });
+  document.getElementById('jadwal-week-label').textContent = `${fmtDateLabel(days[0]).d1} – ${fmtDateLabel(days[6]).d1}`;
+
+  const [{data:emps}, {data:tmpls}, {data:scheds}] = await Promise.all([
+    sb.from('profiles').select('id,full_name').eq('branch_id', jadwalBranch).in('role',['karyawan','manager']).order('full_name'),
+    sb.from('shift_templates').select('*').eq('branch_id', jadwalBranch).eq('is_active',true).order('start_time'),
+    sb.from('employee_schedules').select('user_id,date,shift_template_id').eq('branch_id', jadwalBranch).gte('date',days[0]).lte('date',days[6])
+  ]);
+  _jadwalEmployees = emps||[]; _jadwalTemplates = tmpls||[];
+  const schedMap = {}; (scheds||[]).forEach(s=>{ schedMap[s.user_id+'_'+s.date]=s.shift_template_id; });
+  const tmplById = {}; (tmpls||[]).forEach(t=>tmplById[t.id]=t);
+
+  const tbl=document.getElementById('jadwal-table');
+  if(!_jadwalEmployees.length){ tbl.innerHTML=''; document.getElementById('jadwal-table').parentElement.nextElementSibling.textContent='Belum ada karyawan di cabang ini.'; return; }
+  let html = '<tr><th class="emp-col">Karyawan</th>'+days.map(d=>`<th>${fmtDateLabel(d).d2}</th>`).join('')+'</tr>';
+  _jadwalEmployees.forEach(emp=>{
+    html += `<tr><td class="emp-name">${emp.full_name}</td>`;
+    days.forEach(d=>{
+      const sid = schedMap[emp.id+'_'+d];
+      const t = sid ? tmplById[sid] : null;
+      const cls = t ? inferShiftType(t.label) : 'kosong';
+      const lbl = t ? t.label.replace('Shift ','') : '-';
+      html += `<td><span class="jcell ${cls}" onclick='openShiftPick(${JSON.stringify(emp.id)},${JSON.stringify(emp.full_name)},${JSON.stringify(d)})'>${lbl}</span></td>`;
+    });
+    html += '</tr>';
+  });
+  tbl.innerHTML = html;
+}
+let _pickCtx=null;
+function openShiftPick(empId,empName,dateStr){
+  _pickCtx={empId,dateStr};
+  const lbl=fmtDateLabel(dateStr);
+  document.getElementById('shift-modal-sub').textContent = `${empName} · ${lbl.d2}, ${lbl.d1}`;
+  let html='';
+  _jadwalTemplates.forEach(t=>{
+    const cls=inferShiftType(t.label);
+    html += `<div class="shift-pick-opt" onclick="pickShift(${t.id})"><span class="shift-chip ${cls}">${t.label}</span><span style="color:var(--text3);font-size:11px;margin-left:auto">${t.start_time?.slice(0,5)}-${t.end_time?.slice(0,5)}</span></div>`;
+  });
+  html += `<div class="shift-pick-opt" onclick="pickShift(null)"><span class="shift-chip libur">💤 Libur</span></div>`;
+  document.getElementById('shift-pick-list').innerHTML = html;
+  document.getElementById('shift-modal').classList.add('open');
+}
+function closeModalById(id){ document.getElementById(id).classList.remove('open'); }
+async function pickShift(shiftId){
+  const { empId, dateStr } = _pickCtx;
+  await sb.rpc('upsert_employee_schedule', { p_user_id: empId, p_branch_id: jadwalBranch, p_date: dateStr, p_shift_template_id: shiftId });
+  closeModalById('shift-modal');
+  renderJadwalGrid();
+}
+
+// ---- SHIFT TEMPLATE (admin) ----
+let tmplBranch='melur';
+function openShiftTemplate(){ show('shifttemplate'); applyBranchLock('tmpl', tmplBranch, b=>tmplBranch=b); renderTmplList(); }
+function setTmplBranch(b,el){ tmplBranch=b; document.querySelectorAll('#tmpl-branch-tabs button').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderTmplList(); }
+async function renderTmplList(){
+  const wrap=document.getElementById('tmpl-list');
+  wrap.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const { data, error } = await sb.from('shift_templates').select('*').eq('branch_id',tmplBranch).order('start_time');
+  if(error){ wrap.innerHTML='<div class="empty">Gagal memuat</div>'; return; }
+  if(!data.length){ wrap.innerHTML='<div class="empty">Belum ada shift di cabang ini</div>'; return; }
+  wrap.innerHTML = data.map(t=>{
+    const cls=inferShiftType(t.label);
+    return `<div class="tmpl-card"><div class="tmpl-dot ${cls}"></div><div class="tmpl-info"><div class="nm">${t.label}</div><div class="tm">${t.start_time?.slice(0,5)} - ${t.end_time?.slice(0,5)}</div></div><button class="del-btn" onclick="delTemplate(${t.id})">Hapus</button></div>`;
+  }).join('');
+}
+async function addTemplate(){
+  const name=document.getElementById('tmpl-name').value.trim();
+  const start=document.getElementById('tmpl-start').value;
+  const end=document.getElementById('tmpl-end').value;
+  const statusEl=document.getElementById('tmpl-add-status');
+  if(!name){ statusEl.textContent='Nama shift belum diisi'; statusEl.className='add-status err'; return; }
+  const { error } = await sb.from('shift_templates').insert({ branch_id: tmplBranch, label: name, start_time: start, end_time: end });
+  if(error){ statusEl.textContent='Gagal: '+error.message; statusEl.className='add-status err'; return; }
+  document.getElementById('tmpl-name').value='';
+  statusEl.textContent='Tersimpan ✓'; statusEl.className='add-status ok';
+  renderTmplList();
+}
+async function delTemplate(id){
+  if(!confirm('Hapus shift ini? Jadwal karyawan yang pakai shift ini juga akan kehilangan referensinya.')) return;
+  const { error } = await sb.from('shift_templates').delete().eq('id',id);
+  if(error){ alert('Gagal: '+error.message); return; }
+  renderTmplList();
+}
+
+// ---- LOKASI TOKO (admin) ----
+const FOUND_LOCATIONS = {
+  melur:  {lat:0.530346, lng:101.434258, address:'Jl. Melur No.19, Pekanbaru'},
+  delima: {lat:0.467645, lng:101.404132, address:'Jl. Delima No.28B, Pekanbaru'}
+};
+async function openLokasi(){
+  show('lokasi');
+  const isMaster = currentUser.role==='master';
+  const myBranch = currentUser.homeBranch || currentUser.branch_id || 'melur';
+  const branches = isMaster ? ['melur','delima'] : [myBranch];
+  const { data } = await sb.from('branch_locations').select('*');
+  const locMap={}; (data||[]).forEach(r=>locMap[r.branch_id]=r);
+  document.getElementById('lokasi-body').innerHTML = branches.map(b=>{
+    const loc=locMap[b];
+    const coordTxt = loc ? `Lat ${loc.lat}, Lng ${loc.lng} ✅ (radius ${loc.radius_m}m)` : 'Belum diset';
+    const f = FOUND_LOCATIONS[b];
+    return `<div class="loc-card">
+      <div class="nm">📍 ${BRANCHES[b]}</div>
+      <div class="coord" id="loc-${b}-coord">${coordTxt}</div>
+      <div class="loc-method-row">
+        <button class="set-loc-btn" onclick="setLocation('${b}')">📡 Pakai Lokasi HP Sekarang</button>
+        <button class="set-loc-btn alt" onclick="toggleMapInput('${b}')">🔗 Dari Link Maps</button>
+      </div>
+      <div class="map-input-wrap" id="loc-${b}-mapinput" style="display:none">
+        <input class="form-input" id="loc-${b}-mapurl" placeholder="Paste link Google Maps di sini...">
+        <button class="add-btn" style="margin-top:6px" onclick="parseMapLink('${b}')">Pakai Link Ini</button>
+        <div class="found-suggestion" onclick="useFoundLocation('${b}')">🔍 Ketemu otomatis: <b>Indonesian Bakery - ${b==='melur'?'Melur':'Delima'}</b><br>${f.address} — tap buat pakai titik ini</div>
+      </div>
+      <div class="radius-row">Radius valid: <input type="number" value="${loc?loc.radius_m:100}" id="loc-${b}-radius" onchange="updateRadius('${b}')"> meter</div>
+    </div>`;
+  }).join('') + `<div class="note" style="font-size:11px;color:var(--text3);margin-top:6px">2 cara set lokasi: GPS langsung kalau lagi di toko, atau paste link Google Maps kalau lagi di luar kota.</div>`;
+}
+function getRadiusVal(b){ const el=document.getElementById('loc-'+b+'-radius'); return el?parseInt(el.value)||100:100; }
+function setLocation(branchId){
+  const el=document.getElementById('loc-'+branchId+'-coord');
+  el.textContent='Mengambil GPS HP...';
+  if(!navigator.geolocation){ el.textContent='❌ Browser tidak mendukung GPS'; return; }
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const { lat, lng } = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    await sb.rpc('set_branch_location', { p_branch_id: branchId, p_lat: lat, p_lng: lng, p_radius_m: getRadiusVal(branchId), p_updated_by: currentUser.id });
+    el.textContent = `Lat ${lat.toFixed(6)}, Lng ${lng.toFixed(6)} ✅ (dari GPS HP)`;
+  }, err=>{ el.textContent='❌ Gagal ambil GPS: '+(err.message||'izin ditolak'); }, { enableHighAccuracy:true, timeout:10000 });
+}
+function toggleMapInput(b){ const w=document.getElementById('loc-'+b+'-mapinput'); w.style.display = w.style.display==='none'?'block':'none'; }
+async function parseMapLink(b){
+  const url=document.getElementById('loc-'+b+'-mapurl').value.trim();
+  const m=url.match(/(-?\d{1,3}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+  const el=document.getElementById('loc-'+b+'-coord');
+  if(!m){ el.textContent='❌ Link tidak dikenali, coba paste link share dari Google Maps'; return; }
+  const lat=parseFloat(m[1]), lng=parseFloat(m[2]);
+  await sb.rpc('set_branch_location', { p_branch_id: b, p_lat: lat, p_lng: lng, p_radius_m: getRadiusVal(b), p_updated_by: currentUser.id });
+  el.textContent = `Lat ${lat}, Lng ${lng} ✅ (dari link Maps)`;
+  toggleMapInput(b);
+}
+async function useFoundLocation(b){
+  const f=FOUND_LOCATIONS[b];
+  await sb.rpc('set_branch_location', { p_branch_id: b, p_lat: f.lat, p_lng: f.lng, p_radius_m: getRadiusVal(b), p_updated_by: currentUser.id });
+  document.getElementById('loc-'+b+'-coord').textContent = `Lat ${f.lat}, Lng ${f.lng} ✅ (${f.address})`;
+  toggleMapInput(b);
+}
+async function updateRadius(b){
+  const { data } = await sb.from('branch_locations').select('*').eq('branch_id',b).single();
+  if(!data) return;
+  await sb.rpc('set_branch_location', { p_branch_id: b, p_lat: data.lat, p_lng: data.lng, p_radius_m: getRadiusVal(b), p_updated_by: currentUser.id });
+}
+
+// ---- RIWAYAT ABSENSI (admin, lintas karyawan, standalone, dikelompokin per karyawan) ----
+let riwayatBranch='melur', riwayatPeriod='minggu';
+function openRiwayatAdmin(){
+  show('riwayat');
+  applyBranchLock('riwayat', riwayatBranch, b=>riwayatBranch=b);
+  populateRiwayatEmpFilter();
+  renderRiwayatAdmin();
+}
+function setRiwayatBranch(b,el){ riwayatBranch=b; document.querySelectorAll('#riwayat-branch-tabs button').forEach(x=>x.classList.remove('active')); el.classList.add('active'); populateRiwayatEmpFilter(); renderRiwayatAdmin(); }
+function setRiwayatPeriod(p,el){ riwayatPeriod=p; document.querySelectorAll('#screen-riwayat .period-row .period-btn').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderRiwayatAdmin(); }
+async function populateRiwayatEmpFilter(){
+  const sel=document.getElementById('riwayat-emp-filter');
+  const { data } = await sb.from('profiles').select('id,full_name').eq('branch_id',riwayatBranch).in('role',['karyawan','manager']).order('full_name');
+  sel.innerHTML = '<option value="all">Semua Karyawan</option>' + (data||[]).map(e=>`<option value="${e.id}">${e.full_name}</option>`).join('');
+}
+function periodRange(period){
+  const today = new Date();
+  if(period==='minggu'){ const s=new Date(today.getTime()-6*86400000); return {start:ymd(s), end:ymd(today)}; }
+  if(period==='bulan'){ const s=new Date(today.getFullYear(),today.getMonth(),1); return {start:ymd(s), end:ymd(today)}; }
+  return {start:null, end:null};
+}
+async function renderRiwayatAdmin(){
+  const empFilter = document.getElementById('riwayat-emp-filter').value;
+  const { start, end } = periodRange(riwayatPeriod);
+  const { data, error } = await sb.rpc('get_branch_attendance_history', {
+    p_branch_id: riwayatBranch,
+    p_user_id: empFilter==='all'?null:empFilter,
+    p_start_date: start, p_end_date: end, p_limit: 300
+  });
+  const wrap=document.getElementById('riwayat-list');
+  if(error){ wrap.innerHTML='<div class="empty">Gagal memuat: '+error.message+'</div>'; return; }
+  const rows = data||[];
+  const tepat=rows.filter(r=>r.status==='tepat').length, telat=rows.filter(r=>r.status==='telat').length, belum=rows.filter(r=>!r.check_in_at).length;
+  document.getElementById('riwayat-summary').innerHTML = `
+    <div class="absen-stat tepat"><div class="lbl">Tepat Waktu</div><div class="val">${tepat}</div></div>
+    <div class="absen-stat telat"><div class="lbl">Telat</div><div class="val">${telat}</div></div>
+    <div class="absen-stat empty"><div class="lbl">Tidak Absen</div><div class="val">${belum}</div></div>`;
+  if(!rows.length){ wrap.innerHTML='<div class="empty">Belum ada data buat filter ini</div>'; return; }
+
+  function rowHtml(h,key){
+    const badge = h.status==='tepat'?'<span class="hist-badge tepat">Tepat</span>':h.status==='telat'?'<span class="hist-badge telat">Telat</span>':'<span class="hist-badge belum">Tidak Absen</span>';
+    const mid = h.check_in_at ? `${h.check_in_at} → ${h.check_out_at||'...'}` : '—';
+    const lbl = fmtDateLabel(h.date);
+    const detail = h.check_in_at ? `
+      <div class="hist-detail-row"><span>Shift</span><b>${h.shift_label||'-'}</b></div>
+      <div class="hist-detail-row"><span>Jarak GPS saat masuk</span><b>${h.gps_in_m!=null?h.gps_in_m+'m':'-'}</b></div>
+      <div class="hist-detail-row"><span>Jarak GPS saat pulang</span><b>${h.gps_out_m!=null?h.gps_out_m+'m':'-'}</b></div>
+      <div class="hist-detail-row"><span>Keterlambatan</span><b>${h.telat_minutes>0?h.telat_minutes+' menit':'Tidak telat'}</b></div>
+    ` : `<div class="hist-detail-row"><span>Tidak ada catatan absen hari ini</span></div>`;
+    return `<div class="hist-wrap" id="${key}">
+      <div class="hist-row" onclick="document.getElementById('${key}').classList.toggle('open')">
+        <div class="hist-date"><div class="d1">${lbl.d1}</div><div class="d2">${lbl.d2}</div></div>
+        ${empFilter==='all'?`<span class="hist-emp">${h.emp_name}</span>`:''}
+        <div class="hist-mid">${mid}</div>${badge}<span class="hist-chevron">▾</span>
+      </div>
+      <div class="hist-detail">${detail}</div>
+    </div>`;
+  }
+
+  if(empFilter==='all'){
+    // kelompokin per karyawan biar ga campur aduk
+    const groups = {};
+    rows.forEach(r=>{ (groups[r.emp_name] ||= []).push(r); });
+    let html='';
+    Object.keys(groups).sort().forEach(name=>{
+      const grp = groups[name];
+      const gTepat=grp.filter(r=>r.status==='tepat').length, gTelat=grp.filter(r=>r.status==='telat').length;
+      html += `<div class="hist-group-header">${name} <span style="color:var(--text3);font-weight:400">(${gTepat} tepat, ${gTelat} telat)</span></div>`;
+      grp.forEach((h,i)=>{ html += rowHtml(h, `riwayat-${name.replace(/\s+/g,'')}-${i}`); });
+    });
+    wrap.innerHTML = html;
+  } else {
+    wrap.innerHTML = rows.map((h,i)=>rowHtml(h,'riwayat-single-'+i)).join('');
+  }
+}
 </script>
 
 </body>
