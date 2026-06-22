@@ -1011,6 +1011,7 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const BRANCHES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 
 let currentUser = null;
+let pendingHash = location.hash ? location.hash.slice(1) : null;
 let branch = 'melur';
 let products = [];      // {id,name,category_id,is_active}
 let categories = [];    // {id,name,sort_order}
@@ -1102,7 +1103,10 @@ async function afterLogin() {
   document.getElementById('ship-btn').style.display = '';
 
   renderBranchMenu();
-  show('overview');
+  // deep-link: kalau buka link #screen tertentu sebelum login, ke situ. Kalau tidak, overview.
+  const target = pendingHash || (location.hash ? location.hash.slice(1) : '') || 'overview';
+  pendingHash = null;
+  routeTo(target);
   await loadCategories();
   await loadProducts();
   await loadSettings();
@@ -1110,6 +1114,22 @@ async function afterLogin() {
   await loadStockNow();
   updateEditPermission();
   updateShipBadge();
+}
+
+// daftar screen yang butuh akses penuh (master/manager) atau khusus
+const SCREEN_ACCESS = {
+  dashboard:['master','manager'], admin:['master','manager'], products:['master','manager'],
+  settings:['master','manager'], shipments:['master','manager'], kirim:['master','manager'],
+  lokasi:['master'], shifttemplate:['master','manager'], jadwal:['master','manager']
+};
+function routeTo(name) {
+  if (!document.getElementById('screen-'+name)) name='overview';
+  const allow = SCREEN_ACCESS[name];
+  if (allow && (!currentUser || !allow.includes(currentUser.role))) {
+    // tidak berhak → overview
+    name='overview';
+  }
+  show(name, true);
 }
 
 // canEdit: master selalu bisa. manager hanya di home branch. karyawan hanya branch sendiri.
@@ -1700,14 +1720,20 @@ function buildWaReport() {
 }
 
 // ===== ROUTER =====
-function show(name) {
+function show(name, fromHash) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  document.getElementById('screen-'+name).classList.add('active');
+  const el = document.getElementById('screen-'+name);
+  if (!el) return;
+  el.classList.add('active');
   if(name==='dashboard')loadDashboard();
   if(name==='admin')loadUsers();
   if(name==='products')loadProductManagement();
   if(name==='faq')renderFAQ();
   if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; }
+  // update URL hash (kecuali login/pending yang tidak perlu di-bookmark)
+  if(!fromHash && name!=='login' && name!=='pending'){
+    if(location.hash !== '#'+name) history.replaceState(null,'','#'+name);
+  }
   window.scrollTo(0,0);
 }
 
@@ -1952,6 +1978,16 @@ sb.auth.onAuthStateChange(function(event,session){
   }
 });
 setTimeout(function(){ if(document.getElementById('screen-login').classList.contains('active')) checkSession(); },2500);
+
+// Hash routing: back button / ubah hash manual saat sudah login
+window.addEventListener('hashchange', function(){
+  if (!currentUser) return; // belum login, biarkan
+  if (window.location.hash.indexOf('access_token')>-1) return; // token OAuth, abaikan
+  const name = location.hash ? location.hash.slice(1) : 'overview';
+  const cur = document.querySelector('.screen.active');
+  if (cur && cur.id === 'screen-'+name) return; // sudah di situ
+  routeTo(name);
+});
 // ===================================================================
 // ===================== ABSEN & JADWAL (baru) ======================
 // ===================================================================
