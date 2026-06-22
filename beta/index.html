@@ -1809,7 +1809,7 @@ async function loadDashboard() {
 function renderDailyHistory(rows, summary) {
   summary = summary||[];
   const summaryMap={};
-  summary.forEach(s=>{ summaryMap[s.movement_date]=s; });
+  summary.forEach(s=>{ summaryMap[s.d||s.movement_date]={stok_kemarin:s.kemarin||s.stok_kemarin||0, produksi:s.produksi||0, sisa:s.sisa||0, retur:s.retur||0, terjual:s.terjual||0}; });
   const byDate={};
   rows.forEach(r=>{ if(!byDate[r.movement_date])byDate[r.movement_date]=[]; byDate[r.movement_date].push(r); });
   const dates=Object.keys(byDate).sort().reverse();
