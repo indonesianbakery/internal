@@ -518,6 +518,7 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
       <div class="top-actions">
         <button class="top-btn" onclick="openHelp()">❓</button>
         <button class="top-btn" id="kirim-btn" onclick="openKirim()" style="display:none">📦</button>
+        <button class="top-btn" id="shelf-btn" onclick="openShelfReport()" style="display:none">🏷️<span class="notif-dot count" id="shelf-dot"></span></button>
         <button class="top-btn" id="ship-btn" onclick="openShipments()" style="display:none">🔔<span class="notif-dot count" id="ship-dot"></span></button>
         <button class="top-btn" id="absen-btn" onclick="openAbsen()" style="display:none">🕒</button>
         <button class="top-btn" id="dashboard-btn" onclick="show('dashboard')" style="display:none">📊</button>
@@ -617,6 +618,15 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
       <button class="save-btn save-ship" id="kirim-save" onclick="saveKirim()">📦 Kirim</button>
     </div>
   </div>
+</div>
+
+<!-- LAPORAN SHELF LIFE -->
+<div id="screen-shelf" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">🏷️ Laporan Kedaluwarsa</span>
+  </div>
+  <div id="shelf-report-body" style="padding-bottom:40px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
 </div>
 
 <!-- DAFTAR PENGIRIMAN / NOTIFIKASI -->
@@ -1011,7 +1021,6 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const BRANCHES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 
 let currentUser = null;
-let pendingHash = location.hash ? location.hash.slice(1) : null;
 let branch = 'melur';
 let products = [];      // {id,name,category_id,is_active}
 let categories = [];    // {id,name,sort_order}
@@ -1027,6 +1036,7 @@ let manualCatOrder = [];
 let manualItemOrder = {};
 let manualEditMode = false;
 let dashPeriod = 7;
+let shelfAlerts = {}; // { productName: {tarik, warning} }
 
 // ===== KIRIM ROTI ANTAR BRANCH =====
 let kirimItems = {};      // { product_id: qty }
@@ -1100,13 +1110,11 @@ async function afterLogin() {
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('absen-btn').style.display = currentUser.role==='master' ? 'none' : '';
   document.getElementById('kirim-btn').style.display = canSendShipment() ? '' : 'none';
+  document.getElementById('shelf-btn').style.display = '';
   document.getElementById('ship-btn').style.display = '';
 
   renderBranchMenu();
-  // deep-link: kalau buka link #screen tertentu sebelum login, ke situ. Kalau tidak, overview.
-  const target = pendingHash || (location.hash ? location.hash.slice(1) : '') || 'overview';
-  pendingHash = null;
-  routeTo(target);
+  show('overview');
   await loadCategories();
   await loadProducts();
   await loadSettings();
@@ -1114,22 +1122,7 @@ async function afterLogin() {
   await loadStockNow();
   updateEditPermission();
   updateShipBadge();
-}
-
-// daftar screen yang butuh akses penuh (master/manager) atau khusus
-const SCREEN_ACCESS = {
-  dashboard:['master','manager'], admin:['master','manager'], products:['master','manager'],
-  settings:['master','manager'], shipments:['master','manager'], kirim:['master','manager'],
-  lokasi:['master'], shifttemplate:['master','manager'], jadwal:['master','manager']
-};
-function routeTo(name) {
-  if (!document.getElementById('screen-'+name)) name='overview';
-  const allow = SCREEN_ACCESS[name];
-  if (allow && (!currentUser || !allow.includes(currentUser.role))) {
-    // tidak berhak → overview
-    name='overview';
-  }
-  show(name, true);
+  await checkShelfLifeAlert();
 }
 
 // canEdit: master selalu bisa. manager hanya di home branch. karyawan hanya branch sendiri.
@@ -1193,6 +1186,7 @@ function selectBranch(b){
   loadStockNow();
   updateEditPermission();
   updateShipBadge();
+  checkShelfLifeAlert();
 }
 
 // ===== DATA LOADING =====
@@ -1201,7 +1195,7 @@ async function loadCategories() {
   if (!error&&data) categories = data;
 }
 async function loadProducts() {
-  const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price').order('sort_order');
+  const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price,shelf_life_days').order('sort_order');
   if (!error&&data) products = data;
 }
 async function loadSettings() {
@@ -1378,9 +1372,14 @@ function ovRowHtml(n, draggable=false) {
     ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>` : '';
   const canSeePrice = true;
   const hargaTxt = (canSeePrice && prod && prod.cost_price>0) ? ` · ${fmtRp(prod.cost_price)}/pcs` : '';
+  // shelf life alert
+  const alert = shelfAlerts[n];
+  let shelfBadge = '';
+  if (alert && alert.tarik > 0) shelfBadge = `<span style="font-size:10px;font-weight:700;background:var(--r-bg);color:var(--r);border-radius:5px;padding:2px 6px;margin-left:4px;">⚠️ Tarik ${alert.tarik}pcs</span>`;
+  else if (alert && alert.warning > 0) shelfBadge = `<span style="font-size:10px;font-weight:700;background:var(--y-bg);color:var(--y);border-radius:5px;padding:2px 6px;margin-left:4px;">⏰ Besok exp ${alert.warning}pcs</span>`;
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
-    <div class="ov-info"><div class="ov-name">${n}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}${hargaTxt}</div></div>
+    <div class="ov-info"><div class="ov-name">${n}${shelfBadge}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}${hargaTxt}</div></div>
     ${renameBtn}
     <div class="ov-now ${st}"><b>${s.now}</b><small>di rak</small></div>
   </div>`;
@@ -1470,21 +1469,141 @@ async function saveInput() {
   btn.disabled=true; const orig=btn.textContent; btn.textContent='Menyimpan...';
   let calls = [];
   if (inputMode==='masuk') {
-    const prodItems = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0).map(n=>({nama:n,qty:inputState[n].iProduksi}));
-    if (prodItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'produksi',p_items:prodItems}));
+    const masukProds = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0);
+    const prodItems = masukProds.map(n=>({nama:n,qty:inputState[n].iProduksi}));
+    if (prodItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:prodItems}));
+    // insert batch baru untuk tiap produk yang masuk
+    if (masukProds.length) {
+      const today = new Date().toISOString().slice(0,10);
+      const batchRows = masukProds.map(n => {
+        const prod = products.find(p=>p.name===n);
+        return { branch_id: branch, product_id: prod.id, batch_date: today, qty_in: inputState[n].iProduksi, qty_sold: 0 };
+      });
+      calls.push(sb.from('product_batches').insert(batchRows));
+    }
   } else {
     // simpan sisa hanya yang disentuh (beda dari stok sekarang) + retur > 0
     const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
     if (sisaItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
     const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
     if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
+    // setelah sisa dicatat, update qty_sold batch via FIFO
+    if (sisaItems.length) calls.push(updateBatchFIFO(sisaItems));
   }
   if (!calls.length) { btn.disabled=false; btn.textContent=orig; show('overview'); return; }
   const results = await Promise.all(calls);
   btn.disabled=false; btn.textContent=orig;
-  const err = results.find(r=>r.error);
+  const err = results.find(r=>r&&r.error);
   if (err){ alert('Gagal simpan: '+err.error.message); return; }
-  await loadStockNow(); show('overview');
+  await loadStockNow();
+  await checkShelfLifeAlert();
+  show('overview');
+}
+
+// FIFO: distribusi terjual ke batch dari yang terlama
+async function updateBatchFIFO(sisaItems) {
+  for (const item of sisaItems) {
+    const prod = products.find(p=>p.name===item.nama);
+    if (!prod) continue;
+    const { data: batches } = await sb.from('product_batches')
+      .select('*').eq('branch_id',branch).eq('product_id',prod.id)
+      .order('batch_date',{ascending:true});
+    if (!batches||!batches.length) continue;
+    const totalQtyIn = batches.reduce((s,b)=>s+b.qty_in,0);
+    const silaTotal = item.qty; // sisa sekarang
+    let terjualTotal = Math.max(0, totalQtyIn - silaTotal);
+    // distribusi terjual FIFO
+    for (const bat of batches) {
+      const terjualBatch = Math.min(terjualTotal, bat.qty_in);
+      await sb.from('product_batches').update({qty_sold: terjualBatch}).eq('id', bat.id);
+      terjualTotal -= terjualBatch;
+      if (terjualTotal <= 0) break;
+    }
+  }
+}
+
+// Cek batch expired/mendekati kedaluwarsa, simpan ke stockNow untuk ditampilkan
+async function checkShelfLifeAlert() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const { data: batches } = await sb.from('product_batches').select('*,products(name,shelf_life_days)').eq('branch_id',branch);
+  if (!batches) return;
+  shelfAlerts = {}; // reset
+  batches.forEach(b => {
+    const sisa = b.qty_in - b.qty_sold;
+    if (sisa <= 0) return;
+    const shelf = (b.products&&b.products.shelf_life_days) || 2;
+    const batchDate = new Date(b.batch_date);
+    batchDate.setHours(0,0,0,0);
+    const expDate = new Date(batchDate);
+    expDate.setDate(expDate.getDate() + shelf);
+    const diffDays = Math.floor((expDate - today) / 86400000);
+    const name = b.products ? b.products.name : '';
+    if (!name) return;
+    if (!shelfAlerts[name]) shelfAlerts[name] = {tarik:0, warning:0};
+    if (diffDays <= 0) shelfAlerts[name].tarik += sisa;
+    else if (diffDays === 1) shelfAlerts[name].warning += sisa;
+  });
+  updateShelfBadge();
+}
+
+function updateShelfBadge() {
+  const totalAlert = Object.values(shelfAlerts).reduce((s,v)=>s+v.tarik+v.warning,0);
+  const dot = document.getElementById('shelf-dot');
+  if (!dot) return;
+  if (totalAlert > 0) { dot.textContent = totalAlert>9?'9+':totalAlert; dot.classList.add('show'); }
+  else { dot.textContent=''; dot.classList.remove('show'); }
+}
+
+async function openShelfReport() {
+  show('shelf');
+  const wrap = document.getElementById('shelf-report-body');
+  wrap.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const { data: batches } = await sb.from('product_batches')
+    .select('*,products(name,shelf_life_days)').eq('branch_id',branch);
+  if (!batches||!batches.length) { wrap.innerHTML='<div class="empty">Tidak ada data batch</div>'; return; }
+  const rows = [];
+  batches.forEach(b => {
+    const sisa = b.qty_in - b.qty_sold;
+    if (sisa <= 0) return;
+    const shelf = (b.products&&b.products.shelf_life_days)||2;
+    const batchDate = new Date(b.batch_date); batchDate.setHours(0,0,0,0);
+    const expDate = new Date(batchDate); expDate.setDate(expDate.getDate()+shelf);
+    const diffDays = Math.floor((expDate-today)/86400000);
+    const name = b.products?b.products.name:'?';
+    rows.push({name, sisa, batchDate: b.batch_date, expDate, diffDays, shelf});
+  });
+  // urutkan: expired dulu, lalu warning, lalu aman
+  rows.sort((a,b)=>a.diffDays-b.diffDays);
+  const expired = rows.filter(r=>r.diffDays<=0);
+  const warning = rows.filter(r=>r.diffDays===1);
+  const aman = rows.filter(r=>r.diffDays>1);
+  const fmtD = iso => { const d=new Date(iso); return `${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`; };
+  let html = '';
+  if (expired.length) {
+    html += '<div class="section-label" style="color:var(--r)">🔴 Harus Ditarik Sekarang</div>';
+    html += '<div style="padding:0 16px">'+expired.map(r=>`<div class="ov-row zero" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="font-size:14px;font-weight:600">${r.name}</div>
+      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--r)">${r.sisa} pcs harus ditarik</b></div>
+    </div>`).join('')+'</div>';
+  }
+  if (warning.length) {
+    html += '<div class="section-label" style="color:var(--y)">🟡 Besok Kedaluwarsa</div>';
+    html += '<div style="padding:0 16px">'+warning.map(r=>`<div class="ov-row low" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="font-size:14px;font-weight:600">${r.name}</div>
+      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--y)">${r.sisa} pcs</b></div>
+    </div>`).join('')+'</div>';
+  }
+  if (aman.length) {
+    html += '<div class="section-label">🟢 Masih Aman</div>';
+    html += '<div style="padding:0 16px">'+aman.map(r=>`<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:4px">
+      <div style="font-size:14px;font-weight:600">${r.name}</div>
+      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · ${r.sisa} pcs · <b style="color:var(--g)">sisa ${r.diffDays} hari</b></div>
+    </div>`).join('')+'</div>';
+  }
+  if (!html) html = '<div class="empty">Semua stok aman 🎉</div>';
+  wrap.innerHTML = html;
 }
 
 // ===== KIRIM ROTI ANTAR BRANCH =====
@@ -1720,20 +1839,14 @@ function buildWaReport() {
 }
 
 // ===== ROUTER =====
-function show(name, fromHash) {
+function show(name) {
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
-  const el = document.getElementById('screen-'+name);
-  if (!el) return;
-  el.classList.add('active');
+  document.getElementById('screen-'+name).classList.add('active');
   if(name==='dashboard')loadDashboard();
   if(name==='admin')loadUsers();
   if(name==='products')loadProductManagement();
   if(name==='faq')renderFAQ();
   if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; }
-  // update URL hash (kecuali login/pending yang tidak perlu di-bookmark)
-  if(!fromHash && name!=='login' && name!=='pending'){
-    if(location.hash !== '#'+name) history.replaceState(null,'','#'+name);
-  }
   window.scrollTo(0,0);
 }
 
@@ -1791,7 +1904,10 @@ function renderProdManageList() {
         const priceRow = isMaster
           ? '<div class="prod-manage-price"><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:72px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="pm-pcs">/pcs</span><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
           : (p.cost_price>0 ? '<div class="prod-manage-price-ro">'+fmtRp(p.cost_price)+'/pcs</div>' : '');
-        return '<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
+        const shelfRow = isMaster
+          ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
+          : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
+        return '<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
       }).join('');
     }
   });
@@ -1804,6 +1920,15 @@ async function updateProductPrice(id, val, el) {
   const { error } = await sb.from('products').update({cost_price:price}).eq('id',id);
   if (error) { if(statusEl){statusEl.textContent='Gagal';statusEl.className='price-save-status err';} return; }
   const p = products.find(p=>p.id===id); if (p) p.cost_price = price;
+  if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
+}
+async function updateShelfLife(id, val, el) {
+  const days = Math.max(1, parseInt(val)||2);
+  const statusEl = document.getElementById('shelf-status-'+id);
+  if (statusEl) statusEl.textContent='...';
+  const { error } = await sb.from('products').update({shelf_life_days:days}).eq('id',id);
+  if (error) { if(statusEl){statusEl.textContent='Gagal';statusEl.className='price-save-status err';} return; }
+  const p = products.find(p=>p.id===id); if (p) p.shelf_life_days = days;
   if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
 }
 async function addCategory(){ const name=document.getElementById('new-cat-name').value.trim(); const el=document.getElementById('cat-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=categories.length?Math.max.apply(null,categories.map(c=>c.sort_order)):0; const {error}=await sb.from('categories').insert({name,sort_order:mo+1}); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';}else{el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-cat-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800);} }
@@ -1926,16 +2051,16 @@ function closeHelp(){ document.getElementById('help-modal').classList.remove('op
 var tourSteps={
   master:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat ringkasan: berapa produk habis, sedikit, dan aman saat ini.'},
-    {sel:'.action-row',title:'Catat Masuk & Sisa',text:'Tombol hijau untuk roti baru masuk. Tombol oranye untuk catat sisa stok.'},
-    {sel:'#sort-select',title:'Urutkan Produk',text:'Atur urutan produk. Tersimpan untuk akun kamu.'},
-    {sel:'#filter-pills',title:'Filter Cepat',text:'Saring produk by status: habis, sedikit, atau aman.'},
+    {sel:'.action-row',title:'Catat Masuk & Sisa',text:'Tombol hijau untuk roti baru masuk — otomatis buat batch baru untuk tracking kedaluwarsa. Tombol oranye untuk catat sisa stok.'},
+    {sel:'#shelf-btn',title:'🏷️ Laporan Kedaluwarsa',text:'Ikon label di pojok kanan atas. Badge merah muncul kalau ada produk yang sudah atau hampir kedaluwarsa. Tap untuk lihat detailnya.'},
+    {sel:'#filter-pills',title:'Filter Cepat',text:'Saring produk by status: habis, sedikit, atau aman. Produk yang perlu ditarik juga akan ditandai langsung di daftar.'},
     {sel:'#dashboard-btn',title:'Dashboard',text:'Lihat produk paling laku & riwayat harian.'}
   ],
   karyawan:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat berapa produk habis, sedikit, dan aman saat ini.'},
-    {sel:'.action-row',title:'Catat Masuk',text:'Pagi, catat roti baru pakai tombol hijau.'},
-    {sel:'.action-row',title:'Catat Sisa',text:'Sore, catat sisa stok pakai tombol oranye.'},
-    {sel:'#sort-select',title:'Urutkan',text:'Atur urutan produk biar gampang dicari.'}
+    {sel:'.action-row',title:'Catat Masuk',text:'Pagi, catat roti baru pakai tombol hijau. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa.'},
+    {sel:'.action-row',title:'Catat Sisa',text:'Sore, catat sisa stok pakai tombol oranye. Sistem akan otomatis hitung produk mana yang perlu ditarik dari rak.'},
+    {sel:'#shelf-btn',title:'🏷️ Cek Kedaluwarsa',text:'Lihat ikon label 🏷️ di kanan atas. Kalau ada badge merah atau kuning, ada produk yang perlu diperhatikan — segera cek!'}
   ]
 };
 var tourIdx=0;
@@ -1953,18 +2078,21 @@ function tourNext(){ const steps=tourSteps[helpRole()]; if(tourIdx<steps.length-
 function endTour(){ document.getElementById('tour-overlay').classList.remove('open'); }
 var faqContent={
   master:[
-    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: klik <b>Catat Masuk</b>. Stok kemarin otomatis terisi, tinggal isi produksi baru.</div></div><div class="faq-step"><span class="num">2</span><div>Sore/tutup: klik <b>Catat Sisa</b>, koreksi sisa di rak (tombol Habis untuk 0), isi retur kalau ada.</div></div><div class="faq-step"><span class="num">3</span><div>Terjual dihitung otomatis: (stok kemarin + produksi) \u2212 sisa \u2212 retur.</div></div>'},
-    {q:'Apa itu stok kemarin, produksi, sisa, retur?',a:'<b>Stok kemarin</b> = sisa kemarin yang masih dijual. <b>Produksi</b> = roti baru hari ini. <b>Sisa</b> = yang masih di rak. <b>Retur</b> = dikembalikan ke produksi. <b>Terjual</b> = (kemarin+produksi) \u2212 sisa \u2212 retur.'},
+    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: klik <b>Catat Masuk</b>. Isi jumlah produksi baru — sistem otomatis catat batch + tanggal masuk.</div></div><div class="faq-step"><span class="num">2</span><div>Sore/tutup: klik <b>Catat Sisa</b>, koreksi sisa di rak (tombol Habis untuk 0). Sistem langsung hitung produk mana yang perlu ditarik.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge merah/kuning, ada produk kedaluwarsa atau hampir exp.</div></div>'},
+    {q:'Apa itu sistem kedaluwarsa (shelf life)?',a:'Tiap produk punya batas waktu jual (<b>shelf life</b>), default 2 hari. Setiap kali <b>Catat Masuk</b>, sistem mencatat tanggalnya sebagai batch baru. Saat <b>Catat Sisa</b>, sistem FIFO otomatis hitung batch mana yang sudah habis masa jualnya.<br><br><b>Status batch:</b><br>🟢 Aman — masih dalam batas waktu<br>🟡 Besok kedaluwarsa — H-1<br>🔴 Harus ditarik — sudah melewati shelf life'},
+    {q:'Cara atur shelf life tiap produk?',a:'Buka <b>Admin → Kelola Produk</b>. Tiap produk ada field ⏰ X hari — ubah sesuai kebutuhan. Contoh: Srikaya 2 hari, Roti Tawar 7 hari. Hanya Master yang bisa mengubah.'},
+    {q:'Apa itu stok kemarin, masuk, sisa, retur?',a:'<b>Stok kemarin</b> = sisa kemarin. <b>Masuk</b> = roti baru hari ini (sekaligus buat batch baru). <b>Sisa</b> = yang masih di rak. <b>Retur</b> = dikembalikan. <b>Terjual</b> = (kemarin+masuk) \u2212 sisa \u2212 retur.'},
     {q:'Bagaimana atur urutan produk?',a:'Pakai dropdown sort. Ada by stok, nama, terbaru, atau <b>manual</b> (drag). Tersimpan khusus akun kamu.'},
-    {q:'Apa isi Dashboard?',a:'Ranking <b>paling laku</b> + <b>riwayat harian</b> lengkap (kemarin, produksi, sisa, retur, terjual). Klik hari untuk timeline, klik jam untuk detail roti.'},
+    {q:'Apa isi Dashboard?',a:'Ranking <b>paling laku</b> + <b>riwayat harian</b> lengkap (kemarin, masuk, sisa, retur, terjual). Klik hari untuk timeline, klik jam untuk detail roti.'},
     {q:'Cara approve karyawan?',a:'Menu <b>Admin</b>. Karyawan login Google muncul "pending" \u2014 klik Approve.'},
-    {q:'Cara tambah produk/kategori?',a:'Admin \u2192 <b>Kelola Produk & Kategori</b>.'}
+    {q:'Cara tambah produk/kategori?',a:'Admin \u2192 <b>Kelola Produk & Kategori</b>. Shelf life bisa langsung diatur di sana.'}
   ],
   karyawan:[
-    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: <b>Catat Masuk</b>. Cek stok kemarin (auto), isi produksi baru.</div></div><div class="faq-step"><span class="num">2</span><div>Sore: <b>Catat Sisa</b>, koreksi sisa di rak + isi retur kalau ada.</div></div>'},
-    {q:'Cara catat roti masuk?',a:'Klik tombol hijau <b>Catat Masuk</b>. Stok kemarin sudah terisi otomatis, tinggal isi <b>produksi baru</b> tiap produk, lalu Simpan.'},
+    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: <b>Catat Masuk</b>. Isi jumlah roti baru tiap produk, lalu Simpan.</div></div><div class="faq-step"><span class="num">2</span><div>Sore: <b>Catat Sisa</b>, koreksi sisa di rak + isi retur kalau ada.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge, ada roti yang perlu ditarik dari rak.</div></div>'},
+    {q:'Cara catat roti masuk?',a:'Klik tombol hijau <b>Catat Masuk</b>. Isi jumlah <b>produksi baru</b> tiap produk, lalu Simpan. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa — kamu tidak perlu melakukan apapun lagi.'},
     {q:'Cara catat sisa & retur?',a:'Klik tombol oranye <b>Catat Sisa</b>. Sisa sudah terisi dari stok sekarang, koreksi pakai +/\u2212 atau tombol <b>Habis</b>. Isi <b>retur</b> kalau ada yang dikembalikan. Simpan.'},
-    {q:'Cara cari produk?',a:'Pakai kotak "Cari produk..." atau filter status.'}
+    {q:'Apa arti tanda ⚠️ atau ⏰ di produk?',a:'<b>⚠️ Tarik Xpcs</b> = produk itu sudah kedaluwarsa, segera tarik dari rak sebanyak yang tertera.<br><b>⏰ Besok exp Xpcs</b> = besok kedaluwarsa, prioritaskan jual hari ini.<br><br>Klik ikon 🏷️ di pojok kanan atas untuk lihat laporan lengkap.'},
+    {q:'Cara cari produk?',a:'Pakai kotak "Cari produk..." atau filter status di bawahnya.'}
   ]
 };
 function renderFAQ(){ const items=faqContent[helpRole()]; document.getElementById('faq-body').innerHTML='<p style="font-size:12px;color:var(--text3);margin-bottom:14px">'+(helpRole()==='master'?'Panduan lengkap semua fitur':'Panduan cara input stok harian')+'</p>'+items.map(function(f,i){return '<div class="faq-item" id="faq-'+i+'"><div class="faq-q" onclick="toggleFaq('+i+')">'+f.q+'<span class="fchev">\u25BC</span></div><div class="faq-a">'+f.a+'</div></div>';}).join(''); }
@@ -1978,16 +2106,6 @@ sb.auth.onAuthStateChange(function(event,session){
   }
 });
 setTimeout(function(){ if(document.getElementById('screen-login').classList.contains('active')) checkSession(); },2500);
-
-// Hash routing: back button / ubah hash manual saat sudah login
-window.addEventListener('hashchange', function(){
-  if (!currentUser) return; // belum login, biarkan
-  if (window.location.hash.indexOf('access_token')>-1) return; // token OAuth, abaikan
-  const name = location.hash ? location.hash.slice(1) : 'overview';
-  const cur = document.querySelector('.screen.active');
-  if (cur && cur.id === 'screen-'+name) return; // sudah di situ
-  routeTo(name);
-});
 // ===================================================================
 // ===================== ABSEN & JADWAL (baru) ======================
 // ===================================================================
