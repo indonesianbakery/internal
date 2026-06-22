@@ -802,6 +802,17 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
       </div>
     </div>
 
+    <div class="section-label" id="default-branch-section" style="display:none">Cabang Default</div>
+    <div class="add-card" id="default-branch-card" style="display:none">
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px">Cabang yang otomatis aktif saat kamu login.</div>
+      <select class="form-input" id="prof-default-branch">
+        <option value="melur">Jl. Melur</option>
+        <option value="delima">Jl. Delima</option>
+      </select>
+      <button class="add-btn" onclick="saveDefaultBranch()">Simpan</button>
+      <div class="add-status" id="default-branch-status"></div>
+    </div>
+
     <div class="section-label" style="color:var(--text3)">Akan datang</div>
     <div class="add-card" style="opacity:.55">
       <div style="font-size:13px;color:var(--text2)">📅 Cuti & izin · 💰 Gaji — segera hadir</div>
@@ -1215,6 +1226,10 @@ async function loadUserPrefs() {
     document.getElementById('sort-select').value = sortMode;
     currentUser.font = data.font_size || 'm';
     applyFont(currentUser.font);
+    if (data.default_branch && (currentUser.role==='master'||currentUser.role==='manager')) {
+      branch = data.default_branch;
+      currentUser.homeBranch = data.default_branch;
+    }
   } else {
     initManualOrder();
     applyFont('m');
@@ -1999,6 +2014,11 @@ function openProfile() {
   document.querySelectorAll('#font-row .period-btn').forEach(b=>{
     b.classList.toggle('active', b.textContent.toLowerCase()===({s:'kecil',m:'normal',l:'besar',xl:'xl'})[f]);
   });
+  // cabang default — hanya master/manager
+  const isFullAccess = currentUser.role==='master'||currentUser.role==='manager';
+  document.getElementById('default-branch-section').style.display = isFullAccess ? '' : 'none';
+  document.getElementById('default-branch-card').style.display = isFullAccess ? '' : 'none';
+  if (isFullAccess) document.getElementById('prof-default-branch').value = branch;
   show('profile');
 }
 async function saveProfileName() {
@@ -2016,8 +2036,7 @@ async function saveProfileCreds() {
   const u = document.getElementById('prof-username').value.trim().toLowerCase();
   const pin = document.getElementById('prof-pin').value.trim();
   const el = document.getElementById('prof-creds-status');
-  if (u && /\s/.test(u)) { el.textContent='Username tidak boleh ada spasi'; el.className='add-status err'; return; }
-  if (pin && pin.length!==4) { el.textContent='PIN harus 4 digit'; el.className='add-status err'; return; }
+  if (u && /\s/.test(u)) { el.textContent='Username tidak boleh ada spasi'; el.className='add-status err'; return; }  if (pin && pin.length!==4) { el.textContent='PIN harus 4 digit'; el.className='add-status err'; return; }
   if (!currentUser.id) { el.textContent='Akun ini belum terhubung Google'; el.className='add-status err'; return; }
   const upd = {};
   if (u) upd.username = u;
@@ -2028,6 +2047,16 @@ async function saveProfileCreds() {
   if (u) currentUser.username = u;
   el.textContent='✓ Tersimpan. Sekarang bisa login pakai username+PIN'; el.className='add-status ok';
   document.getElementById('prof-pin').value='';
+}
+async function saveDefaultBranch() {
+  const val = document.getElementById('prof-default-branch').value;
+  const el = document.getElementById('default-branch-status');
+  const { error } = await sb.from('user_preferences').upsert({
+    user_id: currentUser.id, default_branch: val, updated_at: new Date().toISOString()
+  });
+  if (error) { el.textContent='Gagal'; el.className='add-status err'; return; }
+  el.textContent='✓ Tersimpan'; el.className='add-status ok';
+  setTimeout(()=>el.textContent='',1500);
 }
 
 // ===== FONT (per user, simpan di preferences) =====
