@@ -22,8 +22,8 @@
   --bg:#F4F7F5; --surface:#FFFFFF; --border:#DDE8E2;
   --text:#1A2E24; --text2:#4A6B58; --text3:#8BA898; --rad:14px; --rad-sm:9px;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
-html,body{height:100%;touch-action:manipulation;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;max-width:480px;margin:0 auto;}
 body.font-s{zoom:0.9;}
 body.font-m{zoom:1;}
@@ -69,10 +69,7 @@ body.font-xl{zoom:1.25;}
 .brand{display:flex;align-items:center;gap:8px;color:#fff;font-weight:600;font-size:15px;}
 .brand .logo{width:28px;height:28px;background:rgba(255,255,255,.18);border-radius:8px;display:flex;align-items:center;justify-content:center;}
 .top-actions{display:flex;gap:6px;}
-.top-btn{position:relative;background:rgba(255,255,255,0.14);border:none;border-radius:8px;padding:6px 10px;color:#fff;font-size:12px;font-family:inherit;cursor:pointer;}
-.notif-dot{position:absolute;top:1px;right:1px;min-width:8px;height:8px;border-radius:8px;background:var(--r);border:1.5px solid var(--g);display:none;font-size:9px;line-height:8px;color:#fff;font-weight:700;}
-.notif-dot.show{display:block;}
-.notif-dot.count{padding:0 3px;top:-3px;right:-3px;}
+.top-btn{background:rgba(255,255,255,0.14);border:none;border-radius:8px;padding:6px 10px;color:#fff;font-size:12px;font-family:inherit;cursor:pointer;}
 
 /* BRANCH DROPDOWN */
 .branch-select-wrap{position:relative;}
@@ -161,10 +158,10 @@ body.font-xl{zoom:1.25;}
 
 /* INPUT */
 .mode-banner{padding:12px 16px;display:flex;align-items:center;gap:10px;}
-.mode-banner.in{background:var(--in-bg);}.mode-banner.out{background:var(--out-bg);}.mode-banner.ship{background:var(--b-bg);}
+.mode-banner.in{background:var(--in-bg);}.mode-banner.out{background:var(--out-bg);}
 .mode-banner .ic{font-size:20px;}
 .mode-banner .t1{font-size:14px;font-weight:600;}
-.mode-banner.in .t1{color:var(--in);}.mode-banner.out .t1{color:var(--out);}.mode-banner.ship .t1{color:var(--b);}
+.mode-banner.in .t1{color:var(--in);}.mode-banner.out .t1{color:var(--out);}
 .mode-banner .t2{font-size:11px;color:var(--text2);margin-top:1px;}
 .in-row2{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px;margin:0 16px 6px;}
 .in-row2 .in-name{font-size:14px;font-weight:500;margin-bottom:8px;}
@@ -210,27 +207,7 @@ body.font-xl{zoom:1.25;}
 .bottombar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:white;border-top:1px solid var(--border);padding:10px 16px calc(10px + env(safe-area-inset-bottom));display:flex;gap:8px;}
 .bb-cancel{padding:14px 18px;border:1.5px solid var(--border);background:white;border-radius:var(--rad);font-family:inherit;font-size:14px;color:var(--text2);cursor:pointer;}
 .save-btn{flex:1;padding:14px;color:white;border:none;border-radius:var(--rad);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
-.save-in{background:var(--in);}.save-out{background:var(--out);}.save-ship{background:var(--b);}
-
-.ship-tabs{display:flex;gap:6px;padding:10px 16px 4px;}
-.ship-tab{flex:1;padding:9px;border-radius:var(--rad-sm);border:1.5px solid var(--border);background:white;font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;text-align:center;}
-.ship-tab.active{background:var(--g);border-color:var(--g);color:white;}
-.ship-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin:0 16px 8px;cursor:pointer;}
-.ship-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;}
-.ship-route{font-size:13px;font-weight:600;}
-.ship-date{font-size:11px;color:var(--text3);margin-top:1px;}
-.ship-status{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:600;white-space:nowrap;flex-shrink:0;}
-.ship-status.pending{background:var(--y-bg);color:var(--y);}
-.ship-status.confirmed{background:var(--g-bg);color:var(--g3);}
-.ship-status.selisih{background:var(--r-bg);color:var(--r);}
-.ship-meta{font-size:12px;color:var(--text2);}
-.kirim-row{padding:10px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.kirim-name{flex:1;font-size:14px;}
-.kirim-sub{font-size:11px;color:var(--text3);margin-top:2px;}
-.ship-detail-row{display:flex;justify-content:space-between;align-items:center;padding:9px 16px;border-bottom:1px solid var(--border);font-size:13px;}
-.ship-detail-name{flex:1;}
-.ship-detail-qty{font-family:'DM Mono',monospace;color:var(--text2);font-size:12px;}
-.ship-detail-qty.mismatch{color:var(--r);font-weight:600;}
+.save-in{background:var(--in);}.save-out{background:var(--out);}
 .save-btn:disabled{background:var(--border);color:var(--text3);}
 .status{text-align:center;font-size:12px;color:var(--text3);min-height:16px;}
 .status.ok{color:var(--g3);}.status.err{color:var(--r);}
@@ -298,12 +275,6 @@ body.font-xl{zoom:1.25;}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
-.prod-manage-price{display:flex;align-items:center;gap:4px;margin-top:5px;}
-.prod-manage-price .pm-rp,.prod-manage-price .pm-pcs{font-size:11px;color:var(--text3);}
-.prod-manage-price .mini-input{width:72px;}
-.prod-manage-price-ro{font-size:11px;color:var(--text3);margin-top:3px;}
-.price-save-status{font-size:11px;color:var(--text3);min-width:14px;}
-.price-save-status.ok{color:var(--g3);}.price-save-status.err{color:var(--r);}
 .prod-manage-name{flex:1;font-size:13px;}
 .inactive-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--r-bg);color:var(--r);}
 
@@ -517,8 +488,6 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
       <div class="brand" onclick="openProfile()" style="cursor:pointer"><span class="logo">🍞</span> <span id="user-name-lbl">Indonesian Bakery</span> <span style="font-size:10px;opacity:.6">▾</span></div>
       <div class="top-actions">
         <button class="top-btn" onclick="openHelp()">❓</button>
-        <button class="top-btn" id="kirim-btn" onclick="openKirim()" style="display:none">📦</button>
-        <button class="top-btn" id="ship-btn" onclick="openShipments()" style="display:none">🔔<span class="notif-dot count" id="ship-dot"></span></button>
         <button class="top-btn" id="absen-btn" onclick="openAbsen()" style="display:none">🕒</button>
         <button class="top-btn" id="dashboard-btn" onclick="show('dashboard')" style="display:none">📊</button>
         <button class="top-btn" id="admin-btn" onclick="show('admin')" style="display:none">⚙️</button>
@@ -592,54 +561,6 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
   <div class="bottombar">
     <button class="bb-cancel" onclick="show('overview')">Batal</button>
     <button class="save-btn" id="input-save" onclick="saveInput()">💾 Simpan</button>
-  </div>
-</div>
-
-<!-- KIRIM ROTI -->
-<div id="screen-kirim" class="screen">
-  <div class="sub-header">
-    <button class="back-btn" onclick="show('overview')">← Batal</button>
-    <span class="sub-title">Kirim Roti</span>
-  </div>
-  <div class="mode-banner ship">
-    <span class="ic">📦</span>
-    <div class="txt"><div class="t1">Kirim dari Jl. Melur ke <span id="kirim-target-lbl">-</span></div><div class="t2">Pilih produk &amp; jumlah yang dikirim</div></div>
-  </div>
-  <div class="controls" style="padding:10px 16px 0">
-    <select class="sort-select" id="kirim-target-select" onchange="setKirimTarget(this.value)" style="width:100%"></select>
-  </div>
-  <div class="controls"><input class="search-inp" id="kirim-search" type="search" placeholder="Cari produk..." oninput="renderKirimList(this.value)"></div>
-  <div id="kirim-list" style="padding-bottom:120px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
-  <div class="bottombar" style="flex-direction:column;gap:6px;">
-    <div id="kirim-summary" style="font-size:12px;color:var(--text2);text-align:center;width:100%">0 item dipilih</div>
-    <div style="display:flex;gap:8px;width:100%">
-      <button class="bb-cancel" onclick="show('overview')">Batal</button>
-      <button class="save-btn save-ship" id="kirim-save" onclick="saveKirim()">📦 Kirim</button>
-    </div>
-  </div>
-</div>
-
-<!-- DAFTAR PENGIRIMAN / NOTIFIKASI -->
-<div id="screen-shipments" class="screen">
-  <div class="sub-header">
-    <button class="back-btn" onclick="show('overview')">← Kembali</button>
-    <span class="sub-title">Pengiriman Roti</span>
-  </div>
-  <div class="ship-tabs" id="ship-tabs"></div>
-  <div id="ship-list" style="padding-bottom:40px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
-</div>
-
-<!-- KONFIRMASI PENGIRIMAN -->
-<div class="modal-overlay" id="confirm-ship-modal">
-  <div class="modal-sheet">
-    <div class="modal-title">Konfirmasi Penerimaan</div>
-    <div class="modal-sub" id="confirm-ship-sub">Cek jumlah yang diterima, koreksi kalau beda</div>
-    <div id="confirm-ship-list" style="max-height:50vh;overflow-y:auto;margin:0 -20px;"></div>
-    <div class="modal-status" id="confirm-ship-status"></div>
-    <div class="modal-actions">
-      <button class="modal-cancel" onclick="closeConfirmShipModal()">Batal</button>
-      <button class="modal-save" id="confirm-ship-save" onclick="submitConfirmShipment()">✓ Konfirmasi</button>
-    </div>
   </div>
 </div>
 
@@ -1027,15 +948,6 @@ let manualItemOrder = {};
 let manualEditMode = false;
 let dashPeriod = 7;
 
-// ===== KIRIM ROTI ANTAR BRANCH =====
-let kirimItems = {};      // { product_id: qty }
-let kirimTarget = '';
-let activeShipmentId = null;
-let confirmItems = {};    // { product_id: qty_received }
-let shipTab = 'masuk';    // 'masuk' | 'kirim'
-function fmtRp(n){ return 'Rp'+Math.round(n||0).toLocaleString('id-ID'); }
-function canSendShipment(){ return !!currentUser && (currentUser.role==='master' || (currentUser.role==='manager' && currentUser.homeBranch==='melur')); }
-
 // ===== AUTH =====
 function switchLoginTab(tab) {
   document.querySelectorAll('.login-tab').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='pin')||(i===1&&tab==='google')));
@@ -1098,8 +1010,6 @@ async function afterLogin() {
   document.getElementById('admin-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('absen-btn').style.display = currentUser.role==='master' ? 'none' : '';
-  document.getElementById('kirim-btn').style.display = canSendShipment() ? '' : 'none';
-  document.getElementById('ship-btn').style.display = '';
 
   renderBranchMenu();
   show('overview');
@@ -1109,7 +1019,6 @@ async function afterLogin() {
   await loadUserPrefs();
   await loadStockNow();
   updateEditPermission();
-  updateShipBadge();
 }
 
 // canEdit: master selalu bisa. manager hanya di home branch. karyawan hanya branch sendiri.
@@ -1172,7 +1081,6 @@ function selectBranch(b){
   renderBranchMenu();
   loadStockNow();
   updateEditPermission();
-  updateShipBadge();
 }
 
 // ===== DATA LOADING =====
@@ -1181,7 +1089,7 @@ async function loadCategories() {
   if (!error&&data) categories = data;
 }
 async function loadProducts() {
-  const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price').order('sort_order');
+  const { data, error } = await sb.from('products').select('id,name,category_id,is_active').order('sort_order');
   if (!error&&data) products = data;
 }
 async function loadSettings() {
@@ -1211,7 +1119,7 @@ function initManualOrder() {
   manualCatOrder = categories.map(c=>c.id);
   manualItemOrder = {};
   categories.forEach(c => {
-    manualItemOrder[c.id] = products.filter(p=>p.category_id===c.id).map(p=>p.name);
+    manualItemOrder[c.id] = products.filter(p=>p.category_id===c.id && p.is_active!==false).map(p=>p.name);
   });
 }
 async function saveUserPrefs() {
@@ -1311,7 +1219,7 @@ function renderOverview(filter='') {
     const nameInCat = (cat) => {
       let arr = sortMode==='manual' && manualItemOrder[cat.id]
         ? manualItemOrder[cat.id].filter(n=>stockNow[n]!==undefined)
-        : products.filter(p=>p.category_id===cat.id).map(p=>p.name).filter(n=>stockNow[n]!==undefined);
+        : products.filter(p=>p.category_id===cat.id && p.is_active!==false).map(p=>p.name).filter(n=>stockNow[n]!==undefined);
       arr = arr.filter(n=>n.toLowerCase().includes(filter.toLowerCase()));
       if (ovFilter!=='all') arr = arr.filter(n=>statusOf(stockNow[n].now)===ovFilter);
       return arr;
@@ -1356,11 +1264,9 @@ function ovRowHtml(n, draggable=false) {
   const prod = products.find(p=>p.name===n);
   const renameBtn = (currentUser.role==='master'&&prod&&!draggable)
     ? `<button class="rename-btn" onclick="openRenameModal(${prod.id},'${n.replace(/'/g,"\\'")}')">✏️</button>` : '';
-  const canSeePrice = true;
-  const hargaTxt = (canSeePrice && prod && prod.cost_price>0) ? ` · ${fmtRp(prod.cost_price)}/pcs` : '';
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
-    <div class="ov-info"><div class="ov-name">${n}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}${hargaTxt}</div></div>
+    <div class="ov-info"><div class="ov-name">${n}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}</div></div>
     ${renameBtn}
     <div class="ov-now ${st}"><b>${s.now}</b><small>di rak</small></div>
   </div>`;
@@ -1467,173 +1373,6 @@ async function saveInput() {
   await loadStockNow(); show('overview');
 }
 
-// ===== KIRIM ROTI ANTAR BRANCH =====
-function openKirim() {
-  if (!canSendShipment()) return;
-  kirimItems = {};
-  const opts = Object.keys(BRANCHES).filter(b=>b!=='melur');
-  kirimTarget = opts[0]||'';
-  const sel = document.getElementById('kirim-target-select');
-  sel.innerHTML = opts.map(b=>'<option value="'+b+'">'+BRANCHES[b]+'</option>').join('');
-  sel.value = kirimTarget;
-  document.getElementById('kirim-target-lbl').textContent = BRANCHES[kirimTarget]||'-';
-  document.getElementById('kirim-search').value = '';
-  show('kirim');
-  renderKirimList();
-}
-function setKirimTarget(b) {
-  kirimTarget = b;
-  document.getElementById('kirim-target-lbl').textContent = BRANCHES[b]||'-';
-}
-function renderKirimList(filter='') {
-  filter = filter||'';
-  const wrap = document.getElementById('kirim-list');
-  let html = '';
-  categories.forEach(cat => {
-    const prods = products.filter(p=>p.category_id===cat.id && p.is_active!==false && p.name.toLowerCase().includes(filter.toLowerCase()));
-    if (!prods.length) return;
-    html += '<div class="cat-header">'+cat.name+'</div>';
-    prods.forEach(p => {
-      const qty = kirimItems[p.id]||0;
-      const harga = p.cost_price ? '<div class="kirim-sub">'+fmtRp(p.cost_price)+'/pcs'+(qty>0?' · subtotal '+fmtRp(p.cost_price*qty):'')+'</div>' : '';
-      html += '<div class="kirim-row"><div><div class="kirim-name">'+p.name+'</div>'+harga+'</div>'
-        +'<div class="mini-qc produksi"><button class="mini-qb" onclick="adjKirim('+p.id+',-1)">−</button><input class="mini-qn" type="number" value="'+qty+'" onchange="setKirim('+p.id+',this.value)"><button class="mini-qb" onclick="adjKirim('+p.id+',1)">+</button></div></div>';
-    });
-  });
-  wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
-  updateKirimSummary();
-}
-function adjKirim(id,d){ kirimItems[id]=Math.max(0,(kirimItems[id]||0)+d); renderKirimList(document.getElementById('kirim-search').value); }
-function setKirim(id,v){ kirimItems[id]=Math.max(0,parseInt(v)||0); renderKirimList(document.getElementById('kirim-search').value); }
-function updateKirimSummary() {
-  const ids = Object.keys(kirimItems).filter(id=>kirimItems[id]>0);
-  const totalItem = ids.reduce((s,id)=>s+kirimItems[id],0);
-  const totalModal = ids.reduce((s,id)=>{ const p=products.find(p=>p.id==id); return s+(p&&p.cost_price?p.cost_price*kirimItems[id]:0); },0);
-  document.getElementById('kirim-summary').textContent = ids.length+' produk · '+totalItem+' pcs'+(totalModal>0?' · Modal '+fmtRp(totalModal):'');
-}
-async function saveKirim() {
-  const items = Object.keys(kirimItems).filter(id=>kirimItems[id]>0).map(id=>({product_id:parseInt(id),qty:kirimItems[id]}));
-  if (!items.length) { alert('Pilih minimal 1 produk dulu'); return; }
-  if (!kirimTarget) { alert('Pilih cabang tujuan'); return; }
-  const btn = document.getElementById('kirim-save');
-  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Mengirim...';
-  const { error } = await sb.rpc('create_shipment', {
-    p_from_branch: 'melur', p_to_branch: kirimTarget,
-    p_sender_id: currentUser.id||null, p_sender_name: currentUser.nama,
-    p_note: null, p_items: items
-  });
-  btn.disabled = false; btn.textContent = orig;
-  if (error) { alert('Gagal kirim: '+error.message); return; }
-  alert('Terkirim ke '+BRANCHES[kirimTarget]+'! Karyawan di sana akan dapat notif buat konfirmasi.');
-  show('overview');
-}
-
-// ===== DAFTAR / KONFIRMASI PENGIRIMAN =====
-let confirmShipmentItems = [];
-let confirmReadonly = false;
-
-async function updateShipBadge() {
-  if (!currentUser) return;
-  const { count } = await sb.from('shipments').select('id',{count:'exact',head:true}).eq('to_branch',branch).eq('status','pending');
-  const dot = document.getElementById('ship-dot');
-  if (count>0) { dot.textContent = count>9?'9+':count; dot.classList.add('show'); }
-  else { dot.textContent=''; dot.classList.remove('show'); }
-}
-function openShipments() {
-  shipTab = 'masuk';
-  renderShipTabs();
-  show('shipments');
-  loadShipMasuk();
-}
-function renderShipTabs() {
-  const wrap = document.getElementById('ship-tabs');
-  let html = '<button class="ship-tab '+(shipTab==='masuk'?'active':'')+'" onclick="setShipTab(\'masuk\')">📥 Masuk — '+BRANCHES[branch]+'</button>';
-  if (canSendShipment()) html += '<button class="ship-tab '+(shipTab==='kirim'?'active':'')+'" onclick="setShipTab(\'kirim\')">📤 Terkirim</button>';
-  wrap.innerHTML = html;
-}
-function setShipTab(t) { shipTab=t; renderShipTabs(); if(t==='masuk') loadShipMasuk(); else loadShipKirim(); }
-async function loadShipMasuk() {
-  document.getElementById('ship-list').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
-  const { data } = await sb.from('shipments').select('*').eq('to_branch',branch).order('created_at',{ascending:false}).limit(50);
-  renderShipList(data||[], true);
-}
-async function loadShipKirim() {
-  document.getElementById('ship-list').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
-  const { data } = await sb.from('shipments').select('*').eq('from_branch','melur').order('created_at',{ascending:false}).limit(50);
-  renderShipList(data||[], false);
-}
-function shipStatusBadge(s) {
-  if (s==='pending') return '<span class="ship-status pending">Menunggu</span>';
-  if (s==='confirmed_selisih') return '<span class="ship-status selisih">Ada Selisih</span>';
-  if (s==='confirmed') return '<span class="ship-status confirmed">Dikonfirmasi</span>';
-  return '<span class="ship-status">'+s+'</span>';
-}
-function renderShipList(rows, isInbox) {
-  const wrap = document.getElementById('ship-list');
-  if (!rows.length) { wrap.innerHTML = '<div class="empty">Belum ada pengiriman</div>'; return; }
-  wrap.innerHTML = rows.map(s => {
-    const dt = new Date(s.created_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    const route = isInbox ? ('Dari '+BRANCHES[s.from_branch]) : ('Ke '+BRANCHES[s.to_branch]);
-    const clickable = isInbox && s.status==='pending' && canEdit();
-    const meta = s.total_modal>0 ? 'Modal '+fmtRp(s.total_modal) : '';
-    return '<div class="ship-card" onclick="'+(clickable?'openConfirmShipment('+s.id+')':'viewShipmentDetail('+s.id+')')+'">'
-      +'<div class="ship-card-top"><div><div class="ship-route">'+route+'</div><div class="ship-date">'+dt+'</div></div>'+shipStatusBadge(s.status)+'</div>'
-      +'<div class="ship-meta">'+meta+(s.sender_name?' · oleh '+s.sender_name:'')+'</div>'
-      +(clickable?'<div style="font-size:11px;color:var(--b);font-weight:600;margin-top:6px;">Tap untuk konfirmasi →</div>':'')
-      +'</div>';
-  }).join('');
-}
-async function openConfirmShipment(id, readonly) {
-  readonly = !!readonly;
-  activeShipmentId = id;
-  confirmReadonly = readonly;
-  const { data, error } = await sb.from('shipment_items').select('product_id,qty_sent,qty_received,products(name)').eq('shipment_id',id);
-  if (error || !data) { alert('Gagal memuat detail'); return; }
-  confirmShipmentItems = data;
-  confirmItems = {};
-  data.forEach(r => { confirmItems[r.product_id] = (r.qty_received!=null ? r.qty_received : r.qty_sent); });
-  renderConfirmList();
-  document.getElementById('confirm-ship-status').textContent='';
-  document.getElementById('confirm-ship-sub').textContent = readonly ? 'Detail pengiriman' : 'Cek jumlah yang diterima, koreksi kalau beda';
-  document.getElementById('confirm-ship-save').style.display = readonly ? 'none' : '';
-  document.querySelector('#confirm-ship-modal .modal-cancel').textContent = readonly ? 'Tutup' : 'Batal';
-  document.getElementById('confirm-ship-modal').classList.add('open');
-}
-function renderConfirmList() {
-  const wrap = document.getElementById('confirm-ship-list');
-  wrap.innerHTML = confirmShipmentItems.map(r => {
-    const nm = r.products ? r.products.name : '?';
-    if (confirmReadonly) {
-      const recv = r.qty_received!=null ? r.qty_received : '-';
-      const mismatch = r.qty_received!=null && r.qty_received!==r.qty_sent;
-      return '<div class="ship-detail-row"><div class="ship-detail-name">'+nm+'</div><div class="ship-detail-qty'+(mismatch?' mismatch':'')+'">kirim '+r.qty_sent+' → terima '+recv+'</div></div>';
-    }
-    const qty = confirmItems[r.product_id];
-    return '<div class="ship-detail-row"><div class="ship-detail-name">'+nm+' <span style="color:var(--text3);font-size:11px">(kirim '+r.qty_sent+')</span></div>'
-      +'<div class="mini-qc produksi"><button class="mini-qb" onclick="adjConfirmQty('+r.product_id+',-1)">−</button><input class="mini-qn" type="number" value="'+qty+'" onchange="setConfirmQty('+r.product_id+',this.value)"><button class="mini-qb" onclick="adjConfirmQty('+r.product_id+',1)">+</button></div></div>';
-  }).join('');
-}
-function adjConfirmQty(pid,d){ confirmItems[pid]=Math.max(0,(confirmItems[pid]||0)+d); renderConfirmList(); }
-function setConfirmQty(pid,v){ confirmItems[pid]=Math.max(0,parseInt(v)||0); renderConfirmList(); }
-function closeConfirmShipModal(){ document.getElementById('confirm-ship-modal').classList.remove('open'); activeShipmentId=null; }
-async function submitConfirmShipment() {
-  if (confirmReadonly) { closeConfirmShipModal(); return; }
-  const items = Object.keys(confirmItems).map(pid=>({product_id:parseInt(pid),qty_received:confirmItems[pid]}));
-  const btn = document.getElementById('confirm-ship-save');
-  btn.disabled = true; const orig = btn.textContent; btn.textContent='Menyimpan...';
-  const { error } = await sb.rpc('confirm_shipment', {
-    p_shipment_id: activeShipmentId, p_confirmer_id: currentUser.id||null,
-    p_confirmer_name: currentUser.nama, p_items: items
-  });
-  btn.disabled = false; btn.textContent = orig;
-  if (error) { const st=document.getElementById('confirm-ship-status'); st.textContent='Gagal: '+error.message; st.className='modal-status err'; return; }
-  closeConfirmShipModal();
-  await loadShipMasuk();
-  await updateShipBadge();
-  await loadStockNow();
-}
-function viewShipmentDetail(id) { openConfirmShipment(id, true); }
-
 // ===== DASHBOARD =====
 function setPeriod(days,el){ dashPeriod=days; document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); loadDashboard(); }
 async function loadDashboard() {
@@ -1695,7 +1434,7 @@ function buildWaReport() {
   const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   const now=new Date(); const tgl=now.getDate()+' '+bulan[now.getMonth()]+' '+now.getFullYear();
   let pesan='*Laporan Stock '+tgl+'*\nCabang: '+BRANCHES[branch]+'\n';
-  categories.forEach(cat=>{ const items=products.filter(p=>p.category_id===cat.id&&stockNow[p.name]!==undefined); if(!items.length)return; pesan+='\n*'+cat.name+'*\n'; items.forEach(p=>{ pesan+=p.name+' - '+stockNow[p.name].now+'\n'; }); });
+  categories.forEach(cat=>{ const items=products.filter(p=>p.category_id===cat.id && p.is_active!==false && stockNow[p.name]!==undefined); if(!items.length)return; pesan+='\n*'+cat.name+'*\n'; items.forEach(p=>{ pesan+=p.name+' - '+stockNow[p.name].now+'\n'; }); });
   const link=document.getElementById('dash-wa-link'); link.href='https://wa.me/'+waMaster+'?text='+encodeURIComponent(pesan); link.style.display='block';
 }
 
@@ -1733,38 +1472,42 @@ async function updateUser(id){ const role=document.getElementById('role-'+id).va
 async function addManualUser(){ const nama=prompt('Nama karyawan:'); if(!nama)return; const pin=prompt('PIN 4 digit:'); if(!pin||pin.length!==4){alert('PIN harus 4 digit');return;} const cabang=prompt('Cabang (melur/delima):','melur'); if(!['melur','delima'].includes(cabang)){alert('Cabang salah');return;} const {error}=await sb.from('profiles').insert({id:crypto.randomUUID(),full_name:nama,role:'karyawan',branch_id:cabang,pin}); if(error)alert('Gagal: '+error.message); else loadUsers(); }
 
 // ===== PRODUCTS MGMT =====
+let pmCollapsed = new Set();
 async function loadProductManagement() {
   await loadCategories(); await loadProducts();
-  const isMaster = currentUser.role==='master';
   document.getElementById('new-prod-cat').innerHTML=categories.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
   document.getElementById('cat-list').innerHTML=categories.map(c=>'<div class="prod-manage-row"><span class="prod-manage-name">'+c.name+'</span><button class="mini-btn" onclick="openRenameModal(\'cat_'+c.id+'\',\''+c.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F Rename</button></div>').join('')||'<div class="empty">Belum ada</div>';
-  let html='';
+  renderProdManageList();
+}
+function pmToggleAll() {
+  const anyOpen = categories.some(c=>!pmCollapsed.has(c.id));
+  pmCollapsed = anyOpen ? new Set(categories.map(c=>c.id)) : new Set();
+  renderProdManageList();
+}
+function pmToggleCat(catId) {
+  catId = parseInt(catId);
+  if (pmCollapsed.has(catId)) pmCollapsed.delete(catId); else pmCollapsed.add(catId);
+  renderProdManageList();
+}
+function renderProdManageList() {
+  const anyOpen = categories.some(c=>!pmCollapsed.has(c.id));
+  let html = '<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="icon-btn" onclick="pmToggleAll()">'+(anyOpen?'\u229F Tutup semua':'\u229E Buka semua')+'</button></div>';
   categories.forEach(cat=>{
-    const cp=products.filter(p=>p.category_id===cat.id);
+    const cp=products.filter(p=>p.category_id===cat.id).sort((a,b)=>a.name.localeCompare(b.name));
     if(!cp.length)return;
-    html+='<div class="cat-header">'+cat.name+'</div>';
-    html+=cp.map(p=>{
-      const priceRow = isMaster
-        ? '<div class="prod-manage-price"><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:72px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="pm-pcs">/pcs</span><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
-        : (p.cost_price>0 ? '<div class="prod-manage-price-ro">'+fmtRp(p.cost_price)+'/pcs</div>' : '');
-      return '<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button></div>';
-    }).join('');
+    const isCol = pmCollapsed.has(cat.id);
+    const aktif = cp.filter(p=>p.is_active!==false).length;
+    html+='<div class="cat-header cat-collapsible" onclick="pmToggleCat('+cat.id+')">'+cat.name+' <span style="color:var(--text3);font-weight:400;font-size:10px">('+aktif+'/'+cp.length+')</span><span class="cat-chevron '+(isCol?'':'open')+'">\u25BC</span></div>';
+    if(!isCol){
+      html+=cp.map(p=>'<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div></div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button></div>').join('');
+    }
   });
   document.getElementById('prod-manage-list').innerHTML=html||'<div class="empty">Belum ada produk</div>';
 }
-async function updateProductPrice(id, val, el) {
-  const price = Math.max(0, parseFloat(val)||0);
-  const statusEl = document.getElementById('price-status-'+id);
-  if (statusEl) statusEl.textContent='...';
-  const { error } = await sb.from('products').update({cost_price:price}).eq('id',id);
-  if (error) { if(statusEl){statusEl.textContent='Gagal';statusEl.className='price-save-status err';} return; }
-  const p = products.find(p=>p.id===id); if (p) p.cost_price = price;
-  if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
-}
 async function addCategory(){ const name=document.getElementById('new-cat-name').value.trim(); const el=document.getElementById('cat-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=categories.length?Math.max.apply(null,categories.map(c=>c.sort_order)):0; const {error}=await sb.from('categories').insert({name,sort_order:mo+1}); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';}else{el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-cat-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800);} }
 async function addProduct(){ const name=document.getElementById('new-prod-name').value.trim(); const cid=parseInt(document.getElementById('new-prod-cat').value); const el=document.getElementById('prod-add-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=products.length?Math.max.apply(null,products.map(p=>p.sort_order||0)):0; const {data:np,error}=await sb.from('products').insert({name,category_id:cid,sort_order:mo+1,is_active:true}).select().single(); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';return;} await sb.from('stock').insert([{product_id:np.id,branch_id:'melur',qty:0},{product_id:np.id,branch_id:'delima',qty:0}]); el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-prod-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800); }
-async function moveProductCategory(id,cid){ const {error}=await sb.from('products').update({category_id:cid?parseInt(cid):null}).eq('id',id); if(error)alert('Gagal: '+error.message); else loadProductManagement(); }
-async function toggleProduct(id,active){ const {error}=await sb.from('products').update({is_active:!active}).eq('id',id); if(error)alert('Gagal: '+error.message); else loadProductManagement(); }
+async function moveProductCategory(id,cid){ const {error}=await sb.from('products').update({category_id:cid?parseInt(cid):null}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
+async function toggleProduct(id,active){ const {error}=await sb.from('products').update({is_active:!active}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
 
 // ===== SETTINGS =====
 async function saveThreshold(){ const v=parseInt(document.getElementById('set-threshold').value); const el=document.getElementById('threshold-status'); if(!v||v<1){el.textContent='Angka tidak valid';el.className='add-status err';return;} const {error}=await sb.from('settings').update({value:String(v)}).eq('key','threshold_sedikit_max'); if(error){el.textContent='Gagal';el.className='add-status err';}else{thresholdSedikit=v;el.textContent='\u2713';el.className='add-status ok';setTimeout(function(){el.textContent='';},1500);} }
