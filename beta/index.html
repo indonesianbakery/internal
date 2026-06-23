@@ -298,6 +298,9 @@ body.font-xl{zoom:1.25;}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.prod-manage-row.selected{border-color:var(--b);background:var(--b-bg);}
+.prod-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;transition:.15s;}
+.prod-check.checked{background:var(--b);border-color:var(--b);color:white;}
 .prod-manage-price{display:flex;align-items:center;gap:4px;margin-top:5px;}
 .prod-manage-price .pm-rp,.prod-manage-price .pm-pcs{font-size:11px;color:var(--text3);}
 .prod-manage-price .mini-input{width:72px;}
@@ -716,6 +719,7 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
   <div class="sub-header">
     <button class="back-btn" onclick="show('admin')">← Kembali</button>
     <span class="sub-title">Kelola Produk</span>
+    <button class="top-btn" id="prod-select-btn" onclick="toggleProdSelect()" style="font-size:13px;padding:4px 10px">Pilih</button>
   </div>
   <div class="sub-body">
     <div class="section-label">Tambah Kategori</div>
@@ -735,6 +739,16 @@ table.jadwal-grid td.emp-name{text-align:left;padding-left:12px;font-size:12px;f
     </div>
     <div class="section-label">Semua Produk</div>
     <div id="prod-manage-list"></div>
+  </div>
+  <!-- Action bar multi-select -->
+  <div id="prod-action-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-top:1.5px solid var(--border);padding:10px 16px 24px;z-index:200;box-shadow:0 -4px 16px rgba(0,0,0,.08)">
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px" id="prod-select-count">0 produk dipilih</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="add-btn" style="flex:1;min-width:120px" onclick="bulkEditHarga()">💰 Edit Harga</button>
+      <button class="add-btn" style="flex:1;min-width:120px;background:var(--y-bg);color:var(--y)" onclick="bulkEditShelf()">⏰ Shelf Life</button>
+      <button class="mini-btn" style="flex:1" onclick="bulkToggleActive(false)">Nonaktifkan</button>
+      <button class="del-btn" style="flex:1" onclick="bulkDelete()">🗑️ Hapus</button>
+    </div>
   </div>
 </div>
 
@@ -1904,6 +1918,29 @@ function pmToggleCat(catId) {
   if (pmCollapsed.has(catId)) pmCollapsed.delete(catId); else pmCollapsed.add(catId);
   renderProdManageList();
 }
+let prodSelectMode = false;
+let prodSelected = new Set(); // Set of product ids
+
+function toggleProdSelect() {
+  prodSelectMode = !prodSelectMode;
+  prodSelected.clear();
+  document.getElementById('prod-select-btn').textContent = prodSelectMode ? 'Selesai' : 'Pilih';
+  document.getElementById('prod-action-bar').style.display = prodSelectMode ? '' : 'none';
+  renderProdManageList();
+}
+
+function toggleProdCheck(id) {
+  id = parseInt(id);
+  if (prodSelected.has(id)) prodSelected.delete(id); else prodSelected.add(id);
+  const row = document.querySelector('.prod-manage-row[data-id="'+id+'"]');
+  if (row) {
+    row.classList.toggle('selected', prodSelected.has(id));
+    const chk = row.querySelector('.prod-check');
+    if (chk) { chk.classList.toggle('checked', prodSelected.has(id)); chk.textContent = prodSelected.has(id)?'✓':''; }
+  }
+  document.getElementById('prod-select-count').textContent = prodSelected.size+' produk dipilih';
+}
+
 function renderProdManageList() {
   const isMaster = currentUser.role==='master';
   const anyOpen = categories.some(c=>!pmCollapsed.has(c.id));
@@ -1916,17 +1953,64 @@ function renderProdManageList() {
     html+='<div class="cat-header cat-collapsible" onclick="pmToggleCat('+cat.id+')">'+cat.name+' <span style="color:var(--text3);font-weight:400;font-size:10px">('+aktif+'/'+cp.length+')</span><span class="cat-chevron '+(isCol?'':'open')+'">\u25BC</span></div>';
     if(!isCol){
       html+=cp.map(p=>{
+        if (prodSelectMode) {
+          const checked = prodSelected.has(p.id);
+          return '<div class="prod-manage-row'+(checked?' selected':'')+'" data-id="'+p.id+'" onclick="toggleProdCheck('+p.id+')">'
+            +'<div class="prod-check'+(checked?' checked':'')+'">'+( checked?'✓':'')+'</div>'
+            +'<div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'
+            +'<div style="font-size:11px;color:var(--text2)">Rp '+(p.cost_price||0)+'/pcs · ⏰ '+(p.shelf_life_days||2)+' hari</div></div></div>';
+        }
         const priceRow = isMaster
           ? '<div class="prod-manage-price"><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:72px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="pm-pcs">/pcs</span><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
           : (p.cost_price>0 ? '<div class="prod-manage-price-ro">'+fmtRp(p.cost_price)+'/pcs</div>' : '');
         const shelfRow = isMaster
           ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
           : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
-        return '<div class="prod-manage-row"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
+        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
       }).join('');
     }
   });
   document.getElementById('prod-manage-list').innerHTML=html||'<div class="empty">Belum ada produk</div>';
+  document.getElementById('prod-select-count').textContent = prodSelected.size+' produk dipilih';
+}
+
+async function bulkEditHarga() {
+  if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
+  const val = prompt('Harga baru untuk '+prodSelected.size+' produk (Rp):');
+  if (val===null) return;
+  const price = Math.max(0, parseFloat(val)||0);
+  const ids = [...prodSelected];
+  const { error } = await sb.from('products').update({cost_price:price}).in('id',ids);
+  if (error) { alert('Gagal: '+error.message); return; }
+  await loadProducts(); toggleProdSelect();
+}
+
+async function bulkEditShelf() {
+  if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
+  const val = prompt('Shelf life baru untuk '+prodSelected.size+' produk (hari):');
+  if (val===null) return;
+  const days = Math.max(1, parseInt(val)||2);
+  const ids = [...prodSelected];
+  const { error } = await sb.from('products').update({shelf_life_days:days}).in('id',ids);
+  if (error) { alert('Gagal: '+error.message); return; }
+  await loadProducts(); toggleProdSelect();
+}
+
+async function bulkToggleActive(active) {
+  if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
+  const ids = [...prodSelected];
+  const { error } = await sb.from('products').update({is_active:active}).in('id',ids);
+  if (error) { alert('Gagal: '+error.message); return; }
+  await loadProducts(); toggleProdSelect();
+}
+
+async function bulkDelete() {
+  if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
+  if (!confirm('Hapus '+prodSelected.size+' produk? Tidak bisa dibatalkan.')) return;
+  const ids = [...prodSelected];
+  const { error } = await sb.from('products').delete().in('id',ids);
+  if (error) { alert('Gagal: '+error.message); return; }
+  await loadProducts(); toggleProdSelect();
 }
 async function updateProductPrice(id, val, el) {
   const price = Math.max(0, parseFloat(val)||0);
