@@ -180,19 +180,22 @@ body.font-xl{zoom:1.25;}
 .mini-qc{display:flex;align-items:center;gap:2px;border-radius:8px;padding:2px;background:var(--bg);}
 .mini-qc.kemarin{background:#F0F0F0;}
 .mini-qc.produksi{background:var(--in-bg);}
-.mini-qc.sisa{background:var(--out-bg);}
+.mini-qc.sisa{background:var(--out-bg);flex:0 0 auto;}
+.sisa-fields .mini-qc{padding:3px;}
+.sisa-fields .mini-qb{width:30px;height:30px;}
 .mini-qc.retur{background:#F3E8FF;}
 .mini-qb{width:28px;height:28px;border-radius:6px;border:none;background:white;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text);}
 .mini-qn{width:38px;text-align:center;font-size:15px;font-weight:600;font-family:'DM Mono',monospace;border:none;background:transparent;outline:none;}
 .in-total{text-align:right;font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);}
 .in-total b{color:var(--in);font-size:15px;font-family:'DM Mono',monospace;}
-.sisa-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px;margin:0 16px 6px;}
-.sisa-row .in-name{font-size:14px;font-weight:500;margin-bottom:2px;}
-.sisa-row .in-sub{font-size:10px;color:var(--text3);margin-bottom:8px;font-family:'DM Mono',monospace;}
-.sisa-fields{display:flex;gap:8px;align-items:flex-end;}
-.habis-btn{padding:7px 10px;border:1.5px solid var(--r);background:var(--r-bg);color:var(--r);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;height:32px;}
-.sisa-terjual{text-align:right;font-size:11px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px dashed var(--border);}
-.sisa-terjual b{color:var(--g);font-family:'DM Mono',monospace;}
+.sisa-row{background:white;border:1.5px solid var(--border);border-radius:10px;padding:9px 11px;margin:0 16px 5px;}
+.sisa-row .in-name{font-size:13px;font-weight:600;margin-bottom:1px;}
+.sisa-row .in-sub{font-size:9px;color:var(--text3);margin-bottom:7px;font-family:'DM Mono',monospace;}
+.sisa-fields{display:flex;gap:7px;align-items:center;}
+.sisa-fields .sisa-lbl{font-size:9px;text-transform:uppercase;letter-spacing:.3px;color:var(--out);font-weight:700;margin-right:1px;}
+.habis-btn{padding:0 11px;border:1.5px solid var(--r);background:var(--r-bg);color:var(--r);border-radius:7px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;height:30px;}
+.sisa-fields .sisa-terjual-inline{margin-left:auto;font-size:11px;color:var(--text3);white-space:nowrap;}
+.sisa-fields .sisa-terjual-inline b{color:var(--g);font-family:'DM Mono',monospace;font-size:13px;}
 .daily-stats5{display:flex;gap:6px;flex-wrap:wrap;}
 .daily-stats5 .ds{flex:1;min-width:52px;text-align:center;background:var(--bg);border-radius:8px;padding:6px 2px;}
 .daily-stats5 .ds-n{font-size:16px;font-weight:700;font-family:'DM Mono',monospace;line-height:1;}
@@ -554,6 +557,21 @@ body{ max-width:none; }
 .ih-type.sisa{ background:var(--out-bg); color:var(--out); }
 .ih-type.retur{ background:#F3E8FF; color:#7C3AED; }
 .ih-qty-input{ width:54px; font-family:'DM Mono',monospace; font-size:13px; border:1.5px solid var(--g3); border-radius:6px; padding:3px 6px; text-align:center; }
+/* Koreksi Data */
+.kor-row{ background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:7px; display:flex; align-items:center; gap:10px; }
+.kor-row .kor-main{ flex:1; min-width:0; }
+.kor-row .kor-nm{ font-size:13px; font-weight:600; }
+.kor-row .kor-meta{ font-size:10px; color:var(--text3); font-family:'DM Mono',monospace; margin-top:1px; }
+.kor-row .kor-q{ font-size:17px; font-weight:700; font-family:'DM Mono',monospace; color:var(--g); }
+.kor-row .kor-acts{ display:flex; gap:5px; }
+.kor-row .kor-btn{ width:30px; height:30px; border-radius:7px; border:1.5px solid var(--border); background:var(--surface); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; }
+.kor-row .kor-btn.del{ border-color:var(--r); color:var(--r); background:var(--r-bg); }
+.kor-tag{ font-size:9px; font-weight:700; text-transform:uppercase; padding:2px 7px; border-radius:5px; letter-spacing:.3px; }
+.kor-tag.masuk,.kor-tag.produksi{ background:var(--in-bg); color:var(--in); }
+.kor-tag.sisa{ background:var(--out-bg); color:var(--out); }
+.kor-tag.retur{ background:#F3E8FF; color:#7C3AED; }
+.kor-lbl{ font-size:11px; color:var(--text2); font-weight:600; display:block; margin-bottom:4px; }
+.kor-input{ width:100%; padding:9px 11px; border:1.5px solid var(--border); border-radius:9px; font-family:inherit; font-size:14px; }
 .pm-drag-row{ cursor:grab; }
 .pm-drag-row.dragging{ opacity:.4; }
 .pm-drag-row .drag-handle{ color:var(--text3); font-size:18px; cursor:grab; padding:0 6px 0 2px; }
@@ -917,6 +935,61 @@ body{ max-width:none; }
   </div>
   <div style="overflow-x:auto;padding:0 16px 40px">
     <table class="ih-table" id="ih-table"></table>
+  </div>
+</div>
+
+<!-- KOREKSI DATA (Super Admin) -->
+<div id="screen-koreksi" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">🛠️ Koreksi Data</span>
+  </div>
+  <div style="background:var(--r-bg);color:var(--r);font-size:11px;padding:9px 16px;font-weight:500;line-height:1.4">
+    ⚠️ <b>Khusus Super Admin.</b> Edit/hapus/tambah catatan stok manual. Hati-hati — perubahan langsung mempengaruhi perhitungan stok.
+  </div>
+  <div class="sub-body">
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <select class="sort-select" id="kor-filter-prod" onchange="renderKoreksi()" style="flex:1"></select>
+      <select class="sort-select" id="kor-filter-type" onchange="renderKoreksi()" style="flex:1">
+        <option value="all">Semua tipe</option>
+        <option value="masuk">Roti Masuk</option>
+        <option value="sisa">Sisa</option>
+        <option value="retur">Retur</option>
+        <option value="produksi">Produksi (lama)</option>
+      </select>
+    </div>
+    <button class="add-btn" style="width:100%;background:var(--g);margin-bottom:12px" onclick="openKoreksiAdd()">+ Tambah Catatan Manual</button>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Cabang aktif: <b id="kor-branch-lbl"></b> · tap baris untuk edit</div>
+    <div id="kor-list"></div>
+  </div>
+</div>
+
+<!-- MODAL TAMBAH/EDIT KOREKSI -->
+<div class="modal-overlay" id="kor-modal">
+  <div class="modal-sheet">
+    <div class="modal-title" id="kor-modal-title">Tambah Catatan</div>
+    <div class="modal-sub" id="kor-modal-sub">Isi data catatan stok</div>
+    <div style="margin:14px 0 8px">
+      <label class="kor-lbl">Produk</label>
+      <select class="sort-select" id="kor-f-prod" style="width:100%"></select>
+    </div>
+    <div style="margin-bottom:8px">
+      <label class="kor-lbl">Tipe</label>
+      <select class="sort-select" id="kor-f-type" style="width:100%">
+        <option value="masuk">Roti Masuk</option>
+        <option value="sisa">Sisa</option>
+        <option value="retur">Retur</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <div style="flex:1"><label class="kor-lbl">Jumlah (qty)</label><input class="kor-input" type="number" id="kor-f-qty" value="0"></div>
+      <div style="flex:1"><label class="kor-lbl">Tanggal</label><input class="kor-input" type="date" id="kor-f-date"></div>
+    </div>
+    <div class="modal-status" id="kor-modal-status"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeKoreksiModal()">Batal</button>
+      <button class="modal-save" onclick="saveKoreksi()">Simpan</button>
+    </div>
   </div>
 </div>
 
@@ -1317,9 +1390,14 @@ async function checkSession(retry) {
 async function afterLogin() {
   document.getElementById('user-name-lbl').textContent = currentUser.nama;
   const isFullAccess = currentUser.role==='master'||currentUser.role==='manager';
-  // home branch: karyawan & manager -> branch sendiri; master -> melur default
+  // home branch: karyawan & manager -> branch sendiri; master -> ingat pilihan terakhir
   if (currentUser.branch_id) { branch = currentUser.branch_id; currentUser.homeBranch = currentUser.branch_id; }
-  else { currentUser.homeBranch = 'melur'; }
+  else {
+    currentUser.homeBranch = 'melur';
+    // master: pakai branch terakhir yang dipilih (tersimpan di perangkat ini)
+    var lastB=null; try { lastB=localStorage.getItem('ib_last_branch'); } catch(e){}
+    branch = (lastB && BRANCHES[lastB]) ? lastB : 'melur';
+  }
   document.getElementById('admin-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('absen-btn').style.display = currentUser.role==='master' ? 'none' : '';
@@ -1396,6 +1474,7 @@ function renderBranchMenu() {
 function toggleBranch(){ document.getElementById('bsw').classList.toggle('open'); }
 function selectBranch(b){
   branch = b;
+  try { localStorage.setItem('ib_last_branch', b); } catch(e){}
   document.getElementById('branch-big').textContent = BRANCHES[b];
   document.getElementById('focus-name').textContent = BRANCHES[b];
   var ml=document.getElementById('mock-branch-lbl'); if(ml) ml.textContent='📍 '+BRANCHES[b]+' ▾';
@@ -1405,6 +1484,20 @@ function selectBranch(b){
   updateEditPermission();
   updateShipBadge();
   checkShelfLifeAlert();
+  // langsung refresh data layar yang lagi dibuka sesuai branch baru
+  refreshActiveScreen();
+}
+function refreshActiveScreen(){
+  const active = document.querySelector('.screen.active');
+  if(!active) return;
+  const id = active.id.replace('screen-','');
+  if(id==='dashboard' && typeof loadDashboard==='function') loadDashboard();
+  else if(id==='salesreport' && typeof loadSalesReport==='function') loadSalesReport();
+  else if(id==='shelf' && typeof openShelfReport==='function') openShelfReport();
+  else if(id==='shipments' && typeof openShipments==='function') openShipments();
+  else if(id==='itemhistory' && typeof renderItemHistory==='function') renderItemHistory();
+  else if(id==='koreksi' && typeof renderKoreksi==='function') renderKoreksi();
+  else if(id==='input'){ /* layar catat: balik ke overview biar ga campur cabang */ show('overview'); }
 }
 
 // ===== DATA LOADING =====
@@ -1434,8 +1527,10 @@ async function loadUserPrefs() {
     currentUser.font = data.font_size || 'm';
     applyFont(currentUser.font);
     if (data.default_branch && (currentUser.role==='master'||currentUser.role==='manager')) {
-      branch = data.default_branch;
       currentUser.homeBranch = data.default_branch;
+      // hormati pilihan terakhir user (localStorage) > default_branch
+      var lastB=null; try { lastB=localStorage.getItem('ib_last_branch'); } catch(e){}
+      branch = (lastB && BRANCHES[lastB]) ? lastB : data.default_branch;
     }
   } else {
     initManualOrder();
@@ -1470,12 +1565,13 @@ async function loadStockNow() {
   if (!error && data) {
     data.forEach(r => {
       const kemarin = kemarinMap[r.product_name] || 0;
+      const returToday = r.retur_today || 0;
       stockNow[r.product_name] = {
         now: r.now_stock,
-        produksi: r.masuk_today,          // produksi hari ini
+        produksi: r.masuk_today,          // roti masuk hari ini
         stokKemarin: kemarin,
-        masuk: kemarin + r.masuk_today,   // total tersedia
-        sisa: r.sisa_latest, retur: 0
+        retur: returToday,                // retur hari ini (barang kemarin dikembalikan)
+        masuk: Math.max(0, kemarin + r.masuk_today - returToday)   // total tersedia = kemarin + masuk - retur
       };
     });
   }
@@ -1585,7 +1681,7 @@ function renderOverview(filter='') {
 function ovRowHtml(n, draggable=false) {
   const s = stockNow[n];
   const st = statusOf(s.now);
-  const sold = Math.max(0, s.masuk - s.now - (s.retur||0));
+  const sold = Math.max(0, s.masuk - s.now);
   const rc = st==='zero'?'zero':st==='low'?'low':'';
   const dc = st==='zero'?'dot-zero':st==='low'?'dot-low':'dot-ok';
   const handle = draggable?`<span class="drag-handle">⠿</span>`:`<div class="dot ${dc}"></div>`;
@@ -1642,8 +1738,8 @@ function openInput(mode) {
   const banner = document.getElementById('input-banner');
   banner.className = 'mode-banner ' + (mode==='masuk'?'in':'out');
   document.getElementById('input-ic').textContent = mode==='masuk'?'\u2B06':'\u2B07';
-  document.getElementById('input-title').textContent = mode==='masuk'?'Catat Masuk':'Catat Sisa & Retur';
-  document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk':'Catat Sisa & Retur';
+  document.getElementById('input-title').textContent = mode==='masuk'?'Catat Masuk & Retur':'Catat Sisa';
+  document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk & Retur':'Catat Sisa';
   document.getElementById('input-t2').textContent = mode==='masuk'
     ? 'Cek stok kemarin (otomatis) + isi jumlah roti masuk. Total tersedia dihitung otomatis.'
     : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0. Isi retur kalau ada yang dikembalikan.';
@@ -1664,19 +1760,21 @@ function renderInput(filter='') {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
       if (inputMode==='masuk') {
-        const total=(inp.iKemarin||0)+(inp.iProduksi||0);
+        const total=Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
         html += '<div class="in-row2"><div class="in-name">'+n+'</div><div class="in-fields">'
           +'<div class="in-field"><div class="in-field-lbl kemarin">\uD83D\uDCE6 Stok kemarin</div><div class="mini-qc kemarin"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iKemarin\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iKemarin||0)+'" onchange="setF(\''+esc+'\',\'iKemarin\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iKemarin\',1)">+</button></div></div>'
           +'<div class="in-field"><div class="in-field-lbl produksi">\uD83E\uDD56 Roti Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
+          +'<div class="in-field"><div class="in-field-lbl retur">\u21A9\uFE0F Retur (kemarin)</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
           +'</div><div class="in-total">Total tersedia: <b>'+total+'</b></div></div>';
       } else {
         const tersedia=s.masuk;
-        const terjual=Math.max(0,tersedia-(inp.iSisa||0)-(inp.iRetur||0));
-        html += '<div class="sisa-row"><div class="in-name">'+n+'</div><div class="in-sub">Tersedia hari ini: '+tersedia+' (kemarin '+s.stokKemarin+' + produksi '+s.produksi+')</div><div class="sisa-fields">'
-          +'<div class="in-field"><div class="in-field-lbl sisa">\uD83D\uDCE4 Sisa di rak</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
+        const terjual=Math.max(0,tersedia-(inp.iSisa||0));
+        html += '<div class="sisa-row"><div class="in-name">'+n+'</div><div class="in-sub">Tersedia: '+tersedia+' (kemarin '+s.stokKemarin+' + masuk '+s.produksi+')</div><div class="sisa-fields">'
+          +'<span class="sisa-lbl">\uD83D\uDCE4 Sisa</span>'
+          +'<div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div>'
           +'<button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button>'
-          +'<div class="in-field"><div class="in-field-lbl retur">\u21A9\uFE0F Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
-          +'</div><div class="sisa-terjual">Terjual: <b>'+terjual+'</b></div></div>';
+          +'<span class="sisa-terjual-inline">Terjual <b>'+terjual+'</b></span>'
+          +'</div></div>';
       }
     });
   });
@@ -1694,6 +1792,7 @@ async function saveInput() {
     const masukProds = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0);
     const prodItems = masukProds.map(n=>({nama:n,qty:inputState[n].iProduksi}));
     if (prodItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:prodItems}));
+    // retur sekarang dicatat di Catat Masuk
     // insert batch baru untuk tiap produk yang masuk
     if (masukProds.length) {
       const today = new Date().toISOString().slice(0,10);
@@ -2546,12 +2645,12 @@ var tourSteps={
     {sel:'.action-row',title:'Catat Masuk & Sisa',text:'Tombol hijau untuk roti baru masuk — otomatis buat batch baru untuk tracking kedaluwarsa. Tombol oranye untuk catat sisa stok.'},
     {sel:'#shelf-btn',title:'🏷️ Laporan Kedaluwarsa',text:'Ikon label di pojok kanan atas. Badge merah muncul kalau ada produk yang sudah atau hampir kedaluwarsa. Tap untuk lihat detailnya.'},
     {sel:'#filter-pills',title:'Filter Cepat',text:'Saring produk by status: habis, sedikit, atau aman. Produk yang perlu ditarik juga akan ditandai langsung di daftar.'},
-    {sel:'#dashboard-btn',title:'Dashboard',text:'Lihat produk paling laku & riwayat harian.'}
+    {sel:'.sb-item[data-scr="dashboard"]',title:'Dashboard',text:'Buka menu di sidebar untuk lihat produk paling laku & riwayat harian.'}
   ],
   karyawan:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat berapa produk habis, sedikit, dan aman saat ini.'},
-    {sel:'.action-row',title:'Catat Masuk',text:'Pagi, catat roti baru pakai tombol hijau. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa.'},
-    {sel:'.action-row',title:'Catat Sisa',text:'Sore, catat sisa stok pakai tombol oranye. Sistem akan otomatis hitung produk mana yang perlu ditarik dari rak.'},
+    {sel:'.action-row',title:'Catat Masuk',text:'Siang saat roti datang, catat pakai tombol hijau — sekalian retur kalau ada. Sistem otomatis catat tanggal untuk tracking kedaluwarsa.'},
+    {sel:'.action-row',title:'Catat Sisa',text:'Malam saat tutup, catat sisa stok pakai tombol oranye. Sore opsional. Sistem otomatis hitung produk mana yang perlu ditarik.'},
     {sel:'#shelf-btn',title:'🏷️ Cek Kedaluwarsa',text:'Lihat ikon label 🏷️ di kanan atas. Kalau ada badge merah atau kuning, ada produk yang perlu diperhatikan — segera cek!'}
   ]
 };
@@ -2559,6 +2658,7 @@ var tourIdx=0;
 function startTour(){ closeHelp(); show('overview'); tourIdx=0; document.getElementById('tour-overlay').classList.add('open'); setTimeout(renderTourStep,150); }
 function renderTourStep(){
   const steps=tourSteps[helpRole()]; const step=steps[tourIdx];
+  if(step.sel.indexOf('.sb-item')>-1){ const sb=document.getElementById('sidebar'); if(sb){ if(isWide()){ sb.classList.remove('closed'); document.getElementById('main-area').classList.remove('full'); } else { sb.classList.add('open'); document.getElementById('sidebar-overlay').classList.add('show'); } } }
   const target=document.querySelector(step.sel); const spot=document.getElementById('tour-spotlight'); const pop=document.getElementById('tour-pop');
   if(target){ target.scrollIntoView({block:'center',behavior:'smooth'}); setTimeout(function(){ const r=target.getBoundingClientRect(); spot.style.top=(r.top-6)+'px';spot.style.left=(r.left-6)+'px';spot.style.width=(r.width+12)+'px';spot.style.height=(r.height+12)+'px'; const below=r.bottom+200<window.innerHeight; pop.style.top=below?(r.bottom+14)+'px':Math.max(12,(r.top-14-pop.offsetHeight))+'px'; pop.style.left=Math.max(12,Math.min(r.left,window.innerWidth-292))+'px'; },320); }
   document.getElementById('tour-title').textContent=step.title;
@@ -2570,7 +2670,7 @@ function tourNext(){ const steps=tourSteps[helpRole()]; if(tourIdx<steps.length-
 function endTour(){ document.getElementById('tour-overlay').classList.remove('open'); }
 var faqContent={
   master:[
-    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: klik <b>Catat Masuk</b>. Isi jumlah roti masuk — sistem otomatis catat batch + tanggal masuk.</div></div><div class="faq-step"><span class="num">2</span><div>Sore/tutup: klik <b>Catat Sisa</b>, koreksi sisa di rak (tombol Habis untuk 0). Sistem langsung hitung produk mana yang perlu ditarik.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge merah/kuning, ada produk kedaluwarsa atau hampir exp.</div></div>'},
+    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Siang (roti datang): klik <b>Catat Masuk</b>. Isi jumlah roti masuk + retur kalau ada barang kemarin yang dikembalikan. Sistem otomatis catat batch + tanggal.</div></div><div class="faq-step"><span class="num">2</span><div>Sore (opsional): klik <b>Catat Sisa</b> kalau mau update sisa di tengah hari.</div></div><div class="faq-step"><span class="num">3</span><div>Malam/tutup (wajib): klik <b>Catat Sisa</b>, koreksi sisa di rak (tombol Habis untuk 0). Sistem langsung hitung produk mana yang perlu ditarik.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge merah/kuning, ada produk kedaluwarsa atau hampir exp.</div></div>'},
     {q:'Apa itu sistem kedaluwarsa (shelf life)?',a:'Tiap produk punya batas waktu jual (<b>shelf life</b>), default 2 hari. Setiap kali <b>Catat Masuk</b>, sistem mencatat tanggalnya sebagai batch baru. Saat <b>Catat Sisa</b>, sistem FIFO otomatis hitung batch mana yang sudah habis masa jualnya.<br><br><b>Status batch:</b><br>🟢 Aman — masih dalam batas waktu<br>🟡 Besok kedaluwarsa — H-1<br>🔴 Harus ditarik — sudah melewati shelf life'},
     {q:'Cara atur shelf life tiap produk?',a:'Buka <b>Admin → Kelola Produk</b>. Tiap produk ada field ⏰ X hari — ubah sesuai kebutuhan. Contoh: Srikaya 2 hari, Roti Tawar 7 hari. Hanya Master yang bisa mengubah.'},
     {q:'Apa itu stok kemarin, masuk, sisa, retur?',a:'<b>Stok kemarin</b> = sisa kemarin. <b>Masuk</b> = roti baru hari ini (sekaligus buat batch baru). <b>Sisa</b> = yang masih di rak. <b>Retur</b> = dikembalikan. <b>Terjual</b> = (kemarin+masuk) \u2212 sisa \u2212 retur.'},
@@ -2580,9 +2680,9 @@ var faqContent={
     {q:'Cara tambah produk/kategori?',a:'Admin \u2192 <b>Kelola Produk & Kategori</b>. Shelf life bisa langsung diatur di sana.'}
   ],
   karyawan:[
-    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Pagi: <b>Catat Masuk</b>. Isi jumlah roti baru tiap produk, lalu Simpan.</div></div><div class="faq-step"><span class="num">2</span><div>Sore: <b>Catat Sisa</b>, koreksi sisa di rak + isi retur kalau ada.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge, ada roti yang perlu ditarik dari rak.</div></div>'},
+    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Siang: <b>Catat Masuk</b>. Isi jumlah roti masuk + retur kalau ada, lalu Simpan.</div></div><div class="faq-step"><span class="num">2</span><div>Malam (tutup): <b>Catat Sisa</b>, koreksi sisa di rak. Sore boleh catat sisa juga kalau perlu (opsional).</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge, ada roti yang perlu ditarik dari rak.</div></div>'},
     {q:'Cara catat roti masuk?',a:'Klik tombol hijau <b>Catat Masuk</b>. Isi jumlah <b>roti masuk</b> tiap produk, lalu Simpan. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa — kamu tidak perlu melakukan apapun lagi.'},
-    {q:'Cara catat sisa & retur?',a:'Klik tombol oranye <b>Catat Sisa</b>. Sisa sudah terisi dari stok sekarang, koreksi pakai +/\u2212 atau tombol <b>Habis</b>. Isi <b>retur</b> kalau ada yang dikembalikan. Simpan.'},
+    {q:'Cara catat sisa?',a:'Klik tombol oranye <b>Catat Sisa</b>. Sisa sudah terisi dari stok sekarang, koreksi pakai +/\u2212 atau tombol <b>Habis</b>. Simpan. (Retur sekarang dicatat di <b>Catat Masuk</b>, bukan di sini.)'},
     {q:'Apa arti tanda ⚠️ atau ⏰ di produk?',a:'<b>⚠️ Tarik Xpcs</b> = produk itu sudah kedaluwarsa, segera tarik dari rak sebanyak yang tertera.<br><b>⏰ Besok exp Xpcs</b> = besok kedaluwarsa, prioritaskan jual hari ini.<br><br>Klik ikon 🏷️ di pojok kanan atas untuk lihat laporan lengkap.'},
     {q:'Cara cari produk?',a:'Pakai kotak "Cari produk..." atau filter status di bawahnya.'}
   ]
@@ -2628,6 +2728,98 @@ async function saveItemQty(id, val){
   const v=Math.max(0,parseInt(val)||0);
   await sb.from('stock_movements').update({qty:v}).eq('id',id);
   await renderItemHistory();
+  if(typeof loadStockNow==='function') loadStockNow();
+}
+
+// ===== KOREKSI DATA (Super Admin) =====
+let _korRows = [];
+function openKoreksi(){
+  if(currentUser.role!=='master'){ alert('Khusus Super Admin'); return; }
+  show('koreksi');
+  const sel=document.getElementById('kor-filter-prod');
+  sel.innerHTML='<option value="all">Semua produk</option>'+products.map(p=>'<option value="'+p.id+'">'+p.name+'</option>').join('');
+  document.getElementById('kor-branch-lbl').textContent=BRANCHES[branch];
+  renderKoreksi();
+}
+async function renderKoreksi(){
+  const fp=document.getElementById('kor-filter-prod').value;
+  const ft=document.getElementById('kor-filter-type').value;
+  document.getElementById('kor-branch-lbl').textContent=BRANCHES[branch];
+  document.getElementById('kor-list').innerHTML='<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  let q=sb.from('stock_movements').select('id,product_id,branch_id,type,qty,user_name,movement_date,created_at').eq('branch_id',branch).order('created_at',{ascending:false}).limit(300);
+  const { data } = await q;
+  _korRows = (data||[]).filter(m=>{
+    if(fp!=='all' && m.product_id!==parseInt(fp)) return false;
+    if(ft!=='all' && m.type!==ft) return false;
+    return true;
+  });
+  const pname=id=>{ const p=products.find(x=>x.id===id); return p?p.name:'?'; };
+  const typeLbl={masuk:'Roti Masuk',produksi:'Produksi',sisa:'Sisa',retur:'Retur'};
+  const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  let html=_korRows.map(m=>{
+    const d=new Date(m.created_at);
+    const tgl=d.getDate()+' '+bulan[d.getMonth()]+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+    return '<div class="kor-row"><span class="kor-tag '+m.type+'">'+(typeLbl[m.type]||m.type)+'</span>'
+      +'<div class="kor-main"><div class="kor-nm">'+pname(m.product_id)+'</div><div class="kor-meta">'+tgl+' · '+(m.user_name||'-')+'</div></div>'
+      +'<span class="kor-q">'+m.qty+'</span>'
+      +'<div class="kor-acts"><button class="kor-btn" onclick="openKoreksiEdit('+m.id+')">✏️</button><button class="kor-btn del" onclick="deleteKoreksi('+m.id+')">🗑️</button></div></div>';
+  }).join('');
+  if(!_korRows.length) html='<div class="empty">Belum ada catatan</div>';
+  document.getElementById('kor-list').innerHTML=html;
+}
+let _korEditId=null;
+function openKoreksiAdd(){
+  _korEditId=null;
+  document.getElementById('kor-modal-title').textContent='Tambah Catatan Manual';
+  document.getElementById('kor-modal-sub').textContent='Catatan baru untuk '+BRANCHES[branch];
+  document.getElementById('kor-f-prod').innerHTML=products.map(p=>'<option value="'+p.id+'">'+p.name+'</option>').join('');
+  document.getElementById('kor-f-type').value='masuk';
+  document.getElementById('kor-f-qty').value=0;
+  document.getElementById('kor-f-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('kor-modal-status').textContent='';
+  document.getElementById('kor-modal').classList.add('open');
+}
+function openKoreksiEdit(id){
+  const m=_korRows.find(x=>x.id===id);
+  if(!m) return;
+  _korEditId=id;
+  document.getElementById('kor-modal-title').textContent='Edit Catatan';
+  document.getElementById('kor-modal-sub').textContent='Ubah data catatan ini';
+  document.getElementById('kor-f-prod').innerHTML=products.map(p=>'<option value="'+p.id+'" '+(p.id===m.product_id?'selected':'')+'>'+p.name+'</option>').join('');
+  document.getElementById('kor-f-type').value=(m.type==='produksi')?'masuk':m.type;
+  document.getElementById('kor-f-qty').value=m.qty;
+  document.getElementById('kor-f-date').value=m.movement_date;
+  document.getElementById('kor-modal-status').textContent='';
+  document.getElementById('kor-modal').classList.add('open');
+}
+function closeKoreksiModal(){ document.getElementById('kor-modal').classList.remove('open'); _korEditId=null; }
+async function saveKoreksi(){
+  const pid=parseInt(document.getElementById('kor-f-prod').value);
+  const type=document.getElementById('kor-f-type').value;
+  const qty=Math.max(0,parseInt(document.getElementById('kor-f-qty').value)||0);
+  const date=document.getElementById('kor-f-date').value;
+  const st=document.getElementById('kor-modal-status');
+  if(!pid||!date){ st.textContent='Lengkapi produk & tanggal'; st.className='modal-status'; return; }
+  st.textContent='Menyimpan...'; st.className='modal-status';
+  let res;
+  if(_korEditId){
+    res=await sb.from('stock_movements').update({product_id:pid,type:type,qty:qty,movement_date:date}).eq('id',_korEditId);
+  } else {
+    res=await sb.from('stock_movements').insert({product_id:pid,branch_id:branch,type:type,qty:qty,user_name:currentUser.nama+' (koreksi)',movement_date:date,created_at:date+'T12:00:00'});
+  }
+  if(res&&res.error){ st.textContent='Gagal: '+res.error.message; return; }
+  closeKoreksiModal();
+  await renderKoreksi();
+  if(typeof loadStockNow==='function') loadStockNow();
+}
+async function deleteKoreksi(id){
+  const m=_korRows.find(x=>x.id===id);
+  if(!m) return;
+  const pname=(products.find(p=>p.id===m.product_id)||{}).name||'?';
+  if(!confirm('Hapus catatan ini?\n\n'+pname+' · '+m.type+' · qty '+m.qty+'\n\nTidak bisa dibatalkan.')) return;
+  const res=await sb.from('stock_movements').delete().eq('id',id);
+  if(res&&res.error){ alert('Gagal hapus: '+res.error.message); return; }
+  await renderKoreksi();
   if(typeof loadStockNow==='function') loadStockNow();
 }
 
@@ -2769,7 +2961,9 @@ const SB_NAV = [
   {section:'Pengaturan'},
   {scr:'products', ic:'🍞', label:'Kelola Produk', roles:['master','manager']},
   {scr:'admin', ic:'👥', label:'Kelola Karyawan', roles:['master','manager']},
+  {scr:'koreksi', ic:'🛠️', label:'Koreksi Data', roles:['master'], fn:'openKoreksi'},
   {scr:'settings', ic:'⚙️', label:'Pengaturan', roles:['master','manager']},
+  {scr:'help', ic:'❓', label:'Bantuan & Tutorial', roles:['master','manager','karyawan'], fn:'openHelp'},
 ];
 function renderSidebar(){
   if(!currentUser) return;
@@ -2799,8 +2993,9 @@ function highlightNav(){
 }
 function renderFastActions(){
   let html='';
-  html+='<button class="top-btn" onclick="openShipments()">🔔</button>';
-  html+='<button class="top-btn" onclick="openShelfReport()">🏷️</button>';
+  html+='<button class="top-btn" id="help-btn" onclick="openHelp()" title="Bantuan & Tutorial">❓</button>';
+  html+='<button class="top-btn" id="ship-btn" onclick="openShipments()">🔔</button>';
+  html+='<button class="top-btn" id="shelf-btn" onclick="openShelfReport()">🏷️</button>';
   document.getElementById('mock-fast-actions').innerHTML = html;
 }
 function toggleMockBranch(){
