@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#2D6A4F">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Stok - Indonesian Bakery</title>
+<title>Indonesian Bakery Internal System v2</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -1815,7 +1815,7 @@ function openInput(mode) {
   document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk & Retur':'Catat Sisa';
   document.getElementById('input-t2').textContent = mode==='masuk'
     ? 'Cek stok kemarin (otomatis) + isi jumlah roti masuk. Total tersedia dihitung otomatis.'
-    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0. Isi retur kalau ada yang dikembalikan.';
+    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn ' + (mode==='masuk'?'save-in':'save-out');
   btn.textContent = mode==='masuk'?'\uD83D\uDCBE Simpan Masuk':'\uD83D\uDCBE Simpan Sisa';
