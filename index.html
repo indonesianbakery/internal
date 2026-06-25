@@ -302,7 +302,11 @@ body.font-xl{zoom:1.25;}
 .add-btn{padding:10px 16px;background:var(--g);color:white;border:none;border-radius:var(--rad-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
-.prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:12px;margin-bottom:8px;display:flex;flex-direction:column;align-items:stretch;gap:10px;}
+.prod-manage-row.selected{}
+.pm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border);}
+.pm-actions .mini-select{flex:1;min-width:110px;}
+.pm-actions .mini-btn,.pm-actions .del-btn{padding:8px 12px;}
 .prod-manage-row.selected{border-color:var(--b);background:var(--b-bg);}
 .prod-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;transition:.15s;}
 .prod-check.checked{background:var(--b);border-color:var(--b);color:white;}
@@ -2463,7 +2467,7 @@ function renderProdManageList() {
         const shelfRow = isMaster
           ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
           : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
-        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
+        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><div class="pm-actions"><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div></div>';
       }).join('');
       }
     }
