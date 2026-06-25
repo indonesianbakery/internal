@@ -17,12 +17,12 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
-  /* TEMA NAVY — warna utama diganti dari hijau ke biru navy */
-  --g:#1E3A5F; --g2:#2C5282; --g3:#3B82C4; --g-bg:#DCEAF7; --g-light:#F0F6FC;
-  --y:#E9A825; --y-bg:#FFF8E1; --r:#D62828; --r-bg:#FFEBEE; --b:#1565C0; --b-bg:#E3F2FD;
-  --in:#1E3A5F; --in-bg:#E4EDF6; --out:#C2410C; --out-bg:#FFF0E8;
-  --bg:#F2F5F9; --surface:#FFFFFF; --border:#D9E2EC;
-  --text:#1A2533; --text2:#4A5C72; --text3:#8A9BB0; --rad:14px; --rad-sm:9px;
+  /* TEMA MAROON — warna utama merah-maroon (eye-friendly) */
+  --g:#7B2D3A; --g2:#9B3D4D; --g3:#C25A6B; --g-bg:#F6E3E7; --g-light:#FCF4F5;
+  --y:#C77D0A; --y-bg:#FDF3E0; --r:#C0392B; --r-bg:#FBE9E7; --b:#9B3D4D; --b-bg:#F6E3E7;
+  --in:#7B2D3A; --in-bg:#F3E4E7; --out:#B5562A; --out-bg:#FBEEE6;
+  --bg:#F7F3F4; --surface:#FFFFFF; --border:#E8DADD;
+  --text:#2A1A1E; --text2:#6B4A52; --text3:#A88E94; --rad:14px; --rad-sm:9px;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 html,body{height:100%;touch-action:manipulation;}
@@ -263,6 +263,10 @@ body.font-xl{zoom:1.25;}
 .rank-val b{font-size:16px;font-family:'DM Mono',monospace;color:var(--g);}
 .rank-val small{display:block;font-size:10px;color:var(--text3);}
 .daily-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:8px;cursor:pointer;}
+.day-rep-btns{display:flex;gap:6px;margin:8px 0;}
+.day-rep-btn{flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.day-rep-btn.xls{color:#1D6F42;border-color:#1D6F42;background:#EAF6EF;}
+.day-rep-btn.wa{color:#0B8A3E;border-color:#25D366;background:#E8F9EE;}
 .daily-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .daily-date{font-size:13px;font-weight:600;}
 .daily-date .chevron{font-size:11px;color:var(--text3);transition:transform .2s;margin-left:6px;}
@@ -948,6 +952,10 @@ body{ max-width:none; }
     ⚠️ <b>Khusus Super Admin.</b> Edit/hapus/tambah catatan stok manual. Hati-hati — perubahan langsung mempengaruhi perhitungan stok.
   </div>
   <div class="sub-body">
+    <div style="margin-bottom:10px">
+      <label class="kor-lbl">📅 Pilih Tanggal</label>
+      <input class="kor-input" type="date" id="kor-filter-date" onchange="renderKoreksi()">
+    </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <select class="sort-select" id="kor-filter-prod" onchange="renderKoreksi()" style="flex:1"></select>
       <select class="sort-select" id="kor-filter-type" onchange="renderKoreksi()" style="flex:1">
@@ -2129,8 +2137,9 @@ function renderDailyHistory(rows, summary) {
     const byTime={};
     movs.forEach(m=>{ const key=m.created_at.slice(0,16)+'|'+m.type; if(!byTime[key])byTime[key]={time:m.created_at,type:m.type,user:m.user_name,items:[]}; byTime[key].items.push({n:m.product_name,q:m.qty}); });
     const tls=Object.values(byTime).sort((a,b)=>new Date(b.time)-new Date(a.time));
-    html+='<div class="daily-card" onclick="toggleDaily('+di+')" id="daily-'+di+'"><div class="daily-top"><span class="daily-date">'+dateLabel+' <span class="chevron">\u25BC</span></span><span class="daily-cabang">'+BRANCHES[branch]+'</span></div>'
-      +'<div class="daily-stats5">'
+    html+='<div class="daily-card" id="daily-'+di+'"><div class="daily-top" onclick="toggleDaily('+di+')"><span class="daily-date">'+dateLabel+' <span class="chevron">\u25BC</span></span><span class="daily-cabang">'+BRANCHES[branch]+'</span></div>'
+      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+date+'\')">📥 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+date+'\')">📱 WhatsApp</button></div>'
+      +'<div class="daily-stats5" onclick="toggleDaily('+di+')">'
       +'<div class="ds"><div class="ds-n" style="color:var(--text2)">'+sm.stok_kemarin+'</div><div class="ds-l">Kemarin</div></div>'
       +'<div class="ds"><div class="ds-n" style="color:var(--in)">'+sm.produksi+'</div><div class="ds-l">Masuk</div></div>'
       +'<div class="ds"><div class="ds-n" style="color:var(--out)">'+sm.sisa+'</div><div class="ds-l">Sisa</div></div>'
@@ -2151,6 +2160,56 @@ function renderDailyHistory(rows, summary) {
 }
 function toggleDaily(di){ const tl=document.getElementById('tl-'+di); const c=document.getElementById('daily-'+di); const open=tl.style.display!=='none'; tl.style.display=open?'none':'block'; c.classList.toggle('open',!open); }
 function toggleTl(di,ti){ document.getElementById('tld-'+di+'-'+ti).classList.toggle('open'); }
+
+// ===== LAPORAN PER HARI (Excel + WhatsApp) =====
+// bangun data per produk untuk 1 tanggal: masuk, sisa, retur, terjual
+async function buildDayReport(dateStr){
+  const { data: movs } = await sb.from('stock_movements').select('product_id,type,qty,movement_date,created_at').eq('branch_id',branch).lte('movement_date',dateStr);
+  const all=movs||[];
+  const out=[];
+  products.forEach(p=>{
+    if(p.is_active===false) return;
+    const masuk=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
+    const retur=all.filter(m=>m.product_id===p.id&&m.type==='retur'&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
+    const sisaRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date===dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+    const sisa=sisaRows.length?sisaRows[0].qty:0;
+    const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
+    const kemarin=kemRows.length?kemRows[0].qty:0;
+    if(masuk===0&&kemarin===0&&sisa===0&&retur===0) return;
+    const tersedia=Math.max(0,kemarin+masuk-retur);
+    const terjual=Math.max(0,tersedia-sisa);
+    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual});
+  });
+  return out;
+}
+function fmtTglID(dateStr){ const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']; const d=new Date(dateStr); return d.getDate()+' '+bulan[d.getMonth()]+' '+d.getFullYear(); }
+
+async function exportDayExcel(dateStr){
+  const rows=await buildDayReport(dateStr);
+  if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
+  const data=rows.map(r=>({Produk:r.name, Kategori:r.kategori, 'Stok Kemarin':r.kemarin, 'Roti Masuk':r.masuk, Retur:r.retur, Sisa:r.sisa, Terjual:r.terjual}));
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:22},{wch:14},{wch:12},{wch:11},{wch:8},{wch:8},{wch:9}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Laporan');
+  XLSX.writeFile(wb,'laporan-'+BRANCHES[branch].replace(/\W/g,'')+'-'+dateStr+'.xlsx');
+}
+
+async function sendDayWA(dateStr){
+  const rows=await buildDayReport(dateStr);
+  if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
+  let pesan='*Laporan Harian '+fmtTglID(dateStr)+'*\nCabang: '+BRANCHES[branch]+'\n';
+  let tm=0,tt=0;
+  const byCat={};
+  rows.forEach(r=>{ if(!byCat[r.kategori])byCat[r.kategori]=[]; byCat[r.kategori].push(r); });
+  Object.keys(byCat).forEach(cat=>{
+    pesan+='\n*'+cat+'*\n';
+    byCat[cat].forEach(r=>{ pesan+=r.name+': masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', terjual *'+r.terjual+'*\n'; tm+=r.masuk; tt+=r.terjual; });
+  });
+  pesan+='\n_Total masuk: '+tm+' | Total terjual: '+tt+'_';
+  window.open('https://wa.me/'+waMaster+'?text='+encodeURIComponent(pesan),'_blank');
+}
+
 function buildWaReport() {
   const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   const now=new Date(); const tgl=now.getDate()+' '+bulan[now.getMonth()]+' '+now.getFullYear();
@@ -2738,17 +2797,20 @@ function openKoreksi(){
   show('koreksi');
   const sel=document.getElementById('kor-filter-prod');
   sel.innerHTML='<option value="all">Semua produk</option>'+products.map(p=>'<option value="'+p.id+'">'+p.name+'</option>').join('');
+  document.getElementById('kor-filter-date').value=new Date().toISOString().slice(0,10);
   document.getElementById('kor-branch-lbl').textContent=BRANCHES[branch];
   renderKoreksi();
 }
 async function renderKoreksi(){
   const fp=document.getElementById('kor-filter-prod').value;
   const ft=document.getElementById('kor-filter-type').value;
+  const fd=document.getElementById('kor-filter-date').value;
   document.getElementById('kor-branch-lbl').textContent=BRANCHES[branch];
   document.getElementById('kor-list').innerHTML='<div class="loading"><div class="spinner"></div>Memuat...</div>';
-  let q=sb.from('stock_movements').select('id,product_id,branch_id,type,qty,user_name,movement_date,created_at').eq('branch_id',branch).order('created_at',{ascending:false}).limit(300);
+  let q=sb.from('stock_movements').select('id,product_id,branch_id,type,qty,user_name,movement_date,created_at').eq('branch_id',branch).order('created_at',{ascending:false}).limit(500);
   const { data } = await q;
   _korRows = (data||[]).filter(m=>{
+    if(fd && m.movement_date!==fd) return false;
     if(fp!=='all' && m.product_id!==parseInt(fp)) return false;
     if(ft!=='all' && m.type!==ft) return false;
     return true;
@@ -2885,10 +2947,11 @@ async function loadSalesReport(){
   document.getElementById('sales-daily').innerHTML = rows.map((r,idx)=>{
     const d=new Date(r.d); const label=d.getDate()+' '+bulan[d.getMonth()];
     const omzet=Math.round(r.terjual*avgPrice*sellMul);
-    return '<div class="daily-card" id="sd-card-'+idx+'" onclick="toggleSalesDay('+idx+',\''+r.d+'\')">'
-      +'<div class="daily-top"><span class="daily-date">'+label+' <span class="chevron">\u25BC</span></span>'
+    return '<div class="daily-card" id="sd-card-'+idx+'">'
+      +'<div class="daily-top" onclick="toggleSalesDay('+idx+',\''+r.d+'\')"><span class="daily-date">'+label+' <span class="chevron">\u25BC</span></span>'
       +'<span class="rank-val" style="text-align:right"><b style="font-size:15px;color:var(--g)">'+fmtRp(omzet)+'</b></span></div>'
-      +'<div style="font-size:12px;color:var(--text2)">Terjual <b>'+r.terjual+'</b> · Masuk '+r.produksi+' · Sisa '+r.sisa+'</div>'
+      +'<div style="font-size:12px;color:var(--text2)" onclick="toggleSalesDay('+idx+',\''+r.d+'\')">Terjual <b>'+r.terjual+'</b> · Masuk '+r.produksi+' · Sisa '+r.sisa+'</div>'
+      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+r.d+'\')">📥 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+r.d+'\')">📱 WhatsApp</button></div>'
       +'<div class="sd-detail" id="sd-detail-'+idx+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)"></div></div>';
   }).join('');
 }
