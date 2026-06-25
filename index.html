@@ -1815,7 +1815,7 @@ function openInput(mode) {
   document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk & Retur':'Catat Sisa';
   document.getElementById('input-t2').textContent = mode==='masuk'
     ? 'Cek stok kemarin (otomatis) + isi jumlah roti masuk. Total tersedia dihitung otomatis.'
-    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0. Isi retur kalau ada yang dikembalikan.';
+    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn ' + (mode==='masuk'?'save-in':'save-out');
   btn.textContent = mode==='masuk'?'\uD83D\uDCBE Simpan Masuk':'\uD83D\uDCBE Simpan Sisa';
