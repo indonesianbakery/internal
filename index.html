@@ -250,7 +250,8 @@ body.font-xl{zoom:1.25;}
 
 /* DASHBOARD */
 .period-row{display:flex;gap:6px;margin-bottom:8px;}
-.period-btn{flex:1;padding:8px;border-radius:var(--rad-sm);border:1.5px solid var(--border);background:white;font-family:inherit;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;}
+.period-btn{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:.15s;}
+.period-btn:hover{border-color:var(--g3);}
 .period-btn.active{background:var(--g);border-color:var(--g);color:white;}
 .rank-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
 .rank-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;}
@@ -263,6 +264,12 @@ body.font-xl{zoom:1.25;}
 .rank-val b{font-size:16px;font-family:'DM Mono',monospace;color:var(--g);}
 .rank-val small{display:block;font-size:10px;color:var(--text3);}
 .daily-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:8px;cursor:pointer;}
+.day-rep-btns{display:flex;gap:6px;margin:8px 0;}
+.day-rep-btn{flex:1;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.day-rep-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08);}
+.day-rep-btn:active{transform:translateY(0);}
+.day-rep-btn.xls{color:#1D6F42;border-color:#1D6F42;background:#EAF6EF;}
+.day-rep-btn.wa{color:#0B8A3E;border-color:#25D366;background:#E8F9EE;}
 .daily-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
 .daily-date{font-size:13px;font-weight:600;}
 .daily-date .chevron{font-size:11px;color:var(--text3);transition:transform .2s;margin-left:6px;}
@@ -294,12 +301,17 @@ body.font-xl{zoom:1.25;}
 .role-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--y-bg);color:var(--y);font-weight:500;margin-left:6px;}
 .user-edit-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .mini-input{padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Mono',monospace;font-size:13px;text-align:center;}
-.mini-select{padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit;font-size:12px;}
-.mini-btn{background:var(--g-bg);border:none;border-radius:7px;padding:6px 10px;color:var(--g);font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;}
-.del-btn{background:var(--r-bg);border:none;border-radius:7px;padding:6px 10px;color:var(--r);font-size:12px;font-family:inherit;cursor:pointer;}
+.mini-select{padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:12px;background:var(--surface);cursor:pointer;transition:.15s;}
+.mini-select:hover{border-color:var(--g3);}
+.mini-btn{background:var(--g-bg);border:none;border-radius:9px;padding:8px 12px;color:var(--g);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;transition:.15s;}
+.mini-btn:hover{background:var(--g3);color:#fff;}
+.del-btn{background:var(--r-bg);border:none;border-radius:9px;padding:8px 12px;color:var(--r);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;transition:.15s;}
+.del-btn:hover{background:var(--r);color:#fff;}
 .admin-link{text-align:center;margin-top:14px;font-size:13px;color:var(--g);cursor:pointer;text-decoration:underline;}
 .add-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;}
-.add-btn{padding:10px 16px;background:var(--g);color:white;border:none;border-radius:var(--rad-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+.add-btn{padding:11px 16px;background:var(--g);color:white;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:0 2px 6px rgba(123,45,58,.2);}
+.add-btn:hover{background:var(--g2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(123,45,58,.28);}
+.add-btn:active{transform:translateY(0);}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:12px;margin-bottom:8px;display:flex;flex-direction:column;align-items:stretch;gap:10px;}
@@ -492,6 +504,15 @@ body{ max-width:none; }
 #main-area{ flex:1; margin-left:var(--sidebar-w); min-width:0; transition:margin .25s ease; }
 #main-area.full{ margin-left:0; }
 .mock-topbar{ position:sticky; top:0; z-index:50; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; padding:10px 14px; position:relative; }
+#clock-bar{ position:sticky; top:0; z-index:49; background:var(--g); color:#fff; font-size:12px; font-weight:600; text-align:center; padding:5px; letter-spacing:.3px; font-family:'DM Mono',monospace; }
+@keyframes spin360{ to{ transform:rotate(360deg); } }
+.top-btn.spinning{ animation:spin360 .6s linear infinite; }
+/* notify produk perlu ditarik/retur — desain clean */
+.tarik-notify{ margin:0 16px 10px; background:linear-gradient(135deg,var(--g-light),var(--g-bg)); border:1px solid var(--g3); border-radius:12px; padding:11px 13px; }
+.tarik-head{ font-size:12px; font-weight:700; color:var(--g); margin-bottom:7px; }
+.tarik-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.tarik-chip{ font-size:11px; background:var(--surface); color:var(--g2); border:1px solid var(--g3); border-radius:20px; padding:3px 10px; font-weight:500; }
+.tarik-chip b{ color:var(--g); font-family:'DM Mono',monospace; }
 .hamb-btn{ background:var(--g-bg); border:none; border-radius:9px; width:38px; height:38px; font-size:18px; cursor:pointer; color:var(--g); flex-shrink:0; }
 .mock-topbar .branch-mini{ font-size:13px; font-weight:600; color:var(--text); flex:1; }
 .mock-fast{ display:flex; gap:6px; }
@@ -603,6 +624,7 @@ body{ max-width:none; }
   <div class="mock-fast" id="mock-fast-actions"></div>
   <button class="role-switch" onclick="logout()" style="background:var(--r-bg);color:var(--r);border-color:var(--r)">Keluar</button>
 </div>
+<div id="clock-bar" style="display:none">🕐 <span id="clock-text">—</span> WIB</div>
 
 
 <!-- LOGIN -->
@@ -728,7 +750,7 @@ body{ max-width:none; }
 <!-- INPUT -->
 <div id="screen-input" class="screen">
   <div class="sub-header">
-    <button class="back-btn" onclick="show('overview')">← Batal</button>
+    <button class="back-btn" onclick="leaveInput()">← Batal</button>
     <span class="sub-title" id="input-title">Catat Masuk</span>
   </div>
   <div class="mode-banner" id="input-banner">
@@ -736,10 +758,24 @@ body{ max-width:none; }
     <div class="txt"><div class="t1" id="input-t1">Mode: Roti Masuk</div><div class="t2" id="input-t2"></div></div>
   </div>
   <div class="controls"><input class="search-inp" id="input-search" type="search" placeholder="Cari produk..." oninput="renderInput(this.value)"></div>
+  <div id="input-tarik-notify"></div>
   <div id="input-list" style="padding-bottom:100px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
   <div class="bottombar">
-    <button class="bb-cancel" onclick="show('overview')">Batal</button>
+    <button class="bb-cancel" onclick="leaveInput()">Batal</button>
     <button class="save-btn" id="input-save" onclick="saveInput()">💾 Simpan</button>
+  </div>
+</div>
+
+<!-- MODAL PERUBAHAN BELUM DISIMPAN -->
+<div class="modal-overlay" id="unsaved-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">⚠️ Perubahan belum disimpan</div>
+    <div class="modal-sub">Ada data yang kamu isi tapi belum disimpan. Mau diapakan?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+      <button class="modal-save" onclick="unsavedSimpan()">💾 Simpan dulu</button>
+      <button class="del-btn" style="padding:12px;border-radius:10px;font-size:14px;font-weight:600" onclick="unsavedBuang()">🗑️ Buang perubahan</button>
+      <button class="modal-cancel" onclick="unsavedBatal()">← Batal (lanjut isi)</button>
+    </div>
   </div>
 </div>
 
@@ -1415,6 +1451,7 @@ async function afterLogin() {
   renderBranchMenu();
   renderSidebar();
   document.getElementById('mock-branch-lbl').textContent = '📍 '+BRANCHES[branch]+' ▾';
+  syncServerClock().then(startClock); // jam WIB: sync server 1x lalu jalan lokal
   show('overview');
   await loadCategories();
   await loadProducts();
@@ -1731,9 +1768,38 @@ function getDragAfter(l,y){ const els=[...l.querySelectorAll('.ov-row:not(.dragg
 
 // ===== INPUT (MASUK = stok kemarin+produksi / SISA = sisa+retur) =====
 let inputState = {}; // { name: {iKemarin,iProduksi,iSisa,iRetur} }
+// notify ringkas produk yang perlu ditarik (kedaluwarsa) — tampil di Catat Masuk dekat retur
+function renderTarikNotify(mode){
+  const el = document.getElementById('input-tarik-notify');
+  if(!el) return;
+  if(mode!=='masuk'){ el.innerHTML=''; return; }
+  const tarikList = Object.keys(shelfAlerts).filter(n=>shelfAlerts[n] && shelfAlerts[n].tarik>0);
+  if(!tarikList.length){ el.innerHTML=''; return; }
+  const total = tarikList.reduce((s,n)=>s+shelfAlerts[n].tarik,0);
+  let chips = tarikList.slice(0,6).map(n=>'<span class="tarik-chip">'+n+' <b>'+shelfAlerts[n].tarik+'</b></span>').join('');
+  if(tarikList.length>6) chips += '<span class="tarik-chip" style="opacity:.7">+'+(tarikList.length-6)+' lain</span>';
+  el.innerHTML = '<div class="tarik-notify"><div class="tarik-head">↩️ Perlu diretur/ditarik hari ini ('+total+' pcs)</div><div class="tarik-chips">'+chips+'</div></div>';
+}
+let inputDirty = false; // ada perubahan belum disimpan?
+// dipanggil tiap user ngedit
+function markInputDirty(){ inputDirty = true; }
+// guard: dipanggil saat mau keluar dari layar Catat Masuk/Sisa
+function leaveInput(){
+  if(inputDirty){
+    document.getElementById('unsaved-modal').classList.add('open');
+    return;
+  }
+  show('overview');
+}
+function unsavedSimpan(){ document.getElementById('unsaved-modal').classList.remove('open'); saveInput(); }
+function unsavedBuang(){ document.getElementById('unsaved-modal').classList.remove('open'); inputDirty=false; show('overview'); }
+function unsavedBatal(){ document.getElementById('unsaved-modal').classList.remove('open'); }
 function openInput(mode) {
   inputMode = mode;
   inputState = {};
+  inputDirty = false;
+  // notify produk yang perlu ditarik/diretur (cuma di mode masuk, tempat retur)
+  renderTarikNotify(mode);
   // isi awal tiap produk
   Object.keys(stockNow).forEach(n => {
     const s = stockNow[n];
@@ -1787,9 +1853,9 @@ function renderInput(filter='') {
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
 }
-function adjF(n,field,d){ inputState[n][field]=Math.max(0,(inputState[n][field]||0)+d); renderInput(document.getElementById('input-search').value); }
-function setF(n,field,v){ inputState[n][field]=Math.max(0,parseInt(v)||0); renderInput(document.getElementById('input-search').value); }
-function setHabis(n){ inputState[n].iSisa=0; renderInput(document.getElementById('input-search').value); }
+function adjF(n,field,d){ inputState[n][field]=Math.max(0,(inputState[n][field]||0)+d); markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setF(n,field,v){ inputState[n][field]=Math.max(0,parseInt(v)||0); markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setHabis(n){ inputState[n].iSisa=0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
 
 async function saveInput() {
   const btn = document.getElementById('input-save');
@@ -1810,19 +1876,18 @@ async function saveInput() {
       calls.push(sb.from('product_batches').insert(batchRows));
     }
   } else {
-    // simpan sisa hanya yang disentuh (beda dari stok sekarang) + retur > 0
+    // simpan sisa hanya yang disentuh (beda dari stok sekarang)
     const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
     if (sisaItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
-    const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
-    if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
     // setelah sisa dicatat, update qty_sold batch via FIFO
     if (sisaItems.length) calls.push(updateBatchFIFO(sisaItems));
   }
-  if (!calls.length) { btn.disabled=false; btn.textContent=orig; show('overview'); return; }
+  if (!calls.length) { btn.disabled=false; btn.textContent=orig; inputDirty=false; show('overview'); return; }
   const results = await Promise.all(calls);
   btn.disabled=false; btn.textContent=orig;
   const err = results.find(r=>r&&r.error);
   if (err){ alert('Gagal simpan: '+err.error.message); return; }
+  inputDirty=false;
   await loadStockNow();
   await checkShelfLifeAlert();
   show('overview');
@@ -2137,7 +2202,7 @@ function renderDailyHistory(rows, summary) {
     movs.forEach(m=>{ const key=m.created_at.slice(0,16)+'|'+m.type; if(!byTime[key])byTime[key]={time:m.created_at,type:m.type,user:m.user_name,items:[]}; byTime[key].items.push({n:m.product_name,q:m.qty}); });
     const tls=Object.values(byTime).sort((a,b)=>new Date(b.time)-new Date(a.time));
     html+='<div class="daily-card" id="daily-'+di+'"><div class="daily-top" onclick="toggleDaily('+di+')"><span class="daily-date">'+dateLabel+' <span class="chevron">\u25BC</span></span><span class="daily-cabang">'+BRANCHES[branch]+'</span></div>'
-      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+date+'\')">\uD83D\uDCE5 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+date+'\')">\uD83D\uDCF1 WhatsApp</button></div>'
+      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+date+'\')">📥 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+date+'\')">📱 WhatsApp</button></div>'
       +'<div class="daily-stats5" onclick="toggleDaily('+di+')">'
       +'<div class="ds"><div class="ds-n" style="color:var(--text2)">'+sm.stok_kemarin+'</div><div class="ds-l">Kemarin</div></div>'
       +'<div class="ds"><div class="ds-n" style="color:var(--in)">'+sm.produksi+'</div><div class="ds-l">Masuk</div></div>'
@@ -2159,10 +2224,13 @@ function renderDailyHistory(rows, summary) {
 }
 function toggleDaily(di){ const tl=document.getElementById('tl-'+di); const c=document.getElementById('daily-'+di); const open=tl.style.display!=='none'; tl.style.display=open?'none':'block'; c.classList.toggle('open',!open); }
 function toggleTl(di,ti){ document.getElementById('tld-'+di+'-'+ti).classList.toggle('open'); }
+
 // ===== LAPORAN PER HARI (Excel + WhatsApp) =====
+// bangun data per produk untuk 1 tanggal: masuk, sisa, retur, terjual
 async function buildDayReport(dateStr){
   const { data: movs } = await sb.from('stock_movements').select('product_id,type,qty,movement_date,created_at').eq('branch_id',branch).lte('movement_date',dateStr);
-  const all=movs||[]; const out=[];
+  const all=movs||[];
+  const out=[];
   products.forEach(p=>{
     if(p.is_active===false) return;
     const masuk=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
@@ -2172,29 +2240,40 @@ async function buildDayReport(dateStr){
     const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const kemarin=kemRows.length?kemRows[0].qty:0;
     if(masuk===0&&kemarin===0&&sisa===0&&retur===0) return;
-    const tersedia=Math.max(0,kemarin+masuk-retur);
+    // tersedia = kemarin + masuk - retur; kalau sisa > tersedia (masuk lupa diisi), pakai sisa sbg minimum
+    const sisaRecorded = sisaRows.length>0;
+    const tersedia=Math.max(0, kemarin+masuk-retur, sisa);
     const terjual=Math.max(0,tersedia-sisa);
-    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual});
+    // tandai kalau ada sisa tercatat tapi roti masuk belum diisi (data ga lengkap)
+    const masukKosong = sisaRecorded && masuk===0;
+    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual, masukKosong});
   });
   return out;
 }
 function fmtTglID(dateStr){ const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']; const d=new Date(dateStr); return d.getDate()+' '+bulan[d.getMonth()]+' '+d.getFullYear(); }
+
 async function exportDayExcel(dateStr){
   const rows=await buildDayReport(dateStr);
   if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
   const data=rows.map(r=>({Produk:r.name, Kategori:r.kategori, 'Stok Kemarin':r.kemarin, 'Roti Masuk':r.masuk, Retur:r.retur, Sisa:r.sisa, Terjual:r.terjual}));
   const ws=XLSX.utils.json_to_sheet(data);
   ws['!cols']=[{wch:22},{wch:14},{wch:12},{wch:11},{wch:8},{wch:8},{wch:9}];
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Laporan');
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Laporan');
   XLSX.writeFile(wb,'laporan-'+BRANCHES[branch].replace(/\W/g,'')+'-'+dateStr+'.xlsx');
 }
+
 async function sendDayWA(dateStr){
   const rows=await buildDayReport(dateStr);
   if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
   let pesan='*Laporan Harian '+fmtTglID(dateStr)+'*\nCabang: '+BRANCHES[branch]+'\n';
-  let tm=0,tt=0; const byCat={};
+  let tm=0,tt=0;
+  const byCat={};
   rows.forEach(r=>{ if(!byCat[r.kategori])byCat[r.kategori]=[]; byCat[r.kategori].push(r); });
-  Object.keys(byCat).forEach(cat=>{ pesan+='\n*'+cat+'*\n'; byCat[cat].forEach(r=>{ pesan+=r.name+': masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', terjual *'+r.terjual+'*\n'; tm+=r.masuk; tt+=r.terjual; }); });
+  Object.keys(byCat).forEach(cat=>{
+    pesan+='\n*'+cat+'*\n';
+    byCat[cat].forEach(r=>{ pesan+=r.name+': masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', terjual *'+r.terjual+'*\n'; tm+=r.masuk; tt+=r.terjual; });
+  });
   pesan+='\n_Total masuk: '+tm+' | Total terjual: '+tt+'_';
   window.open('https://wa.me/'+waMaster+'?text='+encodeURIComponent(pesan),'_blank');
 }
@@ -2218,6 +2297,7 @@ function show(name) {
   const overlay=document.getElementById('sidebar-overlay');
   if(sidebar) sidebar.style.display = isAuth?'none':'';
   if(topbar) topbar.style.display = isAuth?'none':'';
+  var clockBar=document.getElementById('clock-bar'); if(clockBar) clockBar.style.display = isAuth?'none':'';
   if(overlay && isAuth) overlay.classList.remove('show');
   const main=document.getElementById('main-area');
   if(main) main.style.marginLeft = isAuth?'0':'';
@@ -2939,8 +3019,8 @@ async function loadSalesReport(){
     return '<div class="daily-card" id="sd-card-'+idx+'">'
       +'<div class="daily-top" onclick="toggleSalesDay('+idx+',\''+r.d+'\')"><span class="daily-date">'+label+' <span class="chevron">\u25BC</span></span>'
       +'<span class="rank-val" style="text-align:right"><b style="font-size:15px;color:var(--g)">'+fmtRp(omzet)+'</b></span></div>'
-      +'<div style="font-size:12px;color:var(--text2)">Terjual <b>'+r.terjual+'</b> · Masuk '+r.produksi+' · Sisa '+r.sisa+'</div>'
-      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+r.d+'\')">\uD83D\uDCE5 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+r.d+'\')">\uD83D\uDCF1 WhatsApp</button></div>'
+      +'<div style="font-size:12px;color:var(--text2)" onclick="toggleSalesDay('+idx+',\''+r.d+'\')">Terjual <b>'+r.terjual+'</b> · Masuk '+r.produksi+' · Sisa '+r.sisa+'</div>'
+      +'<div class="day-rep-btns"><button class="day-rep-btn xls" onclick="event.stopPropagation();exportDayExcel(\''+r.d+'\')">📥 Excel</button><button class="day-rep-btn wa" onclick="event.stopPropagation();sendDayWA(\''+r.d+'\')">📱 WhatsApp</button></div>'
       +'<div class="sd-detail" id="sd-detail-'+idx+'" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)"></div></div>';
   }).join('');
 }
@@ -2957,27 +3037,35 @@ async function toggleSalesDay(idx, dateStr){
   const { data: movs } = await sb.from('stock_movements').select('product_id,type,qty,movement_date,created_at').eq('branch_id',br).lte('movement_date',dateStr);
   const all = movs||[];
   const perProd=[];
+  let adaMasukKosong=false;
   products.forEach(p=>{
     const prod=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
+    const retur=all.filter(m=>m.product_id===p.id&&m.type==='retur'&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const sisaRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date===dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const sisa=sisaRows.length?sisaRows[0].qty:null;
     const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const kemarin=kemRows.length?kemRows[0].qty:0;
-    if(prod===0 && kemarin===0) return;
-    const tersedia=kemarin+prod;
+    if(prod===0 && kemarin===0 && sisa===null) return;
+    // tersedia minimal = sisa (kalau masuk lupa diisi), biar terjual ga ngaco
+    const tersedia=Math.max(kemarin+prod-retur, sisa==null?0:sisa, 0);
     const terjual=Math.max(0,tersedia-(sisa==null?tersedia:sisa));
     const habis = sisa===0;
-    perProd.push({name:p.name, terjual, tersedia, sisa, habis});
+    const masukKosong = sisaRows.length>0 && prod===0;
+    if(masukKosong) adaMasukKosong=true;
+    perProd.push({name:p.name, terjual, tersedia, sisa, habis, masukKosong});
   });
   perProd.sort((a,b)=>b.terjual-a.terjual);
   const habisList=perProd.filter(x=>x.habis);
   let html='';
+  if(adaMasukKosong){
+    html+='<div style="background:var(--y-bg);color:#9A6700;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;line-height:1.4">⚠️ Beberapa roti <b>belum dicatat masuk</b> hari ini. Angka terjual dihitung dari stok kemarin — bisa kurang akurat.</div>';
+  }
   if(habisList.length){
     html+='<div style="font-size:11px;font-weight:700;color:var(--r);margin-bottom:6px">🔴 Habis hari ini ('+habisList.length+')</div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'+habisList.map(x=>'<span style="font-size:11px;background:var(--r-bg);color:var(--r);padding:3px 9px;border-radius:20px;font-weight:600">'+x.name+'</span>').join('')+'</div>';
   }
   html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Rincian per roti</div>';
-  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
+  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️ masuk?</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
   if(!perProd.length) html='<div style="font-size:12px;color:var(--text3)">Tidak ada aktivitas hari ini</div>';
   detail.innerHTML=html;
   detail.style.display='block';
@@ -3045,6 +3133,7 @@ function highlightNav(){
 }
 function renderFastActions(){
   let html='';
+  html+='<button class="top-btn" id="refresh-btn" onclick="manualRefresh(this)" title="Refresh data">🔄</button>';
   html+='<button class="top-btn" id="help-btn" onclick="openHelp()" title="Bantuan & Tutorial">❓</button>';
   html+='<button class="top-btn" id="ship-btn" onclick="openShipments()">🔔</button>';
   html+='<button class="top-btn" id="shelf-btn" onclick="openShelfReport()">🏷️</button>';
@@ -3067,10 +3156,41 @@ function pickMockBranch(b){
 }
 
 // ===== INIT (BETA — login asli) =====
+// ===== JAM WIB (sinkron server SEKALI, jalan lokal — 0 kuota) =====
+let _serverOffsetMs = 0;
+async function syncServerClock(){
+  try {
+    const res = await fetch(SUPABASE_URL+'/rest/v1/', { method:'HEAD', headers:{ apikey: SUPABASE_KEY } });
+    const dateHeader = res.headers.get('date');
+    if(dateHeader){ _serverOffsetMs = new Date(dateHeader).getTime() - Date.now(); }
+  } catch(e){ _serverOffsetMs = 0; }
+}
+function tickClock(){
+  const el = document.getElementById('clock-text');
+  if(!el) return;
+  const now = new Date(Date.now() + _serverOffsetMs);
+  const opt = { timeZone:'Asia/Jakarta', weekday:'short', day:'numeric', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  el.textContent = new Intl.DateTimeFormat('id-ID', opt).format(now);
+}
+let _clockTimer = null;
+function startClock(){ if(_clockTimer) return; tickClock(); _clockTimer = setInterval(tickClock, 1000); }
+
+// ===== REFRESH MANUAL (ganti auto-refresh) =====
+async function manualRefresh(btn){
+  if(btn){ btn.disabled=true; btn.classList.add('spinning'); }
+  await loadStockNow();
+  await checkShelfLifeAlert();
+  await updateShipBadge();
+  refreshActiveScreen();
+  if(btn){ btn.disabled=false; btn.classList.remove('spinning'); }
+}
+
 sb.auth.onAuthStateChange(function(event,session){
   if(event==='INITIAL_SESSION'||event==='SIGNED_IN'){
     if(window.location.hash.indexOf('access_token')>-1) history.replaceState(null,'',window.location.pathname+window.location.search);
-    if(session) checkSession();
+    // cuma checkSession SEKALI di awal. Kalau user udah login, JANGAN reload
+    // (mencegah data ke-reset pas token auto-refresh / HP balik dari background)
+    if(session && !currentUser) checkSession();
   }
 });
 setTimeout(function(){ if(document.getElementById('screen-login').classList.contains('active')) checkSession(); },2500);
