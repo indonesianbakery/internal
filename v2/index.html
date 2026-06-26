@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#2D6A4F">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Indonesian Bakery Internal System</title>
+<title>Stok - Indonesian Bakery</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -169,6 +169,21 @@ body.font-xl{zoom:1.25;}
 .mode-banner.in .t1{color:var(--in);}.mode-banner.out .t1{color:var(--out);}.mode-banner.ship .t1{color:var(--b);}
 .mode-banner .t2{font-size:11px;color:var(--text2);margin-top:1px;}
 .in-row2{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px;margin:0 16px 6px;}
+/* Catat Stok — satu baris, 3 field (masuk/sisa/retur) */
+.catat-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px;margin:0 16px 7px;}
+.catat-name{font-size:14px;font-weight:700;margin-bottom:9px;}
+.catat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.cfield{display:flex;flex-direction:column;gap:5px;}
+.cflbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.2px;}
+.cflbl.masuk{color:var(--g);}
+.cflbl.sisa{color:var(--out);}
+.cflbl.retur{color:#7C3AED;}
+.catat-grid .mini-qc{padding:3px;}
+.catat-foot{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:9px;border-top:1px dashed var(--border);font-size:11px;color:var(--text2);flex-wrap:wrap;}
+.catat-foot b{color:var(--text);}
+.catat-foot .cf-terjual b{color:var(--g);}
+.catat-foot .cf-sep{color:var(--text3);}
+.catat-foot .habis-btn{margin-left:auto;}
 .in-row2 .in-name{font-size:14px;font-weight:500;margin-bottom:8px;}
 .in-fields{display:flex;gap:8px;}
 .in-field{flex:1;}
@@ -718,8 +733,7 @@ body{ max-width:none; }
   </div>
 
   <div class="action-row">
-    <button class="action-btn action-in" onclick="openInput('masuk')">⬆ Catat Masuk</button>
-    <button class="action-btn action-out" onclick="openInput('sisa')">⬇ Catat Sisa</button>
+    <button class="action-btn action-in" onclick="openInput('catat')" style="flex:1">📝 Catat Stok (Masuk · Sisa · Retur)</button>
   </div>
 
   <div class="controls">
@@ -751,7 +765,7 @@ body{ max-width:none; }
 <div id="screen-input" class="screen">
   <div class="sub-header">
     <button class="back-btn" onclick="leaveInput()">← Batal</button>
-    <span class="sub-title" id="input-title">Catat Masuk</span>
+    <span class="sub-title" id="input-title">Catat Stok</span>
   </div>
   <div class="mode-banner" id="input-banner">
     <span class="ic" id="input-ic">⬆</span>
@@ -1772,7 +1786,6 @@ let inputState = {}; // { name: {iKemarin,iProduksi,iSisa,iRetur} }
 function renderTarikNotify(mode){
   const el = document.getElementById('input-tarik-notify');
   if(!el) return;
-  if(mode!=='masuk'){ el.innerHTML=''; return; }
   const tarikList = Object.keys(shelfAlerts).filter(n=>shelfAlerts[n] && shelfAlerts[n].tarik>0);
   if(!tarikList.length){ el.innerHTML=''; return; }
   const total = tarikList.reduce((s,n)=>s+shelfAlerts[n].tarik,0);
@@ -1809,16 +1822,14 @@ function openInput(mode) {
     };
   });
   const banner = document.getElementById('input-banner');
-  banner.className = 'mode-banner ' + (mode==='masuk'?'in':'out');
-  document.getElementById('input-ic').textContent = mode==='masuk'?'\u2B06':'\u2B07';
-  document.getElementById('input-title').textContent = mode==='masuk'?'Catat Masuk & Retur':'Catat Sisa';
-  document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk & Retur':'Catat Sisa';
-  document.getElementById('input-t2').textContent = mode==='masuk'
-    ? 'Cek stok kemarin (otomatis) + isi jumlah roti masuk. Total tersedia dihitung otomatis.'
-    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0.';
+  banner.className = 'mode-banner in';
+  document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
+  document.getElementById('input-title').textContent = 'Catat Stok';
+  document.getElementById('input-t1').textContent = 'Catat Masuk, Sisa & Retur';
+  document.getElementById('input-t2').textContent = 'Isi roti masuk, sisa di rak, dan retur (barang kemarin yang dikembalikan) — semua dalam satu layar.';
   const btn = document.getElementById('input-save');
-  btn.className = 'save-btn ' + (mode==='masuk'?'save-in':'save-out');
-  btn.textContent = mode==='masuk'?'\uD83D\uDCBE Simpan Masuk':'\uD83D\uDCBE Simpan Sisa';
+  btn.className = 'save-btn save-in';
+  btn.textContent = '\uD83D\uDCBE Simpan';
   show('input'); renderInput();
 }
 function renderInput(filter='') {
@@ -1832,23 +1843,17 @@ function renderInput(filter='') {
     prods.forEach(p => {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
-      if (inputMode==='masuk') {
-        const total=Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
-        html += '<div class="in-row2"><div class="in-name">'+n+'</div><div class="in-fields">'
-          +'<div class="in-field"><div class="in-field-lbl kemarin">\uD83D\uDCE6 Stok kemarin</div><div class="mini-qc kemarin"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iKemarin\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iKemarin||0)+'" onchange="setF(\''+esc+'\',\'iKemarin\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iKemarin\',1)">+</button></div></div>'
-          +'<div class="in-field"><div class="in-field-lbl produksi">\uD83E\uDD56 Roti Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
-          +'<div class="in-field"><div class="in-field-lbl retur">\u21A9\uFE0F Retur (kemarin)</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
-          +'</div><div class="in-total">Total tersedia: <b>'+total+'</b></div></div>';
-      } else {
-        const tersedia=s.masuk;
-        const terjual=Math.max(0,tersedia-(inp.iSisa||0));
-        html += '<div class="sisa-row"><div class="in-name">'+n+'</div><div class="in-sub">Tersedia: '+tersedia+' (kemarin '+s.stokKemarin+' + masuk '+s.produksi+')</div><div class="sisa-fields">'
-          +'<span class="sisa-lbl">\uD83D\uDCE4 Sisa</span>'
-          +'<div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div>'
-          +'<button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button>'
-          +'<span class="sisa-terjual-inline">Terjual <b>'+terjual+'</b></span>'
-          +'</div></div>';
-      }
+      // tersedia = kemarin + masuk - retur; terjual = tersedia - sisa
+      const tersedia=Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
+      const terjual=Math.max(0,tersedia-(inp.iSisa||0));
+      html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
+        +'<div class="catat-grid">'
+          +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
+        +'</div>'
+        +'<div class="catat-foot"><span class="cf-kemarin">Kemarin: '+(inp.iKemarin||0)+'</span><span class="cf-sep">·</span><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
+        +'</div>';
     });
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
@@ -1861,26 +1866,26 @@ async function saveInput() {
   const btn = document.getElementById('input-save');
   btn.disabled=true; const orig=btn.textContent; btn.textContent='Menyimpan...';
   let calls = [];
-  if (inputMode==='masuk') {
-    const masukProds = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0);
+  // 1. MASUK (roti baru datang) — + buat batch baru untuk shelf life
+  const masukProds = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0);
+  if (masukProds.length) {
     const prodItems = masukProds.map(n=>({nama:n,qty:inputState[n].iProduksi}));
-    if (prodItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:prodItems}));
-    // retur sekarang dicatat di Catat Masuk
-    // insert batch baru untuk tiap produk yang masuk
-    if (masukProds.length) {
-      const today = new Date().toISOString().slice(0,10);
-      const batchRows = masukProds.map(n => {
-        const prod = products.find(p=>p.name===n);
-        return { branch_id: branch, product_id: prod.id, batch_date: today, qty_in: inputState[n].iProduksi, qty_sold: 0 };
-      });
-      calls.push(sb.from('product_batches').insert(batchRows));
-    }
-  } else {
-    // simpan sisa hanya yang disentuh (beda dari stok sekarang)
-    const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
-    if (sisaItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
-    // setelah sisa dicatat, update qty_sold batch via FIFO
-    if (sisaItems.length) calls.push(updateBatchFIFO(sisaItems));
+    calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:prodItems}));
+    const today = new Date().toISOString().slice(0,10);
+    const batchRows = masukProds.map(n => {
+      const prod = products.find(p=>p.name===n);
+      return { branch_id: branch, product_id: prod.id, batch_date: today, qty_in: inputState[n].iProduksi, qty_sold: 0 };
+    });
+    calls.push(sb.from('product_batches').insert(batchRows));
+  }
+  // 2. RETUR (barang kemarin dikembalikan/ditarik) — sebelumnya BUG: ga kesimpan
+  const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
+  if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
+  // 3. SISA (sisa di rak) — hanya yang diubah dari stok sekarang
+  const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
+  if (sisaItems.length) {
+    calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
+    calls.push(updateBatchFIFO(sisaItems));
   }
   if (!calls.length) { btn.disabled=false; btn.textContent=orig; inputDirty=false; show('overview'); return; }
   const results = await Promise.all(calls);
@@ -2770,15 +2775,15 @@ function closeHelp(){ document.getElementById('help-modal').classList.remove('op
 var tourSteps={
   master:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat ringkasan: berapa produk habis, sedikit, dan aman saat ini.'},
-    {sel:'.action-row',title:'Catat Masuk & Sisa',text:'Tombol hijau untuk roti baru masuk — otomatis buat batch baru untuk tracking kedaluwarsa. Tombol oranye untuk catat sisa stok.'},
+    {sel:'.action-row',title:'Catat Stok',text:'Satu tombol untuk catat semua: roti masuk, sisa di rak, dan retur (barang kemarin yang dikembalikan). Roti masuk otomatis buat batch untuk tracking kedaluwarsa.'},
     {sel:'#shelf-btn',title:'🏷️ Laporan Kedaluwarsa',text:'Ikon label di pojok kanan atas. Badge merah muncul kalau ada produk yang sudah atau hampir kedaluwarsa. Tap untuk lihat detailnya.'},
     {sel:'#filter-pills',title:'Filter Cepat',text:'Saring produk by status: habis, sedikit, atau aman. Produk yang perlu ditarik juga akan ditandai langsung di daftar.'},
     {sel:'.sb-item[data-scr="dashboard"]',title:'Dashboard',text:'Buka menu di sidebar untuk lihat produk paling laku & riwayat harian.'}
   ],
   karyawan:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat berapa produk habis, sedikit, dan aman saat ini.'},
-    {sel:'.action-row',title:'Catat Masuk',text:'Siang saat roti datang, catat pakai tombol hijau — sekalian retur kalau ada. Sistem otomatis catat tanggal untuk tracking kedaluwarsa.'},
-    {sel:'.action-row',title:'Catat Sisa',text:'Malam saat tutup, catat sisa stok pakai tombol oranye. Sore opsional. Sistem otomatis hitung produk mana yang perlu ditarik.'},
+    {sel:'.action-row',title:'Catat Stok',text:'Klik tombol Catat Stok. Di sini isi roti masuk (siang saat datang), sisa di rak (malam saat tutup), dan retur kalau ada barang kemarin yang dikembalikan — semua satu layar.'},
+    {sel:'.action-row',title:'Tips',text:'Tombol Habis untuk set sisa ke 0. Sistem otomatis hitung terjual dan produk mana yang perlu ditarik dari rak.'},
     {sel:'#shelf-btn',title:'🏷️ Cek Kedaluwarsa',text:'Lihat ikon label 🏷️ di kanan atas. Kalau ada badge merah atau kuning, ada produk yang perlu diperhatikan — segera cek!'}
   ]
 };
@@ -2798,7 +2803,7 @@ function tourNext(){ const steps=tourSteps[helpRole()]; if(tourIdx<steps.length-
 function endTour(){ document.getElementById('tour-overlay').classList.remove('open'); }
 var faqContent={
   master:[
-    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Siang (roti datang): klik <b>Catat Masuk</b>. Isi jumlah roti masuk + retur kalau ada barang kemarin yang dikembalikan. Sistem otomatis catat batch + tanggal.</div></div><div class="faq-step"><span class="num">2</span><div>Sore (opsional): klik <b>Catat Sisa</b> kalau mau update sisa di tengah hari.</div></div><div class="faq-step"><span class="num">3</span><div>Malam/tutup (wajib): klik <b>Catat Sisa</b>, koreksi sisa di rak (tombol Habis untuk 0). Sistem langsung hitung produk mana yang perlu ditarik.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge merah/kuning, ada produk kedaluwarsa atau hampir exp.</div></div>'},
+    {q:'Bagaimana alur harian pakai app ini?',a:'<div class="faq-step"><span class="num">1</span><div>Buka <b>Catat Stok</b> — satu layar untuk semua.</div></div><div class="faq-step"><span class="num">2</span><div>Siang (roti datang): isi kolom <b>Masuk</b> + <b>Retur</b> kalau ada barang kemarin yang dikembalikan.</div></div><div class="faq-step"><span class="num">3</span><div>Malam (tutup): isi kolom <b>Sisa</b> (tombol Habis untuk 0). Sistem otomatis hitung terjual + produk yang perlu ditarik.</div></div><div class="faq-step"><span class="num">4</span><div>Cek ikon 🏷️ — kalau ada badge, ada produk kedaluwarsa/hampir exp.</div></div>'},
     {q:'Apa itu sistem kedaluwarsa (shelf life)?',a:'Tiap produk punya batas waktu jual (<b>shelf life</b>), default 2 hari. Setiap kali <b>Catat Masuk</b>, sistem mencatat tanggalnya sebagai batch baru. Saat <b>Catat Sisa</b>, sistem FIFO otomatis hitung batch mana yang sudah habis masa jualnya.<br><br><b>Status batch:</b><br>🟢 Aman — masih dalam batas waktu<br>🟡 Besok kedaluwarsa — H-1<br>🔴 Harus ditarik — sudah melewati shelf life'},
     {q:'Cara atur shelf life tiap produk?',a:'Buka <b>Admin → Kelola Produk</b>. Tiap produk ada field ⏰ X hari — ubah sesuai kebutuhan. Contoh: Srikaya 2 hari, Roti Tawar 7 hari. Hanya Master yang bisa mengubah.'},
     {q:'Apa itu stok kemarin, masuk, sisa, retur?',a:'<b>Stok kemarin</b> = sisa kemarin. <b>Masuk</b> = roti baru hari ini (sekaligus buat batch baru). <b>Sisa</b> = yang masih di rak. <b>Retur</b> = dikembalikan. <b>Terjual</b> = (kemarin+masuk) \u2212 sisa \u2212 retur.'},
@@ -2808,8 +2813,8 @@ var faqContent={
     {q:'Cara tambah produk/kategori?',a:'Admin \u2192 <b>Kelola Produk & Kategori</b>. Shelf life bisa langsung diatur di sana.'}
   ],
   karyawan:[
-    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Siang: <b>Catat Masuk</b>. Isi jumlah roti masuk + retur kalau ada, lalu Simpan.</div></div><div class="faq-step"><span class="num">2</span><div>Malam (tutup): <b>Catat Sisa</b>, koreksi sisa di rak. Sore boleh catat sisa juga kalau perlu (opsional).</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge, ada roti yang perlu ditarik dari rak.</div></div>'},
-    {q:'Cara catat roti masuk?',a:'Klik tombol hijau <b>Catat Masuk</b>. Isi jumlah <b>roti masuk</b> tiap produk, lalu Simpan. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa — kamu tidak perlu melakukan apapun lagi.'},
+    {q:'Apa yang saya lakukan tiap hari?',a:'<div class="faq-step"><span class="num">1</span><div>Buka <b>Catat Stok</b>. Siang: isi <b>Masuk</b> + <b>Retur</b> kalau ada.</div></div><div class="faq-step"><span class="num">2</span><div>Malam (tutup): isi <b>Sisa</b> di layar yang sama, lalu Simpan.</div></div><div class="faq-step"><span class="num">3</span><div>Cek ikon 🏷️ — kalau ada badge, ada roti yang perlu ditarik dari rak.</div></div>'},
+    {q:'Cara catat roti masuk?',a:'Buka <b>Catat Stok</b>, isi kolom <b>Masuk</b> tiap produk, lalu Simpan. Sistem otomatis mencatat tanggal masuk untuk tracking kedaluwarsa.'},
     {q:'Cara catat sisa?',a:'Klik tombol oranye <b>Catat Sisa</b>. Sisa sudah terisi dari stok sekarang, koreksi pakai +/\u2212 atau tombol <b>Habis</b>. Simpan. (Retur sekarang dicatat di <b>Catat Masuk</b>, bukan di sini.)'},
     {q:'Apa arti tanda ⚠️ atau ⏰ di produk?',a:'<b>⚠️ Tarik Xpcs</b> = produk itu sudah kedaluwarsa, segera tarik dari rak sebanyak yang tertera.<br><b>⏰ Besok exp Xpcs</b> = besok kedaluwarsa, prioritaskan jual hari ini.<br><br>Klik ikon 🏷️ di pojok kanan atas untuk lihat laporan lengkap.'},
     {q:'Cara cari produk?',a:'Pakai kotak "Cari produk..." atau filter status di bawahnya.'}
@@ -3065,7 +3070,7 @@ async function toggleSalesDay(idx, dateStr){
     html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'+habisList.map(x=>'<span style="font-size:11px;background:var(--r-bg);color:var(--r);padding:3px 9px;border-radius:20px;font-weight:600">'+x.name+'</span>').join('')+'</div>';
   }
   html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Rincian per roti</div>';
-  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
+  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️ masuk?</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
   if(!perProd.length) html='<div style="font-size:12px;color:var(--text3)">Tidak ada aktivitas hari ini</div>';
   detail.innerHTML=html;
   detail.style.display='block';
