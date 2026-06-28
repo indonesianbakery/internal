@@ -1852,14 +1852,38 @@ function renderInput(filter='') {
           +'<div class="cfield"><div class="cflbl sisa">📤 Sisa</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
           +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
         +'</div>'
-        +'<div class="catat-foot"><span class="cf-kemarin">Kemarin: '+(inp.iKemarin||0)+'</span><span class="cf-sep">·</span><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
+        +'<div class="catat-foot"><span class="cf-kemarin">Stok kemarin: '+(inp.iKemarin||0)+'</span><span class="cf-sep">·</span><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
         +'</div>';
     });
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
 }
-function adjF(n,field,d){ inputState[n][field]=Math.max(0,(inputState[n][field]||0)+d); markInputDirty(); renderInput(document.getElementById('input-search').value); }
-function setF(n,field,v){ inputState[n][field]=Math.max(0,parseInt(v)||0); markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function adjF(n,field,d){
+  const prev = inputState[n][field]||0;
+  const next = Math.max(0, prev+d);
+  inputState[n][field] = next;
+  // fix 1: masuk naik/turun → sisa ikut delta yang sama
+  if(field==='iProduksi'){
+    inputState[n].iSisa = Math.max(0,(inputState[n].iSisa||0)+d);
+  }
+  // fix 2: cap sisa <= tersedia
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
+  markInputDirty(); renderInput(document.getElementById('input-search').value);
+}
+function setF(n,field,v){
+  inputState[n][field] = Math.max(0,parseInt(v)||0);
+  // fix 1: masuk diset manual → sisa ikut selisihnya
+  if(field==='iProduksi'){
+    const s = stockNow[n];
+    const baseKemarin = Math.max(0,(s.stokKemarin||0)-(s.retur||0));
+    inputState[n].iSisa = Math.max(0, baseKemarin + (inputState[n].iProduksi||0));
+  }
+  // fix 2: cap sisa <= tersedia
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
+  markInputDirty(); renderInput(document.getElementById('input-search').value);
+}
 function setHabis(n){ inputState[n].iSisa=0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
 
 async function saveInput() {
