@@ -1818,7 +1818,7 @@ function openInput(mode) {
     const s = stockNow[n];
     inputState[n] = {
       iKemarin: s.stokKemarin||0, iProduksi: 0,
-      iSisa: s.stokKemarin||0, iRetur: 0
+      iSisa: Math.max(0,(s.stokKemarin||0)-(s.retur||0)), iRetur: 0
     };
   });
   const banner = document.getElementById('input-banner');
@@ -1882,7 +1882,7 @@ async function saveInput() {
   const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
   if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
   // 3. SISA (sisa di rak) — hanya yang diubah dari stok sekarang
-  const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].stokKemarin||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
+  const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==Math.max(0,(stockNow[n].stokKemarin||0)-(stockNow[n].retur||0))).map(n=>({nama:n,qty:inputState[n].iSisa}));
   if (sisaItems.length) {
     calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
     calls.push(updateBatchFIFO(sisaItems));
