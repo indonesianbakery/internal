@@ -11,9 +11,9 @@
 <meta name="theme-color" content="#2D6A4F">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Stok - Indonesian Bakery</title>
+<title>Indonesian Bakery Internal System</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 :root {
@@ -250,7 +250,8 @@ body.font-xl{zoom:1.25;}
 
 /* DASHBOARD */
 .period-row{display:flex;gap:6px;margin-bottom:8px;}
-.period-btn{flex:1;padding:8px;border-radius:var(--rad-sm);border:1.5px solid var(--border);background:white;font-family:inherit;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;}
+.period-btn{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:.15s;}
+.period-btn:hover{border-color:var(--g3);}
 .period-btn.active{background:var(--g);border-color:var(--g);color:white;}
 .rank-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
 .rank-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;}
@@ -264,7 +265,9 @@ body.font-xl{zoom:1.25;}
 .rank-val small{display:block;font-size:10px;color:var(--text3);}
 .daily-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:8px;cursor:pointer;}
 .day-rep-btns{display:flex;gap:6px;margin:8px 0;}
-.day-rep-btn{flex:1;padding:7px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.day-rep-btn{flex:1;padding:9px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:5px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.day-rep-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.08);}
+.day-rep-btn:active{transform:translateY(0);}
 .day-rep-btn.xls{color:#1D6F42;border-color:#1D6F42;background:#EAF6EF;}
 .day-rep-btn.wa{color:#0B8A3E;border-color:#25D366;background:#E8F9EE;}
 .daily-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
@@ -298,15 +301,24 @@ body.font-xl{zoom:1.25;}
 .role-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--y-bg);color:var(--y);font-weight:500;margin-left:6px;}
 .user-edit-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .mini-input{padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:'DM Mono',monospace;font-size:13px;text-align:center;}
-.mini-select{padding:6px 8px;border:1.5px solid var(--border);border-radius:7px;font-family:inherit;font-size:12px;}
-.mini-btn{background:var(--g-bg);border:none;border-radius:7px;padding:6px 10px;color:var(--g);font-size:12px;font-family:inherit;cursor:pointer;font-weight:500;}
-.del-btn{background:var(--r-bg);border:none;border-radius:7px;padding:6px 10px;color:var(--r);font-size:12px;font-family:inherit;cursor:pointer;}
+.mini-select{padding:8px 10px;border:1px solid var(--border);border-radius:9px;font-family:inherit;font-size:12px;background:var(--surface);cursor:pointer;transition:.15s;}
+.mini-select:hover{border-color:var(--g3);}
+.mini-btn{background:var(--g-bg);border:none;border-radius:9px;padding:8px 12px;color:var(--g);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;transition:.15s;}
+.mini-btn:hover{background:var(--g3);color:#fff;}
+.del-btn{background:var(--r-bg);border:none;border-radius:9px;padding:8px 12px;color:var(--r);font-size:12px;font-family:inherit;cursor:pointer;font-weight:600;transition:.15s;}
+.del-btn:hover{background:var(--r);color:#fff;}
 .admin-link{text-align:center;margin-top:14px;font-size:13px;color:var(--g);cursor:pointer;text-decoration:underline;}
 .add-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:14px;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;}
-.add-btn{padding:10px 16px;background:var(--g);color:white;border:none;border-radius:var(--rad-sm);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+.add-btn{padding:11px 16px;background:var(--g);color:white;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:.15s;box-shadow:0 2px 6px rgba(123,45,58,.2);}
+.add-btn:hover{background:var(--g2);transform:translateY(-1px);box-shadow:0 4px 12px rgba(123,45,58,.28);}
+.add-btn:active{transform:translateY(0);}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
-.prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:10px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:12px;margin-bottom:8px;display:flex;flex-direction:column;align-items:stretch;gap:10px;}
+.prod-manage-row.selected{}
+.pm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border);}
+.pm-actions .mini-select{flex:1;min-width:110px;}
+.pm-actions .mini-btn,.pm-actions .del-btn{padding:8px 12px;}
 .prod-manage-row.selected{border-color:var(--b);background:var(--b-bg);}
 .prod-check{width:22px;height:22px;border-radius:6px;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;transition:.15s;}
 .prod-check.checked{background:var(--b);border-color:var(--b);color:white;}
@@ -492,6 +504,15 @@ body{ max-width:none; }
 #main-area{ flex:1; margin-left:var(--sidebar-w); min-width:0; transition:margin .25s ease; }
 #main-area.full{ margin-left:0; }
 .mock-topbar{ position:sticky; top:0; z-index:50; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; gap:8px; padding:10px 14px; position:relative; }
+#clock-bar{ position:sticky; top:0; z-index:49; background:var(--g); color:#fff; font-size:12px; font-weight:600; text-align:center; padding:5px; letter-spacing:.3px; font-family:'DM Mono',monospace; }
+@keyframes spin360{ to{ transform:rotate(360deg); } }
+.top-btn.spinning{ animation:spin360 .6s linear infinite; }
+/* notify produk perlu ditarik/retur — desain clean */
+.tarik-notify{ margin:0 16px 10px; background:linear-gradient(135deg,var(--g-light),var(--g-bg)); border:1px solid var(--g3); border-radius:12px; padding:11px 13px; }
+.tarik-head{ font-size:12px; font-weight:700; color:var(--g); margin-bottom:7px; }
+.tarik-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.tarik-chip{ font-size:11px; background:var(--surface); color:var(--g2); border:1px solid var(--g3); border-radius:20px; padding:3px 10px; font-weight:500; }
+.tarik-chip b{ color:var(--g); font-family:'DM Mono',monospace; }
 .hamb-btn{ background:var(--g-bg); border:none; border-radius:9px; width:38px; height:38px; font-size:18px; cursor:pointer; color:var(--g); flex-shrink:0; }
 .mock-topbar .branch-mini{ font-size:13px; font-weight:600; color:var(--text); flex:1; }
 .mock-fast{ display:flex; gap:6px; }
@@ -582,7 +603,6 @@ body{ max-width:none; }
 </style>
 </head>
 <body>
-<div class="mock-banner" style="background:var(--b)">🧪 VERSI BETA — terhubung ke database beta (terpisah dari data toko asli)</div>
 
 <!-- SIDEBAR (mockup nav) -->
 <div id="sidebar-overlay" onclick="closeSidebar()"></div>
@@ -604,6 +624,7 @@ body{ max-width:none; }
   <div class="mock-fast" id="mock-fast-actions"></div>
   <button class="role-switch" onclick="logout()" style="background:var(--r-bg);color:var(--r);border-color:var(--r)">Keluar</button>
 </div>
+<div id="clock-bar" style="display:none">🕐 <span id="clock-text">—</span> WIB</div>
 
 
 <!-- LOGIN -->
@@ -613,7 +634,16 @@ body{ max-width:none; }
     <h1>Indonesian Bakery</h1>
     <p>Pekanbaru — Sistem Stok</p>
   </div>
-  <div class="login-card">
+  <div style="background:rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;margin-bottom:12px;color:white;font-size:13px;text-align:center;max-width:360px;width:100%;">
+  🧪 <b>Demo Mode</b> — data tidak terhubung ke database asli.<br>Login cepat di bawah ⬇️
+</div>
+<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;width:100%;max-width:360px;">
+  <button class="login-btn" style="background:rgba(255,255,255,0.9);color:#7B2D3A;" onclick="quickLogin('master')">👑 Login sebagai Master (Cilla)</button>
+  <button class="login-btn" style="background:rgba(255,255,255,0.7);color:#7B2D3A;" onclick="quickLogin('manager')">🔑 Login sebagai Manager (Budi)</button>
+  <button class="login-btn" style="background:rgba(255,255,255,0.5);color:#7B2D3A;" onclick="quickLogin('karyawan')">👤 Login sebagai Karyawan (Sari)</button>
+</div>
+<div style="color:rgba(255,255,255,0.5);font-size:11px;margin-bottom:8px;max-width:360px;width:100%;text-align:center;">— atau login manual —</div>
+<div class="login-card">
     <div class="login-tabs">
       <button class="login-tab active" onclick="switchLoginTab('pin')">Karyawan</button>
       <button class="login-tab" onclick="switchLoginTab('google')">Super Admin / Manager</button>
@@ -729,7 +759,7 @@ body{ max-width:none; }
 <!-- INPUT -->
 <div id="screen-input" class="screen">
   <div class="sub-header">
-    <button class="back-btn" onclick="show('overview')">← Batal</button>
+    <button class="back-btn" onclick="leaveInput()">← Batal</button>
     <span class="sub-title" id="input-title">Catat Masuk</span>
   </div>
   <div class="mode-banner" id="input-banner">
@@ -737,10 +767,24 @@ body{ max-width:none; }
     <div class="txt"><div class="t1" id="input-t1">Mode: Roti Masuk</div><div class="t2" id="input-t2"></div></div>
   </div>
   <div class="controls"><input class="search-inp" id="input-search" type="search" placeholder="Cari produk..." oninput="renderInput(this.value)"></div>
+  <div id="input-tarik-notify"></div>
   <div id="input-list" style="padding-bottom:100px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
   <div class="bottombar">
-    <button class="bb-cancel" onclick="show('overview')">Batal</button>
+    <button class="bb-cancel" onclick="leaveInput()">Batal</button>
     <button class="save-btn" id="input-save" onclick="saveInput()">💾 Simpan</button>
+  </div>
+</div>
+
+<!-- MODAL PERUBAHAN BELUM DISIMPAN -->
+<div class="modal-overlay" id="unsaved-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">⚠️ Perubahan belum disimpan</div>
+    <div class="modal-sub">Ada data yang kamu isi tapi belum disimpan. Mau diapakan?</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
+      <button class="modal-save" onclick="unsavedSimpan()">💾 Simpan dulu</button>
+      <button class="del-btn" style="padding:12px;border-radius:10px;font-size:14px;font-weight:600" onclick="unsavedBuang()">🗑️ Buang perubahan</button>
+      <button class="modal-cancel" onclick="unsavedBatal()">← Batal (lanjut isi)</button>
+    </div>
   </div>
 </div>
 
@@ -1304,14 +1348,425 @@ body{ max-width:none; }
 
 <script>
 // ============================================================
-// ===== KONEKSI SUPABASE BETA (database terpisah dari production) =====
+// ===== DEMO / SANDBOX MODE — tidak konek ke database asli =====
 // ============================================================
-// Database BETA: ftapjmwsrxefrrwvergj — terpisah total dari data toko asli.
-const SUPABASE_URL = 'https://ftapjmwsrxefrrwvergj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ0YXBqbXdzcnhlZnJyd3ZlcmdqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxNTk5MDYsImV4cCI6MjA5NzczNTkwNn0.EwfXAlJV75mfShoTEbpCfd5DP96QVWKAw8CP6sm4nhQ';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
-});
+
+// ===== MOCK DATA =====
+const MOCK_CATEGORIES = [
+  {id:1,name:'Donat',sort_order:1},
+  {id:2,name:'Mentega',sort_order:2},
+  {id:3,name:'Roti Isi',sort_order:3},
+  {id:4,name:'Bunga',sort_order:4},
+  {id:5,name:'Roti Tawar',sort_order:5},
+  {id:6,name:'Dll',sort_order:6},
+  {id:7,name:'Roti Besar',sort_order:7},
+];
+const MOCK_PRODUCTS = [
+  {id:1,name:'Donat Snow',category_id:1,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:1},
+  {id:2,name:'Donat Paha Ayam',category_id:1,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:2},
+  {id:3,name:'Donat Almond',category_id:1,is_active:true,cost_price:3500,shelf_life_days:2,sort_order:3},
+  {id:4,name:'Donat Oreo',category_id:1,is_active:true,cost_price:3500,shelf_life_days:2,sort_order:4},
+  {id:5,name:'Donat Red Velvet',category_id:1,is_active:true,cost_price:3500,shelf_life_days:2,sort_order:5},
+  {id:6,name:'Donat Meses',category_id:1,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:6},
+  {id:7,name:'Donat Mini',category_id:1,is_active:true,cost_price:2000,shelf_life_days:2,sort_order:7},
+  {id:8,name:'Mentega Gula',category_id:2,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:1},
+  {id:9,name:'Mentega Coklat Keju',category_id:2,is_active:true,cost_price:3500,shelf_life_days:2,sort_order:2},
+  {id:10,name:'Sukade',category_id:2,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:3},
+  {id:11,name:'Mentega Coklat',category_id:2,is_active:true,cost_price:3000,shelf_life_days:2,sort_order:4},
+  {id:12,name:'Taro',category_id:2,is_active:true,cost_price:3500,shelf_life_days:2,sort_order:5},
+  {id:13,name:'Coklat Pisang',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:1},
+  {id:14,name:'Buttermilk',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:2},
+  {id:15,name:'Srikaya',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:3},
+  {id:16,name:'Kacang Hijau',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:4},
+  {id:17,name:'Kacang Merah',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:5},
+  {id:18,name:'Kelapa',category_id:3,is_active:true,cost_price:4000,shelf_life_days:2,sort_order:6},
+  {id:19,name:'Coklat Pisang Keju',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:7},
+  {id:20,name:'Special Choco',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:8},
+  {id:21,name:'Cappuccino',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:9},
+  {id:22,name:'Abon Sapi',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:10},
+  {id:23,name:'Abon Ayam',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:11},
+  {id:24,name:'Blueberry',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:12},
+  {id:25,name:'Ayam',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:13},
+  {id:26,name:'Durian',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:14},
+  {id:27,name:'Special Cheese',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:15},
+  {id:28,name:'Choco Cheese',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:16},
+  {id:29,name:'Blueberry Cheese',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:17},
+  {id:30,name:'Tuna Pedas',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:18},
+  {id:31,name:'Sosis Ayam',category_id:3,is_active:true,cost_price:4500,shelf_life_days:2,sort_order:19},
+  {id:32,name:'Pizza Sosis',category_id:3,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:20},
+  {id:33,name:'Kelapa Bunga',category_id:4,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:1},
+  {id:34,name:'Coklat Keju Bunga',category_id:4,is_active:true,cost_price:5500,shelf_life_days:2,sort_order:2},
+  {id:35,name:'Coklat Bunga',category_id:4,is_active:true,cost_price:5000,shelf_life_days:2,sort_order:3},
+  {id:36,name:'Kombinasi',category_id:4,is_active:true,cost_price:5500,shelf_life_days:2,sort_order:4},
+  {id:37,name:'Roti Tawar',category_id:5,is_active:true,cost_price:8000,shelf_life_days:3,sort_order:1},
+  {id:38,name:'Roti Tawar Kupas',category_id:5,is_active:true,cost_price:9000,shelf_life_days:3,sort_order:2},
+  {id:39,name:'Brownies Kering',category_id:6,is_active:true,cost_price:6000,shelf_life_days:7,sort_order:1},
+  {id:40,name:'Kering Coklat Keju',category_id:6,is_active:true,cost_price:6000,shelf_life_days:7,sort_order:2},
+  {id:41,name:'Bagelan Coklat',category_id:6,is_active:true,cost_price:5000,shelf_life_days:7,sort_order:3},
+  {id:42,name:'Bagelan Keju',category_id:6,is_active:true,cost_price:5000,shelf_life_days:7,sort_order:4},
+  {id:43,name:'Bagelan Mix',category_id:6,is_active:true,cost_price:5000,shelf_life_days:7,sort_order:5},
+  {id:44,name:'Kering',category_id:6,is_active:true,cost_price:5000,shelf_life_days:7,sort_order:6},
+  {id:45,name:'Brownies Kecil',category_id:6,is_active:true,cost_price:8000,shelf_life_days:7,sort_order:7},
+  {id:46,name:'Brownies Besar',category_id:6,is_active:true,cost_price:15000,shelf_life_days:7,sort_order:8},
+  {id:47,name:'Selai Srikaya',category_id:6,is_active:true,cost_price:10000,shelf_life_days:14,sort_order:9},
+  {id:48,name:'Brownies 8k',category_id:6,is_active:true,cost_price:8000,shelf_life_days:7,sort_order:10},
+  {id:49,name:'Kismis Gula',category_id:7,is_active:true,cost_price:8000,shelf_life_days:2,sort_order:1},
+  {id:50,name:'Keju Gula',category_id:7,is_active:true,cost_price:8000,shelf_life_days:2,sort_order:2},
+  {id:51,name:'Ayam Goreng',category_id:7,is_active:true,cost_price:9000,shelf_life_days:2,sort_order:3},
+  {id:52,name:'Korean Garlic',category_id:7,is_active:true,cost_price:9000,shelf_life_days:2,sort_order:4},
+  {id:53,name:'Cappuccino Mini',category_id:7,is_active:true,cost_price:8000,shelf_life_days:2,sort_order:5},
+  {id:54,name:'Pandan Gula Merah',category_id:7,is_active:true,cost_price:9000,shelf_life_days:2,sort_order:6},
+  {id:55,name:'Pizza Ayam',category_id:7,is_active:true,cost_price:9000,shelf_life_days:2,sort_order:7},
+];
+
+// Sisa dari laporan tgl 27 Jun (Delima) — ini jadi "stok sekarang"
+const MOCK_STOCK = {
+  melur: {},  // kosong, bisa diisi nanti
+  delima: {
+    'Donat Snow':0,'Donat Paha Ayam':0,'Donat Almond':0,'Donat Oreo':0,'Donat Red Velvet':0,
+    'Donat Meses':0,'Donat Mini':2,'Mentega Gula':0,'Mentega Coklat Keju':2,'Sukade':0,
+    'Mentega Coklat':0,'Taro':0,'Coklat Pisang':0,'Buttermilk':0,'Srikaya':0,'Kacang Hijau':0,
+    'Kacang Merah':0,'Kelapa':0,'Coklat Pisang Keju':0,'Special Choco':0,'Cappuccino':0,
+    'Abon Sapi':0,'Abon Ayam':0,'Blueberry':0,'Ayam':0,'Durian':0,'Special Cheese':0,
+    'Choco Cheese':0,'Blueberry Cheese':0,'Tuna Pedas':0,'Sosis Ayam':0,'Pizza Sosis':0,
+    'Kelapa Bunga':0,'Coklat Keju Bunga':0,'Coklat Bunga':0,'Kombinasi':0,
+    'Roti Tawar':0,'Roti Tawar Kupas':0,'Brownies Kering':9,'Kering Coklat Keju':0,
+    'Bagelan Coklat':0,'Bagelan Keju':0,'Bagelan Mix':0,'Kering':3,
+    'Brownies Kecil':0,'Brownies Besar':0,'Selai Srikaya':4,'Brownies 8k':0,
+    'Kismis Gula':0,'Keju Gula':0,'Ayam Goreng':0,'Korean Garlic':0,
+    'Cappuccino Mini':0,'Pandan Gula Merah':0,'Pizza Ayam':0
+  }
+};
+// produksi yg sudah masuk hari ini (simulasi)
+const MOCK_MASUK = { melur: {}, delima: {} };
+const MOCK_RETUR = { melur: {}, delima: {} };
+
+// Kemarin = sisa laporan 26 Jun
+const MOCK_KEMARIN = {
+  melur: {},
+  delima: {
+    'Donat Snow':4,'Donat Paha Ayam':4,'Donat Almond':3,'Donat Oreo':3,'Donat Red Velvet':3,
+    'Donat Meses':3,'Donat Mini':0,'Mentega Gula':2,'Mentega Coklat Keju':3,'Sukade':2,
+    'Mentega Coklat':2,'Taro':0,'Coklat Pisang':4,'Buttermilk':0,'Srikaya':4,'Kacang Hijau':0,
+    'Kacang Merah':4,'Kelapa':0,'Coklat Pisang Keju':0,'Special Choco':4,'Cappuccino':4,
+    'Abon Sapi':3,'Abon Ayam':3,'Blueberry':3,'Ayam':4,'Durian':5,'Special Cheese':4,
+    'Choco Cheese':4,'Blueberry Cheese':4,'Tuna Pedas':0,'Sosis Ayam':0,'Pizza Sosis':5,
+    'Kelapa Bunga':2,'Coklat Keju Bunga':0,'Coklat Bunga':2,'Kombinasi':2,
+    'Roti Tawar':9,'Roti Tawar Kupas':4,'Brownies Kering':9,'Kering Coklat Keju':4,
+    'Bagelan Coklat':4,'Bagelan Keju':2,'Bagelan Mix':2,'Kering':4,
+    'Brownies Kecil':3,'Brownies Besar':1,'Selai Srikaya':2,'Brownies 8k':1,
+    'Kismis Gula':2,'Keju Gula':0,'Ayam Goreng':3,'Korean Garlic':4,
+    'Cappuccino Mini':3,'Pandan Gula Merah':0,'Pizza Ayam':2
+  }
+};
+
+// History movements untuk dashboard (simulasi)
+const MOCK_HISTORY = { melur: [], delima: [] };
+let mockShipments = [
+  {id:1,from_branch:'melur',to_branch:'delima',status:'pending',created_at:new Date(Date.now()-3600000).toISOString(),sender_name:'Cilla',total_modal:0}
+];
+let mockShipmentItems = {
+  1:[
+    {product_id:1,qty_sent:4,qty_received:null,products:{name:'Donat Snow'}},
+    {product_id:13,qty_sent:6,qty_received:null,products:{name:'Coklat Pisang'}},
+  ]
+};
+let mockShipmentIdCounter = 2;
+
+let mockProfiles = [
+  {id:'u1',full_name:'Cilla',role:'master',branch_id:null,pin:'1234',username:'cilla'},
+  {id:'u2',full_name:'Sari',role:'karyawan',branch_id:'delima',pin:'2222',username:'sari'},
+  {id:'u3',full_name:'Budi',role:'manager',branch_id:'melur',pin:'3333',username:'budi'},
+];
+
+// ===== MOCK SUPABASE =====
+function mockResult(data){ return {data, error:null}; }
+function mockError(msg){ return {data:null, error:{message:msg}}; }
+
+function makeQueryChain(tableName) {
+  let _filters = {};
+  let _order = null;
+  let _limit = null;
+  let _count = false;
+  let _head = false;
+  let _single = false;
+  let _cols = '*';
+
+  const chain = {
+    select(cols, opts){ _cols = cols; if(opts&&opts.count==='exact') _count=true; if(opts&&opts.head) _head=true; return chain; },
+    eq(col,val){ _filters[col]=val; return chain; },
+    in(col,vals){ _filters['__in_'+col]=vals; return chain; },
+    lte(col,val){ _filters['__lte_'+col]=val; return chain; },
+    order(col,opts){ _order={col,desc:opts&&opts.ascending===false}; return chain; },
+    limit(n){ _limit=n; return chain; },
+    single(){ _single=true; return chain; },
+    then(resolve){ resolve(executeQuery()); },
+  };
+
+  function getData() {
+    if(tableName==='categories') return JSON.parse(JSON.stringify(MOCK_CATEGORIES));
+    if(tableName==='products') return JSON.parse(JSON.stringify(MOCK_PRODUCTS));
+    if(tableName==='settings') return [{key:'threshold_sedikit_max',value:'3'},{key:'whatsapp_master',value:'6281092249354'}];
+    if(tableName==='user_preferences') return [];
+    if(tableName==='profiles') return JSON.parse(JSON.stringify(mockProfiles));
+    if(tableName==='shipments') return JSON.parse(JSON.stringify(mockShipments));
+    if(tableName==='shipment_items') {
+      const sid = _filters['shipment_id'];
+      return sid ? (mockShipmentItems[sid]||[]) : [];
+    }
+    if(tableName==='product_batches') {
+      // return fake batch for shelf life (empty = no alerts)
+      return [];
+    }
+    return [];
+  }
+
+  function executeQuery() {
+    let rows = getData();
+
+    // Apply filters
+    Object.keys(_filters).forEach(k => {
+      if(k.startsWith('__in_')) {
+        const col = k.replace('__in_','');
+        rows = rows.filter(r => _filters[k].includes(r[col]));
+      } else if(k.startsWith('__lte_')) {
+        // skip for demo
+      } else {
+        rows = rows.filter(r => r[k] === _filters[k]);
+      }
+    });
+
+    // Order
+    if(_order) {
+      rows.sort((a,b) => {
+        if(a[_order.col] < b[_order.col]) return _order.desc ? 1 : -1;
+        if(a[_order.col] > b[_order.col]) return _order.desc ? -1 : 1;
+        return 0;
+      });
+    }
+
+    if(_limit) rows = rows.slice(0,_limit);
+
+    if(_count) return {data:rows, error:null, count:rows.length};
+    if(_single) return rows.length ? {data:rows[0],error:null} : {data:null,error:null};
+    return {data:rows, error:null};
+  }
+
+  // Make chain await-able
+  chain[Symbol.toStringTag] = 'Promise';
+  const origThen = chain.then;
+  chain.then = function(resolve, reject) {
+    try { resolve(executeQuery()); } catch(e){ if(reject) reject(e); }
+  };
+  chain.catch = function(fn){ return chain; };
+
+  return chain;
+}
+
+const sb = {
+  auth: {
+    signInWithOAuth(){ return Promise.resolve(); },
+    signOut(){ return Promise.resolve(); },
+    getSession(){ return Promise.resolve({data:{session:null}}); },
+    onAuthStateChange(fn){ /* no-op in demo */ }
+  },
+  from(table) {
+    const chain = makeQueryChain(table);
+    // Add mutation methods
+    chain.insert = function(rows) {
+      if(table==='profiles') { mockProfiles.push(Array.isArray(rows)?rows[0]:rows); }
+      const inserted = Array.isArray(rows)?rows[0]:rows;
+      return {
+        data: inserted, error: null,
+        select: function() { return { single: function() { return {data:inserted,error:null}; } }; }
+      };
+    };
+    chain.update = function(changes) {
+      // apply to mock data in memory (no-op for demo, just return ok)
+      return { eq(){ return {data:null,error:null}; }, in(){ return {data:null,error:null}; } };
+    };
+    chain.upsert = function(rows) {
+      return Promise.resolve({data:rows,error:null});
+    };
+    chain.delete = function() {
+      return { eq(){ return {data:null,error:null}; } };
+    };
+    return chain;
+  },
+  rpc(name, params) {
+    // --- verify_pin ---
+    if(name==='verify_pin') {
+      const {p_nama, p_pin} = params;
+      const user = mockProfiles.find(u=>u.full_name.toLowerCase()===p_nama.toLowerCase() && u.pin===p_pin);
+      if(user) return Promise.resolve({data:[{nama:user.full_name,role:user.role,branch_id:user.branch_id,id:user.id,username:user.username}],error:null});
+      return Promise.resolve({data:[],error:null});
+    }
+
+    // --- get_current_stock ---
+    if(name==='get_current_stock') {
+      const b = params.p_branch_id;
+      const stock = MOCK_STOCK[b]||{};
+      const masuk = MOCK_MASUK[b]||{};
+      const retur = MOCK_RETUR[b]||{};
+      const kemarin = MOCK_KEMARIN[b]||{};
+      const data = MOCK_PRODUCTS.filter(p=>p.is_active!==false).map(p=>{
+        const n = p.name;
+        const now_stock = n in stock ? stock[n] : (kemarin[n]||0);
+        return {
+          product_name: n,
+          now_stock,
+          masuk_today: masuk[n]||0,
+          retur_today: retur[n]||0,
+        };
+      });
+      return Promise.resolve({data,error:null});
+    }
+
+    // --- get_stok_kemarin ---
+    if(name==='get_stok_kemarin') {
+      const b = params.p_branch_id;
+      const kem = MOCK_KEMARIN[b]||{};
+      const data = Object.keys(kem).map(n=>({product_name:n,stok_kemarin:kem[n]}));
+      return Promise.resolve({data,error:null});
+    }
+
+    // --- add_movement ---
+    if(name==='add_movement') {
+      const {p_branch_id:b, p_type:type, p_items:items} = params;
+      const now = new Date().toISOString();
+      const dateStr = now.slice(0,10);
+      items.forEach(it=>{
+        const n = it.nama;
+        if(type==='masuk') {
+          MOCK_MASUK[b][n] = (MOCK_MASUK[b][n]||0) + it.qty;
+          // update stock (tersedia = kemarin + masuk - retur)
+          const kem = (MOCK_KEMARIN[b][n]||0);
+          const masuk = MOCK_MASUK[b][n]||0;
+          const ret = MOCK_RETUR[b][n]||0;
+          MOCK_STOCK[b][n] = Math.max(0, kem + masuk - ret);
+        } else if(type==='retur') {
+          MOCK_RETUR[b][n] = (MOCK_RETUR[b][n]||0) + it.qty;
+          const kem = (MOCK_KEMARIN[b][n]||0);
+          const masuk = MOCK_MASUK[b][n]||0;
+          const ret = MOCK_RETUR[b][n]||0;
+          MOCK_STOCK[b][n] = Math.max(0, kem + masuk - ret);
+        } else if(type==='sisa') {
+          MOCK_STOCK[b][n] = it.qty;
+        }
+        // push to history
+        MOCK_HISTORY[b].push({product_name:n, qty:it.qty, type, movement_date:dateStr, created_at:now, user_name:params.p_user_name});
+      });
+      return Promise.resolve({data:null,error:null});
+    }
+
+    // --- create_shipment ---
+    if(name==='create_shipment') {
+      const {p_from_branch,p_to_branch,p_sender_name,p_items} = params;
+      const id = mockShipmentIdCounter++;
+      mockShipments.push({id,from_branch:p_from_branch,to_branch:p_to_branch,status:'pending',created_at:new Date().toISOString(),sender_name:p_sender_name,total_modal:0});
+      mockShipmentItems[id] = p_items.map(it=>{
+        const prod = MOCK_PRODUCTS.find(p=>p.id===it.product_id);
+        return {product_id:it.product_id,qty_sent:it.qty,qty_received:null,products:{name:prod?prod.name:'?'}};
+      });
+      return Promise.resolve({data:null,error:null});
+    }
+
+    // --- confirm_shipment ---
+    if(name==='confirm_shipment') {
+      const {p_shipment_id,p_items} = params;
+      const ship = mockShipments.find(s=>s.id===p_shipment_id);
+      if(ship) {
+        const hasMismatch = p_items.some(it=>{
+          const orig = (mockShipmentItems[p_shipment_id]||[]).find(x=>x.product_id===it.product_id);
+          return orig && orig.qty_sent !== it.qty_received;
+        });
+        ship.status = hasMismatch ? 'confirmed_selisih' : 'confirmed';
+        (mockShipmentItems[p_shipment_id]||[]).forEach(sit=>{
+          const conf = p_items.find(x=>x.product_id===sit.product_id);
+          if(conf) sit.qty_received = conf.qty_received;
+        });
+      }
+      return Promise.resolve({data:null,error:null});
+    }
+
+    // --- get_top_sold ---
+    if(name==='get_top_sold') {
+      const b = params.p_branch_id;
+      const totals = {};
+      MOCK_HISTORY[b].filter(r=>r.type==='sisa').forEach(r=>{
+        // Terjual = tersedia - sisa. Simplified: just count masuk movements
+      });
+      // Buat ranking dari masuk mock
+      const masuk = MOCK_MASUK[b]||{};
+      const data = Object.keys(masuk).map(n=>({product_name:n,total_sold:masuk[n]||0}))
+        .sort((a,b)=>b.total_sold-a.total_sold).slice(0,10);
+      return Promise.resolve({data:data.length?data:[
+        {product_name:'Srikaya',total_sold:8},{product_name:'Ayam',total_sold:7},
+        {product_name:'Donat Snow',total_sold:6},{product_name:'Roti Tawar',total_sold:6},
+        {product_name:'Cappuccino',total_sold:5},{product_name:'Durian',total_sold:4},
+      ],error:null});
+    }
+
+    // --- get_daily_history ---
+    if(name==='get_daily_history') {
+      const b = params.p_branch_id;
+      const hist = MOCK_HISTORY[b]||[];
+      // juga tambah dummy history kalau kosong
+      if(!hist.length) {
+        const y1 = new Date(); y1.setDate(y1.getDate()-1);
+        const d1 = y1.toISOString().slice(0,10);
+        return Promise.resolve({data:[
+          {product_name:'Srikaya',qty:4,type:'masuk',movement_date:d1,created_at:y1.toISOString(),user_name:'Sari'},
+          {product_name:'Ayam',qty:4,type:'masuk',movement_date:d1,created_at:y1.toISOString(),user_name:'Sari'},
+          {product_name:'Srikaya',qty:0,type:'sisa',movement_date:d1,created_at:y1.toISOString(),user_name:'Sari'},
+          {product_name:'Ayam',qty:0,type:'sisa',movement_date:d1,created_at:y1.toISOString(),user_name:'Sari'},
+        ],error:null});
+      }
+      return Promise.resolve({data:hist,error:null});
+    }
+
+    // --- get_daily_summary ---
+    if(name==='get_daily_summary') {
+      const b = params.p_branch_id;
+      const hist = MOCK_HISTORY[b]||[];
+      if(!hist.length) {
+        const y1 = new Date(); y1.setDate(y1.getDate()-1);
+        const d1 = y1.toISOString().slice(0,10);
+        return Promise.resolve({data:[{d:d1,kemarin:10,produksi:8,sisa:0,retur:0,terjual:18}],error:null});
+      }
+      // group by date
+      const byDate = {};
+      hist.forEach(r=>{
+        if(!byDate[r.movement_date]) byDate[r.movement_date]={d:r.movement_date,kemarin:0,produksi:0,sisa:0,retur:0,terjual:0};
+        if(r.type==='masuk') byDate[r.movement_date].produksi += r.qty;
+        if(r.type==='sisa') byDate[r.movement_date].sisa += r.qty;
+      });
+      return Promise.resolve({data:Object.values(byDate),error:null});
+    }
+
+    // --- get_current_stock_at_date (koreksi) ---
+    if(name==='get_current_stock_at_date') {
+      return Promise.resolve({data:[],error:null});
+    }
+
+    // Catch-all
+    console.log('[DEMO] sb.rpc called:', name, params);
+    return Promise.resolve({data:null,error:null});
+  }
+};
+// ===== DEMO: Quick Login =====
+function quickLogin(role) {
+  if(role==='master') {
+    currentUser = {nama:'Cilla',role:'master',branch_id:null,mode:'demo',id:'u1',username:'cilla',homeBranch:'melur'};
+  } else if(role==='manager') {
+    currentUser = {nama:'Budi',role:'manager',branch_id:'melur',mode:'demo',id:'u3',username:'budi',homeBranch:'melur'};
+  } else {
+    currentUser = {nama:'Sari',role:'karyawan',branch_id:'delima',mode:'demo',id:'u2',username:'sari',homeBranch:'delima'};
+  }
+  afterLogin();
+}
+
+
 
 const BRANCHES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 
@@ -1416,6 +1871,7 @@ async function afterLogin() {
   renderBranchMenu();
   renderSidebar();
   document.getElementById('mock-branch-lbl').textContent = '📍 '+BRANCHES[branch]+' ▾';
+  syncServerClock().then(startClock); // jam WIB: sync server 1x lalu jalan lokal
   show('overview');
   await loadCategories();
   await loadProducts();
@@ -1457,7 +1913,6 @@ function updateEditPermission() {
 }
 
 async function logout() {
-  await sb.auth.signOut();
   currentUser = null; stockNow = {};
   ['p0','p1','p2','p3'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('pin-nama').value='';
@@ -1554,7 +2009,7 @@ function initManualOrder() {
   });
 }
 async function saveUserPrefs() {
-  if (!currentUser.id) return;
+  if (!currentUser || currentUser.mode==='demo') return;
   await sb.from('user_preferences').upsert({
     user_id: currentUser.id, sort_mode: sortMode,
     manual_cat_order: manualCatOrder, manual_item_order: manualItemOrder, updated_at: new Date().toISOString()
@@ -1732,9 +2187,38 @@ function getDragAfter(l,y){ const els=[...l.querySelectorAll('.ov-row:not(.dragg
 
 // ===== INPUT (MASUK = stok kemarin+produksi / SISA = sisa+retur) =====
 let inputState = {}; // { name: {iKemarin,iProduksi,iSisa,iRetur} }
+// notify ringkas produk yang perlu ditarik (kedaluwarsa) — tampil di Catat Masuk dekat retur
+function renderTarikNotify(mode){
+  const el = document.getElementById('input-tarik-notify');
+  if(!el) return;
+  if(mode!=='masuk'){ el.innerHTML=''; return; }
+  const tarikList = Object.keys(shelfAlerts).filter(n=>shelfAlerts[n] && shelfAlerts[n].tarik>0);
+  if(!tarikList.length){ el.innerHTML=''; return; }
+  const total = tarikList.reduce((s,n)=>s+shelfAlerts[n].tarik,0);
+  let chips = tarikList.slice(0,6).map(n=>'<span class="tarik-chip">'+n+' <b>'+shelfAlerts[n].tarik+'</b></span>').join('');
+  if(tarikList.length>6) chips += '<span class="tarik-chip" style="opacity:.7">+'+(tarikList.length-6)+' lain</span>';
+  el.innerHTML = '<div class="tarik-notify"><div class="tarik-head">↩️ Perlu diretur/ditarik hari ini ('+total+' pcs)</div><div class="tarik-chips">'+chips+'</div></div>';
+}
+let inputDirty = false; // ada perubahan belum disimpan?
+// dipanggil tiap user ngedit
+function markInputDirty(){ inputDirty = true; }
+// guard: dipanggil saat mau keluar dari layar Catat Masuk/Sisa
+function leaveInput(){
+  if(inputDirty){
+    document.getElementById('unsaved-modal').classList.add('open');
+    return;
+  }
+  show('overview');
+}
+function unsavedSimpan(){ document.getElementById('unsaved-modal').classList.remove('open'); saveInput(); }
+function unsavedBuang(){ document.getElementById('unsaved-modal').classList.remove('open'); inputDirty=false; show('overview'); }
+function unsavedBatal(){ document.getElementById('unsaved-modal').classList.remove('open'); }
 function openInput(mode) {
   inputMode = mode;
   inputState = {};
+  inputDirty = false;
+  // notify produk yang perlu ditarik/diretur (cuma di mode masuk, tempat retur)
+  renderTarikNotify(mode);
   // isi awal tiap produk
   Object.keys(stockNow).forEach(n => {
     const s = stockNow[n];
@@ -1750,7 +2234,7 @@ function openInput(mode) {
   document.getElementById('input-t1').textContent = mode==='masuk'?'Catat Roti Masuk & Retur':'Catat Sisa';
   document.getElementById('input-t2').textContent = mode==='masuk'
     ? 'Cek stok kemarin (otomatis) + isi jumlah roti masuk. Total tersedia dihitung otomatis.'
-    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0. Isi retur kalau ada yang dikembalikan.';
+    : 'Sisa terisi dari stok sekarang, tinggal koreksi. Tombol Habis untuk set 0.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn ' + (mode==='masuk'?'save-in':'save-out');
   btn.textContent = mode==='masuk'?'\uD83D\uDCBE Simpan Masuk':'\uD83D\uDCBE Simpan Sisa';
@@ -1788,9 +2272,9 @@ function renderInput(filter='') {
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
 }
-function adjF(n,field,d){ inputState[n][field]=Math.max(0,(inputState[n][field]||0)+d); renderInput(document.getElementById('input-search').value); }
-function setF(n,field,v){ inputState[n][field]=Math.max(0,parseInt(v)||0); renderInput(document.getElementById('input-search').value); }
-function setHabis(n){ inputState[n].iSisa=0; renderInput(document.getElementById('input-search').value); }
+function adjF(n,field,d){ inputState[n][field]=Math.max(0,(inputState[n][field]||0)+d); markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setF(n,field,v){ inputState[n][field]=Math.max(0,parseInt(v)||0); markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setHabis(n){ inputState[n].iSisa=0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
 
 async function saveInput() {
   const btn = document.getElementById('input-save');
@@ -1811,19 +2295,18 @@ async function saveInput() {
       calls.push(sb.from('product_batches').insert(batchRows));
     }
   } else {
-    // simpan sisa hanya yang disentuh (beda dari stok sekarang) + retur > 0
+    // simpan sisa hanya yang disentuh (beda dari stok sekarang)
     const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
     if (sisaItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
-    const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
-    if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
     // setelah sisa dicatat, update qty_sold batch via FIFO
     if (sisaItems.length) calls.push(updateBatchFIFO(sisaItems));
   }
-  if (!calls.length) { btn.disabled=false; btn.textContent=orig; show('overview'); return; }
+  if (!calls.length) { btn.disabled=false; btn.textContent=orig; inputDirty=false; show('overview'); return; }
   const results = await Promise.all(calls);
   btn.disabled=false; btn.textContent=orig;
   const err = results.find(r=>r&&r.error);
   if (err){ alert('Gagal simpan: '+err.error.message); return; }
+  inputDirty=false;
   await loadStockNow();
   await checkShelfLifeAlert();
   show('overview');
@@ -2176,9 +2659,13 @@ async function buildDayReport(dateStr){
     const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const kemarin=kemRows.length?kemRows[0].qty:0;
     if(masuk===0&&kemarin===0&&sisa===0&&retur===0) return;
-    const tersedia=Math.max(0,kemarin+masuk-retur);
+    // tersedia = kemarin + masuk - retur; kalau sisa > tersedia (masuk lupa diisi), pakai sisa sbg minimum
+    const sisaRecorded = sisaRows.length>0;
+    const tersedia=Math.max(0, kemarin+masuk-retur, sisa);
     const terjual=Math.max(0,tersedia-sisa);
-    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual});
+    // tandai kalau ada sisa tercatat tapi roti masuk belum diisi (data ga lengkap)
+    const masukKosong = sisaRecorded && masuk===0;
+    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual, masukKosong});
   });
   return out;
 }
@@ -2229,6 +2716,7 @@ function show(name) {
   const overlay=document.getElementById('sidebar-overlay');
   if(sidebar) sidebar.style.display = isAuth?'none':'';
   if(topbar) topbar.style.display = isAuth?'none':'';
+  var clockBar=document.getElementById('clock-bar'); if(clockBar) clockBar.style.display = isAuth?'none':'';
   if(overlay && isAuth) overlay.classList.remove('show');
   const main=document.getElementById('main-area');
   if(main) main.style.marginLeft = isAuth?'0':'';
@@ -2478,7 +2966,7 @@ function renderProdManageList() {
         const shelfRow = isMaster
           ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
           : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
-        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div>';
+        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><div class="pm-actions"><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div></div>';
       }).join('');
       }
     }
@@ -2968,27 +3456,35 @@ async function toggleSalesDay(idx, dateStr){
   const { data: movs } = await sb.from('stock_movements').select('product_id,type,qty,movement_date,created_at').eq('branch_id',br).lte('movement_date',dateStr);
   const all = movs||[];
   const perProd=[];
+  let adaMasukKosong=false;
   products.forEach(p=>{
     const prod=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
+    const retur=all.filter(m=>m.product_id===p.id&&m.type==='retur'&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const sisaRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date===dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const sisa=sisaRows.length?sisaRows[0].qty:null;
     const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const kemarin=kemRows.length?kemRows[0].qty:0;
-    if(prod===0 && kemarin===0) return;
-    const tersedia=kemarin+prod;
+    if(prod===0 && kemarin===0 && sisa===null) return;
+    // tersedia minimal = sisa (kalau masuk lupa diisi), biar terjual ga ngaco
+    const tersedia=Math.max(kemarin+prod-retur, sisa==null?0:sisa, 0);
     const terjual=Math.max(0,tersedia-(sisa==null?tersedia:sisa));
     const habis = sisa===0;
-    perProd.push({name:p.name, terjual, tersedia, sisa, habis});
+    const masukKosong = sisaRows.length>0 && prod===0;
+    if(masukKosong) adaMasukKosong=true;
+    perProd.push({name:p.name, terjual, tersedia, sisa, habis, masukKosong});
   });
   perProd.sort((a,b)=>b.terjual-a.terjual);
   const habisList=perProd.filter(x=>x.habis);
   let html='';
+  if(adaMasukKosong){
+    html+='<div style="background:var(--y-bg);color:#9A6700;font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:10px;line-height:1.4">⚠️ Beberapa roti <b>belum dicatat masuk</b> hari ini. Angka terjual dihitung dari stok kemarin — bisa kurang akurat.</div>';
+  }
   if(habisList.length){
     html+='<div style="font-size:11px;font-weight:700;color:var(--r);margin-bottom:6px">🔴 Habis hari ini ('+habisList.length+')</div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'+habisList.map(x=>'<span style="font-size:11px;background:var(--r-bg);color:var(--r);padding:3px 9px;border-radius:20px;font-weight:600">'+x.name+'</span>').join('')+'</div>';
   }
   html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Rincian per roti</div>';
-  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
+  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
   if(!perProd.length) html='<div style="font-size:12px;color:var(--text3)">Tidak ada aktivitas hari ini</div>';
   detail.innerHTML=html;
   detail.style.display='block';
@@ -3056,6 +3552,7 @@ function highlightNav(){
 }
 function renderFastActions(){
   let html='';
+  html+='<button class="top-btn" id="refresh-btn" onclick="manualRefresh(this)" title="Refresh data">🔄</button>';
   html+='<button class="top-btn" id="help-btn" onclick="openHelp()" title="Bantuan & Tutorial">❓</button>';
   html+='<button class="top-btn" id="ship-btn" onclick="openShipments()">🔔</button>';
   html+='<button class="top-btn" id="shelf-btn" onclick="openShelfReport()">🏷️</button>';
@@ -3078,13 +3575,30 @@ function pickMockBranch(b){
 }
 
 // ===== INIT (BETA — login asli) =====
+// ===== JAM WIB (sinkron server SEKALI, jalan lokal — 0 kuota) =====
+let _serverOffsetMs = 0;
+async function syncServerClock() {
+  serverOffset = 0; // demo mode: use local time
+}
+
+async function manualRefresh(btn){
+  if(btn){ btn.disabled=true; btn.classList.add('spinning'); }
+  await loadStockNow();
+  await checkShelfLifeAlert();
+  await updateShipBadge();
+  refreshActiveScreen();
+  if(btn){ btn.disabled=false; btn.classList.remove('spinning'); }
+}
+
 sb.auth.onAuthStateChange(function(event,session){
   if(event==='INITIAL_SESSION'||event==='SIGNED_IN'){
     if(window.location.hash.indexOf('access_token')>-1) history.replaceState(null,'',window.location.pathname+window.location.search);
-    if(session) checkSession();
+    // cuma checkSession SEKALI di awal. Kalau user udah login, JANGAN reload
+    // (mencegah data ke-reset pas token auto-refresh / HP balik dari background)
+    if(session && !currentUser) checkSession();
   }
 });
-setTimeout(function(){ if(document.getElementById('screen-login').classList.contains('active')) checkSession(); },2500);
+// demo: no auto-session check
 // role switcher dummy (dihapus di beta — pakai login asli)
 function cycleRole(){ alert('Untuk ganti role, login pakai akun berbeda.'); }
 
@@ -3500,5 +4014,6 @@ async function renderRiwayatAdmin(){
 }
 </script>
 
+<div style="position:fixed;bottom:8px;right:8px;background:rgba(123,45,58,0.85);color:white;font-size:10px;padding:4px 10px;border-radius:20px;z-index:9999;pointer-events:none;font-family:sans-serif;">🧪 DEMO</div>
 </body>
 </html>
