@@ -1755,7 +1755,7 @@ function ovRowHtml(n, draggable=false) {
   else if (alert && alert.warning > 0) shelfBadge = `<span style="font-size:10px;font-weight:700;background:var(--y-bg);color:var(--y);border-radius:5px;padding:2px 6px;margin-left:4px;">⏰ Besok exp ${alert.warning}pcs</span>`;
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
-    <div class="ov-info"><div class="ov-name">${n}${shelfBadge}</div><div class="ov-sub">Tersedia ${s.masuk} · Terjual ${sold}${hargaTxt}</div></div>
+    <div class="ov-info"><div class="ov-name">${n}${shelfBadge}</div><div class="ov-sub">Terjual ${sold}${hargaTxt}</div></div>
     ${renameBtn}
     <div class="ov-now ${st}"><b>${s.now}</b><small>di rak</small></div>
   </div>`;
