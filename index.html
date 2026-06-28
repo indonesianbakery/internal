@@ -1866,7 +1866,9 @@ function adjF(n,field,d){
   if(field==='iProduksi'){
     inputState[n].iSisa = Math.max(0,(inputState[n].iSisa||0)+d);
   }
-  // fix 2: cap sisa <= tersedia
+  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
+  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
+  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
   const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
@@ -1879,7 +1881,9 @@ function setF(n,field,v){
     const baseKemarin = Math.max(0,(s.stokKemarin||0)-(s.retur||0));
     inputState[n].iSisa = Math.max(0, baseKemarin + (inputState[n].iProduksi||0));
   }
-  // fix 2: cap sisa <= tersedia
+  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
+  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
+  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
   const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
