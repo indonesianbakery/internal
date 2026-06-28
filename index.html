@@ -1622,14 +1622,14 @@ async function loadStockNow() {
   stockNow = {};
   if (!error && data) {
     data.forEach(r => {
-      const kemarin = kemarinMap[r.product_name] || 0;
+      const kemarin = kemarinMap[r.name] || 0;
       const returToday = r.retur_today || 0;
-      stockNow[r.product_name] = {
-        now: r.now_stock,
-        produksi: r.masuk_today,          // roti masuk hari ini
+      stockNow[r.name] = {
+        now: r.now,
+        produksi: r.masuk_hari_ini,       // roti masuk hari ini
         stokKemarin: kemarin,
-        retur: returToday,                // retur hari ini (barang kemarin dikembalikan)
-        masuk: Math.max(0, kemarin + r.masuk_today - returToday)   // total tersedia = kemarin + masuk - retur
+        retur: returToday,                // retur hari ini
+        masuk: Math.max(0, kemarin + r.masuk_hari_ini - returToday)   // total tersedia = kemarin + masuk - retur
       };
     });
   }
