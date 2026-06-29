@@ -1998,7 +1998,7 @@ async function openShelfReport() {
     const expDate = new Date(batchDate); expDate.setDate(expDate.getDate()+shelf);
     const diffDays = Math.floor((expDate-today)/86400000);
     const name = b.products?b.products.name:'?';
-    rows.push({name, sisa, batchDate: b.batch_date, expDate, diffDays, shelf});
+    rows.push({name, sisa, batchDate: b.batch_date, expDate, diffDays, shelf, productId: b.product_id});
   });
   // urutkan: expired dulu, lalu warning, lalu aman
   rows.sort((a,b)=>a.diffDays-b.diffDays);
@@ -2012,6 +2012,7 @@ async function openShelfReport() {
     html += '<div style="padding:0 16px">'+expired.map(r=>`<div class="ov-row zero" style="flex-direction:column;align-items:flex-start;gap:4px">
       <div style="font-size:14px;font-weight:600">${r.name}</div>
       <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--r)">${r.sisa} pcs harus ditarik</b></div>
+      <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✅ Sudah Ditarik</button>
     </div>`).join('')+'</div>';
   }
   if (warning.length) {
@@ -2030,6 +2031,20 @@ async function openShelfReport() {
   }
   if (!html) html = '<div class="empty">Semua stok aman 🎉</div>';
   wrap.innerHTML = html;
+}
+
+async function tarikBatch(productId, productName, qty) {
+  if (!confirm(`Konfirmasi tarik ${qty} pcs ${productName} dari rak?`)) return;
+  const branch = currentUser.branch_id;
+  const {error} = await sb.rpc('add_movement', {
+    p_branch_id: branch,
+    p_user_name: currentUser.nama,
+    p_type: 'retur',
+    p_items: [{nama: productName, qty}]
+  });
+  if (error) { alert('Gagal: '+error.message); return; }
+  await loadStockNow();
+  openShelfReport();
 }
 
 // ===== KIRIM ROTI ANTAR BRANCH =====
