@@ -2010,23 +2010,26 @@ async function openShelfReport() {
       <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✅ Sudah Ditarik</button>
     </div>`).join('')+'</div>';
   }
-  if (warning.length) {
-    html += '<div class="section-label" style="color:var(--y)">🟡 Besok Kedaluwarsa</div>';
-    html += '<div style="padding:0 16px">'+warning.map(r=>`<div class="ov-row low" style="flex-direction:column;align-items:flex-start;gap:4px">
-      <div style="font-size:14px;font-weight:600">${r.name}</div>
-      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--y)">${r.sisa} pcs</b></div>
-      <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--y);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🔧 Tarik Manual</button>
-    </div>`).join('')+'</div>';
-  }
-  if (aman.length) {
-    html += '<div class="section-label">🟢 Masih Aman</div>';
-    html += '<div style="padding:0 16px">'+aman.map(r=>`<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:4px">
-      <div style="font-size:14px;font-weight:600">${r.name}</div>
-      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · ${r.sisa} pcs · <b style="color:var(--g)">sisa ${r.diffDays} hari</b></div>
-      <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--g);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🔧 Tarik Manual</button>
-    </div>`).join('')+'</div>';
-  }
-  if (!html) html = '<div class="empty">Semua stok aman 🎉</div>';
+  if (!html) html = '<div class="empty">Tidak ada yang harus ditarik 🎉</div>';
+  // riwayat retur 7 hari terakhir
+  const branchRiwayat = currentUser.branch_id;
+  sb.from('stock_movements').select('qty,created_at,user_name,products(name)')
+    .eq('branch_id', branchRiwayat).eq('type','retur')
+    .order('created_at',{ascending:false}).limit(20)
+    .then(({data})=>{
+      if (!data || !data.length) return;
+      let rh = '<div class="section-label">📋 Riwayat Retur</div><div style="padding:0 16px">';
+      rh += data.map(r=>{
+        const dt = new Date(r.created_at);
+        const jam = dt.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        return `<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+          <div style="font-size:13px;font-weight:600">${r.products?r.products.name:'?'} · ${r.qty} pcs</div>
+          <div style="font-size:11px;color:var(--text2)">${jam} oleh ${r.user_name||'?'}</div>
+        </div>`;
+      }).join('');
+      rh += '</div>';
+      wrap.insertAdjacentHTML('beforeend', rh);
+    });
   wrap.innerHTML = html;
 }
 
