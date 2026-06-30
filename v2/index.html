@@ -1849,7 +1849,7 @@ function renderInput(filter='') {
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa (di rak sekarang)</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa (di rak)</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
         +'</div>'
         +'<div class="catat-foot"><span>Di rak: <b>'+diRak+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
         +'</div>';
@@ -2015,6 +2015,7 @@ async function openShelfReport() {
     html += '<div style="padding:0 16px">'+warning.map(r=>`<div class="ov-row low" style="flex-direction:column;align-items:flex-start;gap:4px">
       <div style="font-size:14px;font-weight:600">${r.name}</div>
       <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--y)">${r.sisa} pcs</b></div>
+      <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--y);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🔧 Tarik Manual</button>
     </div>`).join('')+'</div>';
   }
   if (aman.length) {
@@ -2022,6 +2023,7 @@ async function openShelfReport() {
     html += '<div style="padding:0 16px">'+aman.map(r=>`<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:4px">
       <div style="font-size:14px;font-weight:600">${r.name}</div>
       <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · ${r.sisa} pcs · <b style="color:var(--g)">sisa ${r.diffDays} hari</b></div>
+      <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--g);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">🔧 Tarik Manual</button>
     </div>`).join('')+'</div>';
   }
   if (!html) html = '<div class="empty">Semua stok aman 🎉</div>';
@@ -2029,13 +2031,19 @@ async function openShelfReport() {
 }
 
 async function tarikBatch(productId, productName, qty) {
-  if (!confirm(`Konfirmasi tarik ${qty} pcs ${productName} dari rak?`)) return;
+  const rakSaatIni = (stockNow[productName]&&stockNow[productName].now)||0;
+  const input = prompt(`Tarik berapa pcs ${productName}?\n\nDi rak sekarang: ${rakSaatIni}\nMax bisa ditarik: ${qty}`, qty);
+  if (input===null) return;
+  const tarikQty = Math.max(0, Math.min(qty, parseInt(input)||0));
+  if (tarikQty<=0) return;
+  const sisaSetelah = Math.max(0, rakSaatIni - tarikQty);
+  if (!confirm(`Tarik ${tarikQty} pcs ${productName}?\n\nDi rak setelah ditarik: ${sisaSetelah} pcs`)) return;
   const branch = currentUser.branch_id;
   const {error} = await sb.rpc('add_movement', {
     p_branch_id: branch,
     p_user_name: currentUser.nama,
     p_type: 'retur',
-    p_items: [{nama: productName, qty}]
+    p_items: [{nama: productName, qty: tarikQty}]
   });
   if (error) { alert('Gagal: '+error.message); return; }
   await loadStockNow();
