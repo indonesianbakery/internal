@@ -1825,8 +1825,8 @@ function openInput(mode) {
   banner.className = 'mode-banner in';
   document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
   document.getElementById('input-title').textContent = 'Catat Stok';
-  document.getElementById('input-t1').textContent = 'Catat Masuk, Sisa & Retur';
-  document.getElementById('input-t2').textContent = 'Isi roti masuk, sisa di rak, dan retur (barang kemarin yang dikembalikan) — semua dalam satu layar.';
+  document.getElementById('input-t1').textContent = 'Catat Masuk & Sisa';
+  document.getElementById('input-t2').textContent = 'Isi roti masuk dan sisa di rak sekarang. Retur (barang ditarik) dicatat lewat Laporan Kedaluwarsa.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn save-in';
   btn.textContent = '\uD83D\uDCBE Simpan';
@@ -1843,14 +1843,13 @@ function renderInput(filter='') {
     prods.forEach(p => {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
-      // di rak = now (kondisi terkini), terjual = kemarin + masuk - retur - sisa
-      const diRak = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
-      const terjual = Math.max(0, diRak-(inp.iSisa||0));
+      // di rak = sisa langsung (real-time snapshot), terjual = kemarin+masuk-sisa
+      const diRak = inp.iSisa||0;
+      const terjual = Math.max(0, ((inp.iKemarin||0)+(inp.iProduksi||0))-(inp.iSisa||0));
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa (di rak sekarang)</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
         +'</div>'
         +'<div class="catat-foot"><span>Di rak: <b>'+diRak+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
         +'</div>';
@@ -1862,29 +1861,25 @@ function adjF(n,field,d){
   const prev = inputState[n][field]||0;
   const next = Math.max(0, prev+d);
   inputState[n][field] = next;
-  // fix 1: masuk naik/turun → sisa ikut delta yang sama
+  // masuk naik/turun → sisa ikut delta yang sama
   if(field==='iProduksi'){
     inputState[n].iSisa = Math.max(0,(inputState[n].iSisa||0)+d);
   }
-  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
-  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  // cap sisa <= kemarin + masuk (retur sudah tidak ada di form ini)
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
 function setF(n,field,v){
   inputState[n][field] = Math.max(0,parseInt(v)||0);
-  // fix 1: masuk diset manual → sisa ikut selisihnya
+  // masuk diset manual → sisa ikut selisihnya
   if(field==='iProduksi'){
     const s = stockNow[n];
-    const baseKemarin = Math.max(0,(s.stokKemarin||0)-(s.retur||0));
+    const baseKemarin = s.now||0;
     inputState[n].iSisa = Math.max(0, baseKemarin + (inputState[n].iProduksi||0));
   }
-  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
-  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  // cap sisa <= kemarin + masuk
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
