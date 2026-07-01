@@ -53,6 +53,18 @@ input,button{font-family:inherit;}
 #pos-topbar .brand{font-weight:800; color:var(--g); font-size:14px; flex-shrink:0;}
 #pos-topbar .meta{font-size:11px; color:var(--text3); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 #pos-topbar .out-btn{background:none; border:1.5px solid var(--border); border-radius:8px; padding:6px 10px; font-size:11px; color:var(--text2); cursor:pointer;}
+#pos-topbar .riwayat-btn{background:none; border:1.5px solid var(--border); border-radius:8px; padding:6px 10px; font-size:11px; color:var(--g); font-weight:600; cursor:pointer; margin-right:6px;}
+.rw-card{background:#fff; border:1.5px solid var(--border); border-radius:12px; margin-bottom:8px; overflow:hidden;}
+.rw-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; cursor:pointer;}
+.rw-head:active{background:var(--bg);}
+.rw-time{font-size:12px; color:var(--text3);}
+.rw-total{font-size:15px; font-weight:700; color:var(--g); font-family:'DM Mono',monospace;}
+.rw-pay{font-size:11px; color:var(--text2); margin-top:2px;}
+.rw-detail{display:none; padding:0 14px 12px; border-top:1px dashed var(--border);}
+.rw-detail.open{display:block;}
+.rw-item-row{display:flex; justify-content:space-between; font-size:12px; padding:4px 0; color:var(--text2);}
+.rw-cancel-btn{width:100%; margin-top:10px; padding:9px; background:var(--r-bg); color:var(--r); border:1.5px solid var(--r); border-radius:9px; font-size:13px; font-weight:700; cursor:pointer;}
+.rw-cancelled{opacity:0.4; pointer-events:none;}
 
 /* ===== MAIN LAYOUT ===== */
 #pos-main{display:flex; flex-direction:column; min-height:calc(100vh - 49px);}
@@ -204,6 +216,7 @@ input,button{font-family:inherit;}
   <div id="pos-topbar">
     <span class="brand">🍞 POS</span>
     <span class="meta" id="pos-meta"></span>
+    <button class="riwayat-btn" onclick="openRiwayat()">🧾 Riwayat</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
   </div>
   <div id="pos-main">
@@ -214,6 +227,16 @@ input,button{font-family:inherit;}
   <div id="cart-bar" class="hidden" onclick="openCart()">
     <div class="cb-left"><span class="cb-count" id="cb-count">0</span><span class="cb-total mono" id="cb-total">Rp0</span></div>
     <div class="cb-cta">Lihat Keranjang ›</div>
+  </div>
+</div>
+
+<!-- ===== RIWAYAT SHEET ===== -->
+<div class="sheet-overlay" id="sheet-riwayat">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-riwayat')">✕</button>
+    <div class="sheet-title">🧾 Riwayat Penjualan</div>
+    <div class="sheet-sub" id="riwayat-sub">Transaksi hari ini</div>
+    <div id="riwayat-list"><div style="text-align:center;padding:24px;color:#999">Memuat...</div></div>
   </div>
 </div>
 
@@ -671,6 +694,64 @@ function showReceipt(){
   openSheet('sheet-receipt');
 }
 function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); }
+
+// ===== RIWAYAT =====
+async function openRiwayat(){
+  openSheet('sheet-riwayat');
+  document.getElementById('riwayat-list').innerHTML = '<div style="text-align:center;padding:24px;color:#999">Memuat...</div>';
+  const today = new Date();
+  const wibOffset = 7*60*60*1000;
+  const wibDate = new Date(today.getTime()+wibOffset).toISOString().slice(0,10);
+  const { data: trxs, error } = await sb.from('pos_transactions')
+    .select('id,payment_method,grand_total,created_at,cashier_name')
+    .eq('branch_id', currentBranch)
+    .gte('created_at', wibDate+'T00:00:00+07:00')
+    .order('created_at', {ascending:false});
+  if(error||!trxs||!trxs.length){
+    document.getElementById('riwayat-list').innerHTML='<div style="text-align:center;padding:24px;color:#999">Belum ada transaksi hari ini</div>';
+    return;
+  }
+  // fetch items for all transactions
+  const ids = trxs.map(t=>t.id);
+  const { data: items } = await sb.from('pos_transaction_items')
+    .select('transaction_id,product_name,qty,unit_price,item_discount,is_gift')
+    .in('transaction_id', ids);
+  const itemMap = {};
+  (items||[]).forEach(i=>{ if(!itemMap[i.transaction_id]) itemMap[i.transaction_id]=[]; itemMap[i.transaction_id].push(i); });
+
+  document.getElementById('riwayat-sub').textContent = `${trxs.length} transaksi hari ini · ${BRANCHES[currentBranch]}`;
+  const payIcon = {cash:'💵',qris:'📱',transfer:'🏦'};
+  document.getElementById('riwayat-list').innerHTML = trxs.map(t=>{
+    const wib = new Date(new Date(t.created_at).getTime());
+    const jam = wib.toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
+    const its = itemMap[t.id]||[];
+    const itemRows = its.map(i=>`<div class="rw-item-row"><span>${i.qty}x ${i.product_name}${i.is_gift?' (GRATIS)':''}</span><span>${i.is_gift?'Rp0':rp((i.unit_price*i.qty)-i.item_discount)}</span></div>`).join('');
+    return `<div class="rw-card" id="rw-${t.id}">
+      <div class="rw-head" onclick="toggleRwDetail(${t.id})">
+        <div><div class="rw-time">Jam ${jam} · ${t.cashier_name}</div><div class="rw-pay">${payIcon[t.payment_method]||''} ${t.payment_method.toUpperCase()}</div></div>
+        <div style="text-align:right"><div class="rw-total">${rp(t.grand_total)}</div><div style="font-size:10px;color:#aaa">▼ detail</div></div>
+      </div>
+      <div class="rw-detail" id="rwd-${t.id}">
+        ${itemRows}
+        <button class="rw-cancel-btn" onclick="cancelTransaction(${t.id})">🗑️ Batalkan Transaksi</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRwDetail(id){
+  const el = document.getElementById('rwd-'+id);
+  el.classList.toggle('open');
+}
+
+async function cancelTransaction(id){
+  if(!confirm('Batalkan transaksi ini? Stok akan dikembalikan.')) return;
+  const { error } = await sb.rpc('cancel_pos_transaction', { p_transaction_id: id, p_branch_id: currentBranch });
+  if(error){ toast('Gagal batalkan: '+error.message); return; }
+  const card = document.getElementById('rw-'+id);
+  if(card){ card.classList.add('rw-cancelled'); card.querySelector('.rw-cancel-btn').textContent='✅ Dibatalkan'; }
+  toast('Transaksi dibatalkan, stok dikembalikan');
+}
 </script>
 </body>
 </html>
