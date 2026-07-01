@@ -364,7 +364,9 @@ input,button{font-family:inherit;}
 // ============================================================
 const SUPABASE_URL = 'https://usfehuwxyvqvjhveeoxx.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZmVodXd4eXZxdmpodmVlb3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDg1MzcsImV4cCI6MjA5NjkyNDUzN30.8zEUKF1qcBUXyGu3a50k2v92UbdXKbZ2xhJnb2blobY';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
+});
 const BRANCHES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 
 let currentUser = null;
