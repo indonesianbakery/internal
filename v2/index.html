@@ -1019,7 +1019,6 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
-        <option value="terjual">Terjual (POS)</option>
         <option value="produksi">Produksi (lama)</option>
       </select>
     </div>
@@ -1044,7 +1043,6 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
-        <option value="terjual">Terjual (POS)</option>
       </select>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -1649,10 +1647,11 @@ async function loadStockNow() {
       const returToday = r.retur_today || 0;
       stockNow[r.name] = {
         now: r.now,
-        produksi: r.masuk_hari_ini,       // roti masuk hari ini
+        produksi: r.masuk_hari_ini,
         stokKemarin: kemarin,
-        retur: returToday,                // retur hari ini
-        masuk: Math.max(0, kemarin + r.masuk_hari_ini - returToday)   // total tersedia = kemarin + masuk - retur
+        retur: returToday,
+        masuk: Math.max(0, kemarin + r.masuk_hari_ini - returToday),
+        terjualToday: r.terjual_today || 0
       };
     });
   }
@@ -1840,16 +1839,16 @@ function openInput(mode) {
   Object.keys(stockNow).forEach(n => {
     const s = stockNow[n];
     inputState[n] = {
-      iKemarin: s.now||0, iProduksi: 0,
-      iSisa: s.now||0, iRetur: 0
+      iKemarin: s.now||0, iProduksi: 0, iRetur: 0
     };
   });
   const banner = document.getElementById('input-banner');
   banner.className = 'mode-banner in';
   document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
   document.getElementById('input-title').textContent = 'Catat Stok';
-  document.getElementById('input-t1').textContent = 'Catat Masuk & Sisa';
-  document.getElementById('input-t2').textContent = 'Isi roti masuk dan sisa di rak sekarang. Retur (barang ditarik) dicatat lewat Laporan Kedaluwarsa.';
+  document.getElementById('input-t1').textContent = 'Catat Masuk & Retur';
+  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang hari ini. Retur = roti kemarin yang beneran ditarik/dibawa balik (isi sesuai yang fisik ditarik, bukan sisa kemarin).';
+
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn save-in';
   btn.textContent = '\uD83D\uDCBE Simpan';
@@ -1866,15 +1865,15 @@ function renderInput(filter='') {
     prods.forEach(p => {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
-      // di rak = sisa langsung (real-time snapshot), terjual = kemarin+masuk-sisa
-      const diRak = inp.iSisa||0;
-      const terjual = Math.max(0, ((inp.iKemarin||0)+(inp.iProduksi||0))-(inp.iSisa||0));
+      // di rak = kemarin + masuk - retur - terjual_POS (dari RPC)
+      const terjualPOS = s.terjualToday||0;
+      const diRak = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0)-terjualPOS);
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa (di rak)</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
         +'</div>'
-        +'<div class="catat-foot"><span>Di rak: <b>'+diRak+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
+        +'<div class="catat-foot"><span>Di rak: <b>'+diRak+'</b></span>'+(terjualPOS?'<span class="cf-sep">·</span><span style="color:var(--g2)">POS: <b>'+terjualPOS+'</b></span>':'')+'</div>'
         +'</div>';
     });
   });
@@ -1882,31 +1881,20 @@ function renderInput(filter='') {
 }
 function adjF(n,field,d){
   const prev = inputState[n][field]||0;
-  const next = Math.max(0, prev+d);
-  inputState[n][field] = next;
-  // masuk naik/turun → sisa ikut delta yang sama
-  if(field==='iProduksi'){
-    inputState[n].iSisa = Math.max(0,(inputState[n].iSisa||0)+d);
-  }
-  // cap sisa <= kemarin + masuk (retur sudah tidak ada di form ini)
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
+  inputState[n][field] = Math.max(0, prev+d);
+  // cap retur <= kemarin (tidak bisa retur lebih dari yang ada kemarin)
+  const maxRetur = inputState[n].iKemarin||0;
+  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
 function setF(n,field,v){
   inputState[n][field] = Math.max(0,parseInt(v)||0);
-  // masuk diset manual → sisa ikut selisihnya
-  if(field==='iProduksi'){
-    const s = stockNow[n];
-    const baseKemarin = s.now||0;
-    inputState[n].iSisa = Math.max(0, baseKemarin + (inputState[n].iProduksi||0));
-  }
-  // cap sisa <= kemarin + masuk
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
+  // cap retur <= kemarin
+  const maxRetur = inputState[n].iKemarin||0;
+  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
-function setHabis(n){ inputState[n].iSisa=0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setHabis(n){ inputState[n].iRetur = inputState[n].iKemarin||0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
 
 async function saveInput() {
   const btn = document.getElementById('input-save');
@@ -1924,15 +1912,9 @@ async function saveInput() {
     });
     calls.push(sb.from('product_batches').insert(batchRows));
   }
-  // 2. RETUR (barang kemarin dikembalikan/ditarik) — sebelumnya BUG: ga kesimpan
+  // 2. RETUR (roti kemarin yang beneran ditarik/dibawa balik)
   const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
   if (returItems.length) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:returItems}));
-  // 3. SISA (sisa di rak) — hanya yang diubah dari stok sekarang
-  const sisaItems = Object.keys(inputState).filter(n=>inputState[n].iSisa!==(stockNow[n].now||0)).map(n=>({nama:n,qty:inputState[n].iSisa}));
-  if (sisaItems.length) {
-    calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:sisaItems}));
-    calls.push(updateBatchFIFO(sisaItems));
-  }
   if (!calls.length) { btn.disabled=false; btn.textContent=orig; inputDirty=false; show('overview'); return; }
   const results = await Promise.all(calls);
   btn.disabled=false; btn.textContent=orig;
