@@ -124,6 +124,15 @@ input,button{font-family:inherit;}
 .change-box .val{font-size:20px; font-weight:800; color:var(--g); font-family:'DM Mono',monospace; margin-top:2px;}
 .change-box.neg .val{color:var(--r);}
 
+.calc-display{width:100%; padding:14px; border:1.5px solid var(--border); border-radius:9px; font-size:22px; font-weight:800; font-family:'DM Mono',monospace; text-align:right; background:var(--g-light); color:var(--g); margin-bottom:8px;}
+.calc-quick{display:flex; gap:6px; margin-bottom:8px;}
+.calc-quick-btn{flex:1; padding:8px; border:1.5px solid var(--border); border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:var(--text2); cursor:pointer;}
+.calc-quick-btn:active{background:var(--g-bg); border-color:var(--g3);}
+.calc-pad{display:grid; grid-template-columns:repeat(3,1fr); gap:7px;}
+.calc-key{padding:14px 0; border:1.5px solid var(--border); border-radius:9px; background:#fff; font-size:17px; font-weight:700; color:var(--text); cursor:pointer;}
+.calc-key:active{background:var(--g-bg); border-color:var(--g3);}
+.calc-key.del{color:var(--r);}
+
 /* receipt */
 #receipt-body{font-family:'DM Mono',monospace; font-size:12px; line-height:1.6;}
 #receipt-body .rc-hd{text-align:center; margin-bottom:10px;}
@@ -275,7 +284,26 @@ input,button{font-family:inherit;}
     <div id="cash-block">
       <div class="form-row">
         <label class="form-lbl">Uang Diterima (Rp)</label>
-        <input class="form-inp mono" type="number" id="cash-received-inp" placeholder="0" oninput="calcChange()">
+        <div class="calc-display" id="cash-display">0</div>
+        <div class="calc-quick">
+          <button type="button" class="calc-quick-btn" onclick="setExactCash()">Pas</button>
+          <button type="button" class="calc-quick-btn" onclick="addQuickCash(50000)">+50rb</button>
+          <button type="button" class="calc-quick-btn" onclick="addQuickCash(100000)">+100rb</button>
+        </div>
+        <div class="calc-pad">
+          <button type="button" class="calc-key" onclick="calcInput('7')">7</button>
+          <button type="button" class="calc-key" onclick="calcInput('8')">8</button>
+          <button type="button" class="calc-key" onclick="calcInput('9')">9</button>
+          <button type="button" class="calc-key" onclick="calcInput('4')">4</button>
+          <button type="button" class="calc-key" onclick="calcInput('5')">5</button>
+          <button type="button" class="calc-key" onclick="calcInput('6')">6</button>
+          <button type="button" class="calc-key" onclick="calcInput('1')">1</button>
+          <button type="button" class="calc-key" onclick="calcInput('2')">2</button>
+          <button type="button" class="calc-key" onclick="calcInput('3')">3</button>
+          <button type="button" class="calc-key" onclick="calcInput('0')">0</button>
+          <button type="button" class="calc-key" onclick="calcInput('000')">000</button>
+          <button type="button" class="calc-key del" onclick="calcBackspace()">⌫</button>
+        </div>
       </div>
       <div class="change-box" id="change-box">
         <div class="lbl">Kembalian</div>
@@ -549,12 +577,14 @@ function saveDiscountTotal(){
 }
 
 // ===== PAYMENT =====
+let cashInputStr = '';
 function openPayment(){
   closeSheet('sheet-cart');
   payMethod = 'cash';
+  cashInputStr = '';
   document.querySelectorAll('.pay-method').forEach(el=>el.classList.toggle('active', el.dataset.m==='cash'));
   document.getElementById('cash-block').classList.remove('hidden');
-  document.getElementById('cash-received-inp').value = '';
+  document.getElementById('cash-display').textContent = '0';
   document.getElementById('customer-email-inp').value = '';
   document.getElementById('pay-total-sub').textContent = 'Total: ' + rp(calcGrandTotal());
   calcChange();
@@ -565,8 +595,31 @@ function selectPayMethod(m){
   document.querySelectorAll('.pay-method').forEach(el=>el.classList.toggle('active', el.dataset.m===m));
   document.getElementById('cash-block').classList.toggle('hidden', m!=='cash');
 }
+function calcInput(digit){
+  if(cashInputStr.length>=9) return;
+  cashInputStr += digit;
+  cashInputStr = cashInputStr.replace(/^0+(?=\d)/,'');
+  document.getElementById('cash-display').textContent = Number(cashInputStr||0).toLocaleString('id-ID');
+  calcChange();
+}
+function calcBackspace(){
+  cashInputStr = cashInputStr.slice(0,-1);
+  document.getElementById('cash-display').textContent = Number(cashInputStr||0).toLocaleString('id-ID');
+  calcChange();
+}
+function addQuickCash(amount){
+  const current = parseInt(cashInputStr)||0;
+  cashInputStr = String(current + amount);
+  document.getElementById('cash-display').textContent = Number(cashInputStr).toLocaleString('id-ID');
+  calcChange();
+}
+function setExactCash(){
+  cashInputStr = String(Math.round(calcGrandTotal()));
+  document.getElementById('cash-display').textContent = Number(cashInputStr).toLocaleString('id-ID');
+  calcChange();
+}
 function calcChange(){
-  const received = parseFloat(document.getElementById('cash-received-inp').value)||0;
+  const received = parseInt(cashInputStr)||0;
   const total = calcGrandTotal();
   const change = received - total;
   const box = document.getElementById('change-box');
@@ -579,7 +632,7 @@ async function confirmPayment(){
   const total = calcGrandTotal();
   let cashReceived = null;
   if(payMethod==='cash'){
-    cashReceived = parseFloat(document.getElementById('cash-received-inp').value)||0;
+    cashReceived = parseInt(cashInputStr)||0;
     if(cashReceived < total){ toast('Uang diterima kurang dari total'); return; }
   }
   btn.disabled = true; btn.textContent = 'Memproses...';
