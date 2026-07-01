@@ -336,8 +336,8 @@ function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
 // ===== LOGIN =====
 function switchLoginTab(tab){
   document.querySelectorAll('.login-tab').forEach((b,i)=>b.classList.toggle('active', (i===0&&tab==='pin')||(i===1&&tab==='google')));
-  document.getElementById('tab-pin').style.display = tab==='pin' ? 'block' : 'none';
-  document.getElementById('tab-google').style.display = tab==='google' ? 'block' : 'none';
+  document.getElementById('tab-pin').classList.toggle('hidden', tab!=='pin');
+  document.getElementById('tab-google').classList.toggle('hidden', tab!=='google');
 }
 function pinNext(el,next){ if(el.value.length===1&&next<=3) document.getElementById('p'+next).focus(); }
 function getPin(){ return ['p0','p1','p2','p3'].map(id=>document.getElementById(id).value).join(''); }
