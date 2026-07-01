@@ -8,10 +8,12 @@
 <meta http-equiv="Expires" content="0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="IBP Sisa">
-<meta name="theme-color" content="#2D6A4F">
+<meta name="theme-color" content="#7B2D3A">
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.png">
-<title>Stok - Indonesian Bakery</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<title>Indonesian Bakery - Internal</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -366,6 +368,11 @@ body.font-xl{zoom:1.25;}
 .help-sheet h3{font-size:16px;margin-bottom:4px;}
 .help-sheet p.sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
 .help-opt{display:flex;align-items:center;gap:12px;padding:14px;border:1.5px solid var(--border);border-radius:var(--rad);margin-bottom:8px;cursor:pointer;}
+.install-step{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--border);font-size:13px;line-height:1.4;}
+.install-step:last-child{border-bottom:none;}
+.install-n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--g);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+.install-tab{flex:1;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;}
+.install-tab:hover{background:var(--bg2);}
 .help-opt .ico{font-size:24px;}
 .help-opt .t1{font-size:14px;font-weight:600;}
 .help-opt .t2{font-size:11px;color:var(--text3);margin-top:1px;}
@@ -1327,7 +1334,21 @@ body{ max-width:none; }
       <span class="ico">📖</span>
       <div><div class="t1">Panduan & FAQ</div><div class="t2">Baca cara pakai & pertanyaan umum</div></div>
     </div>
+    <div class="help-opt" onclick="closeHelp();openInstallGuide()">
+      <span class="ico">📲</span>
+      <div><div class="t1">Pasang ke Layar Utama</div><div class="t2">Cara install app ke HP (iOS/Android)</div></div>
+    </div>
     <button class="help-close" onclick="closeHelp()">Tutup</button>
+  </div>
+</div>
+
+<!-- INSTALL GUIDE -->
+<div class="help-overlay" id="install-modal">
+  <div class="help-sheet" id="install-sheet">
+    <h3>📲 Pasang ke Layar Utama</h3>
+    <p class="sub" id="install-sub">Pilih perangkat kamu</p>
+    <div id="install-content"></div>
+    <button class="help-close" onclick="closeInstallGuide()">Tutup</button>
   </div>
 </div>
 
@@ -1825,8 +1846,8 @@ function openInput(mode) {
   banner.className = 'mode-banner in';
   document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
   document.getElementById('input-title').textContent = 'Catat Stok';
-  document.getElementById('input-t1').textContent = 'Catat Masuk, Sisa & Retur';
-  document.getElementById('input-t2').textContent = 'Isi roti masuk, sisa di rak, dan retur (barang kemarin yang dikembalikan) — semua dalam satu layar.';
+  document.getElementById('input-t1').textContent = 'Catat Masuk & Sisa';
+  document.getElementById('input-t2').textContent = 'Isi roti masuk dan sisa di rak sekarang. Retur (barang ditarik) dicatat lewat Laporan Kedaluwarsa.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn save-in';
   btn.textContent = '\uD83D\uDCBE Simpan';
@@ -1843,14 +1864,13 @@ function renderInput(filter='') {
     prods.forEach(p => {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
-      // di rak = now (kondisi terkini), terjual = kemarin + masuk - retur - sisa
-      const diRak = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
-      const terjual = Math.max(0, diRak-(inp.iSisa||0));
+      // di rak = sisa langsung (real-time snapshot), terjual = kemarin+masuk-sisa
+      const diRak = inp.iSisa||0;
+      const terjual = Math.max(0, ((inp.iKemarin||0)+(inp.iProduksi||0))-(inp.iSisa||0));
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
-          +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
+          +'<div class="cfield"><div class="cflbl sisa">📤 Sisa (di rak)</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
         +'</div>'
         +'<div class="catat-foot"><span>Di rak: <b>'+diRak+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span><button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
         +'</div>';
@@ -1862,29 +1882,25 @@ function adjF(n,field,d){
   const prev = inputState[n][field]||0;
   const next = Math.max(0, prev+d);
   inputState[n][field] = next;
-  // fix 1: masuk naik/turun → sisa ikut delta yang sama
+  // masuk naik/turun → sisa ikut delta yang sama
   if(field==='iProduksi'){
     inputState[n].iSisa = Math.max(0,(inputState[n].iSisa||0)+d);
   }
-  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
-  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  // cap sisa <= kemarin + masuk (retur sudah tidak ada di form ini)
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
 function setF(n,field,v){
   inputState[n][field] = Math.max(0,parseInt(v)||0);
-  // fix 1: masuk diset manual → sisa ikut selisihnya
+  // masuk diset manual → sisa ikut selisihnya
   if(field==='iProduksi'){
     const s = stockNow[n];
-    const baseKemarin = Math.max(0,(s.stokKemarin||0)-(s.retur||0));
+    const baseKemarin = s.now||0;
     inputState[n].iSisa = Math.max(0, baseKemarin + (inputState[n].iProduksi||0));
   }
-  // fix 2: cap sisa <= tersedia, cap retur <= kemarin + masuk
-  const maxRetur = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
-  if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
-  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0)-(inputState[n].iRetur||0));
+  // cap sisa <= kemarin + masuk
+  const tersedia = Math.max(0,(inputState[n].iKemarin||0)+(inputState[n].iProduksi||0));
   if((inputState[n].iSisa||0) > tersedia) inputState[n].iSisa = tersedia;
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
@@ -2015,32 +2031,43 @@ async function openShelfReport() {
       <button onclick="tarikBatch(${r.productId},'${r.name.replace(/'/g,"\\'")}',${r.sisa})" style="margin-top:4px;padding:5px 14px;background:var(--r);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">✅ Sudah Ditarik</button>
     </div>`).join('')+'</div>';
   }
-  if (warning.length) {
-    html += '<div class="section-label" style="color:var(--y)">🟡 Besok Kedaluwarsa</div>';
-    html += '<div style="padding:0 16px">'+warning.map(r=>`<div class="ov-row low" style="flex-direction:column;align-items:flex-start;gap:4px">
-      <div style="font-size:14px;font-weight:600">${r.name}</div>
-      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--y)">${r.sisa} pcs</b></div>
-    </div>`).join('')+'</div>';
-  }
-  if (aman.length) {
-    html += '<div class="section-label">🟢 Masih Aman</div>';
-    html += '<div style="padding:0 16px">'+aman.map(r=>`<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:4px">
-      <div style="font-size:14px;font-weight:600">${r.name}</div>
-      <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · ${r.sisa} pcs · <b style="color:var(--g)">sisa ${r.diffDays} hari</b></div>
-    </div>`).join('')+'</div>';
-  }
-  if (!html) html = '<div class="empty">Semua stok aman 🎉</div>';
+  if (!html) html = '<div class="empty">Tidak ada yang harus ditarik 🎉</div>';
+  // riwayat retur 7 hari terakhir
+  const branchRiwayat = currentUser.branch_id;
+  sb.from('stock_movements').select('qty,created_at,user_name,products(name)')
+    .eq('branch_id', branchRiwayat).eq('type','retur')
+    .order('created_at',{ascending:false}).limit(20)
+    .then(({data})=>{
+      if (!data || !data.length) return;
+      let rh = '<div class="section-label">📋 Riwayat Retur</div><div style="padding:0 16px">';
+      rh += data.map(r=>{
+        const dt = new Date(r.created_at);
+        const jam = dt.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+        return `<div class="ov-row" style="flex-direction:column;align-items:flex-start;gap:2px">
+          <div style="font-size:13px;font-weight:600">${r.products?r.products.name:'?'} · ${r.qty} pcs</div>
+          <div style="font-size:11px;color:var(--text2)">${jam} oleh ${r.user_name||'?'}</div>
+        </div>`;
+      }).join('');
+      rh += '</div>';
+      wrap.insertAdjacentHTML('beforeend', rh);
+    });
   wrap.innerHTML = html;
 }
 
 async function tarikBatch(productId, productName, qty) {
-  if (!confirm(`Konfirmasi tarik ${qty} pcs ${productName} dari rak?`)) return;
+  const rakSaatIni = (stockNow[productName]&&stockNow[productName].now)||0;
+  const input = prompt(`Tarik berapa pcs ${productName}?\n\nDi rak sekarang: ${rakSaatIni}\nMax bisa ditarik: ${qty}`, qty);
+  if (input===null) return;
+  const tarikQty = Math.max(0, Math.min(qty, parseInt(input)||0));
+  if (tarikQty<=0) return;
+  const sisaSetelah = Math.max(0, rakSaatIni - tarikQty);
+  if (!confirm(`Tarik ${tarikQty} pcs ${productName}?\n\nDi rak setelah ditarik: ${sisaSetelah} pcs`)) return;
   const branch = currentUser.branch_id;
   const {error} = await sb.rpc('add_movement', {
     p_branch_id: branch,
     p_user_name: currentUser.nama,
     p_type: 'retur',
-    p_items: [{nama: productName, qty}]
+    p_items: [{nama: productName, qty: tarikQty}]
   });
   if (error) { alert('Gagal: '+error.message); return; }
   await loadStockNow();
@@ -2815,6 +2842,62 @@ function setFont(f, el) {
 
 function openHelp(){ document.getElementById('help-modal').classList.add('open'); }
 function closeHelp(){ document.getElementById('help-modal').classList.remove('open'); }
+
+function openInstallGuide(){
+  const ua = navigator.userAgent || '';
+  const isIOS = /iPad|iPhone|iPod/.test(ua);
+  const isAndroid = /Android/.test(ua);
+  const content = document.getElementById('install-content');
+  const sub = document.getElementById('install-sub');
+
+  function renderIOS(){
+    sub.textContent = '📱 iPhone / iPad (Safari)';
+    content.innerHTML = `
+      <div class="install-step"><span class="install-n">1</span><span>Buka app ini di <b>Safari</b> (bukan Chrome)</span></div>
+      <div class="install-step"><span class="install-n">2</span><span>Tap tombol <b>Share</b> (kotak dengan panah ke atas) di bagian bawah layar</span></div>
+      <div class="install-step"><span class="install-n">3</span><span>Scroll ke bawah, pilih <b>"Add to Home Screen"</b></span></div>
+      <div class="install-step"><span class="install-n">4</span><span>Tap <b>"Add"</b> di pojok kanan atas</span></div>
+      <div class="install-step"><span class="install-n">5</span><span>Selesai! Icon app muncul di Home Screen 🎉</span></div>
+    `;
+  }
+  function renderAndroid(){
+    sub.textContent = '🤖 Android (Chrome)';
+    content.innerHTML = `
+      <div class="install-step"><span class="install-n">1</span><span>Buka app ini di <b>Chrome</b></span></div>
+      <div class="install-step"><span class="install-n">2</span><span>Tap menu titik tiga <b>⋮</b> di pojok kanan atas</span></div>
+      <div class="install-step"><span class="install-n">3</span><span>Pilih <b>"Install app"</b> atau <b>"Add to Home screen"</b></span></div>
+      <div class="install-step"><span class="install-n">4</span><span>Tap <b>"Install"</b></span></div>
+      <div class="install-step"><span class="install-n">5</span><span>Selesai! Icon app muncul di Home Screen 🎉</span></div>
+    `;
+  }
+  function renderSwitch(){
+    content.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="install-tab" onclick="document.getElementById('install-content').dataset.os='ios';openInstallGuide_render('ios')">📱 iPhone</button>
+        <button class="install-tab" onclick="document.getElementById('install-content').dataset.os='android';openInstallGuide_render('android')">🤖 Android</button>
+      </div>
+    `;
+  }
+
+  window.openInstallGuide_render = function(os){
+    if(os==='ios') renderIOS(); else renderAndroid();
+  };
+
+  if (isIOS) { renderIOS(); }
+  else if (isAndroid) { renderAndroid(); }
+  else {
+    sub.textContent = 'Pilih sistem HP kamu';
+    content.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:4px">
+        <button class="install-tab" onclick="window.openInstallGuide_render('ios')">📱 iPhone</button>
+        <button class="install-tab" onclick="window.openInstallGuide_render('android')">🤖 Android</button>
+      </div>
+      <div id="install-content2"></div>
+    `;
+  }
+  document.getElementById('install-modal').classList.add('open');
+}
+function closeInstallGuide(){ document.getElementById('install-modal').classList.remove('open'); }
 var tourSteps={
   master:[
     {sel:'.stats-grid',title:'Kondisi Stok',text:'Lihat ringkasan: berapa produk habis, sedikit, dan aman saat ini.'},
