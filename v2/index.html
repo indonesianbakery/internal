@@ -3101,12 +3101,18 @@ async function loadSalesReport(){
   let rankHtml = '<div class="section-label">🔥 Roti Terlaris</div>';
   if(top&&top.length){
     const max=top[0].total_sold;
-    rankHtml += top.map((r,i)=>{
+    const renderRankCard = (r,i) => {
       const rc=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
       const prod=products.find(p=>p.name===r.product_name);
       const omzet=prod?Math.round(r.total_sold*(prod.cost_price||0)*sellMul):0;
       return '<div class="rank-card"><div class="rank-num '+rc+'">'+(i+1)+'</div><div class="rank-info"><div class="rank-name">'+r.product_name+'</div><div class="rank-bar-wrap"><div class="rank-bar" style="width:'+(r.total_sold/max*100)+'%"></div></div></div><div class="rank-val"><b>'+r.total_sold+'</b><small>'+fmtRp(omzet)+'</small></div></div>';
-    }).join('');
+    };
+    rankHtml += top.slice(0,5).map((r,i)=>renderRankCard(r,i)).join('');
+    if(top.length>5){
+      const rest = top.slice(5).map((r,i)=>renderRankCard(r,i+5)).join('');
+      rankHtml += `<div id="rank-more" style="display:none">${rest}</div>`
+        +'<div style="text-align:center;margin-top:4px"><button onclick="const m=document.getElementById(\'rank-more\');const btn=this;if(m.style.display===\'none\'){m.style.display=\'block\';btn.textContent=\'Sembunyikan ▲\';}else{m.style.display=\'none\';btn.textContent=\'Lihat semua ('+(top.length-5)+') ▼\';}" style="font-size:12px;color:var(--g);background:none;border:none;cursor:pointer;padding:6px">Lihat semua ('+(top.length-5)+') ▼</button></div>';
+    }
   } else rankHtml += '<div class="empty">Belum ada data</div>';
   document.getElementById('sales-summary').innerHTML += rankHtml;
 
