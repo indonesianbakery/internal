@@ -207,6 +207,9 @@ input,button{font-family:inherit;}
   <div id="pos-topbar">
     <span class="brand">🍞 POS</span>
     <span class="meta" id="pos-meta"></span>
+    <span class="mono" id="pos-clock" style="font-size:11px;color:var(--text2);font-weight:700;"></span>
+    <button class="out-btn" onclick="openRiwayat()">📜</button>
+    <button class="out-btn" onclick="refreshPos()">↻</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
   </div>
   <div id="pos-main">
@@ -335,6 +338,16 @@ input,button{font-family:inherit;}
   </div>
 </div>
 
+<!-- ===== RIWAYAT SHEET ===== -->
+<div class="sheet-overlay" id="sheet-riwayat">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-riwayat')">✕</button>
+    <div class="sheet-title">📜 Riwayat Hari Ini</div>
+    <div class="sheet-sub" id="riwayat-sub"></div>
+    <div id="riwayat-list"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -445,6 +458,16 @@ async function pickBranch(b){
   show('screen-pos');
   await loadProducts();
 }
+
+async function refreshPos(){
+  await loadProducts();
+  toast('Stok diperbarui');
+}
+function tickClock(){
+  const el = document.getElementById('pos-clock');
+  if(el) el.textContent = new Date().toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(tickClock,1000); tickClock();
 
 function logoutPos(){
   const wasGoogle = currentUser && currentUser.mode==='google';
@@ -681,6 +704,32 @@ async function confirmPayment(){
     cart = []; discountTotal = 0; updateCartBar();
   }catch(e){ toast('Koneksi gagal, coba lagi'); }
   btn.disabled = false; btn.textContent = 'Konfirmasi Bayar';
+}
+
+async function openRiwayat(){
+  const today = new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+  const { data, error } = await sb.from('pos_transactions')
+    .select('*, pos_transaction_items(*)')
+    .eq('branch_id', currentBranch)
+    .gte('created_at', today+'T00:00:00+07:00')
+    .order('id',{ascending:false});
+  if(error){ toast('Gagal load riwayat'); return; }
+  const rows = data||[];
+  const total = rows.reduce((s,r)=>s+Number(r.grand_total),0);
+  document.getElementById('riwayat-sub').textContent = rows.length+' transaksi · Total '+rp(total);
+  document.getElementById('riwayat-list').innerHTML = rows.map(r=>{
+    const jam = new Date(r.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
+    const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
+    return `<div class="cart-item" style="cursor:default;">
+      <div class="ci-main">
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦'}[r.payment_method]||''} ${r.payment_method}</div>
+        <div class="ci-price">${items}</div>
+        <div class="ci-price">Kasir: ${r.cashier_name}</div>
+      </div>
+      <div class="mono" style="font-weight:800;color:var(--g);font-size:13px;">${rp(r.grand_total)}</div>
+    </div>`;
+  }).join('') || '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px 0;">Belum ada transaksi hari ini</div>';
+  openSheet('sheet-riwayat');
 }
 
 function showReceipt(){
