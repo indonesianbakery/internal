@@ -213,7 +213,16 @@ input,button{font-family:inherit;}
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
   </div>
   <div id="pos-main">
-    <div id="prod-search-wrap"><input id="prod-search" placeholder="Cari produk..." oninput="renderProducts()"></div>
+    <div id="prod-search-wrap" style="display:flex;gap:8px;">
+      <input id="prod-search" placeholder="Cari produk..." oninput="renderProducts()" style="flex:1;">
+      <select id="prod-sort" onchange="renderProducts()" style="border:1.5px solid var(--border);border-radius:var(--rad-sm);font-family:inherit;font-size:12px;padding:0 8px;background:#fff;color:var(--text2);">
+        <option value="default">Urutan</option>
+        <option value="name">A-Z</option>
+        <option value="price-asc">Termurah</option>
+        <option value="price-desc">Termahal</option>
+        <option value="stok">Stok terbanyak</option>
+      </select>
+    </div>
     <div id="cat-tabs"></div>
     <div id="prod-grid"></div>
   </div>
@@ -491,6 +500,8 @@ async function loadProducts(){
   // ambil harga dari tabel products
   const { data: prices } = await sb.from('products').select('id, cost_price, sort_order').eq('is_active', true);
   (prices||[]).forEach(pr=>{ const p=products.find(x=>x.id===pr.id); if(p){ p.cost_price=pr.cost_price; p.sort_order=pr.sort_order; } });
+  const { data: bp } = await sb.from('product_branch_prices').select('product_id, price').eq('branch_id', currentBranch);
+  (bp||[]).forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if(p) p.cost_price=Number(r.price); });
   products.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const catIds = (cats||[]).map(c=>c.id).filter(id=>products.some(p=>p.category_id===id));
   categories = catIds;
@@ -514,6 +525,14 @@ function renderProducts(){
   let list = products;
   if(activeCategoryId!=='all') list = list.filter(p=>String(p.category_id)===String(activeCategoryId));
   if(q) list = list.filter(p=>p.name.toLowerCase().includes(q));
+  const sort = (document.getElementById('prod-sort')||{}).value||'default';
+  list = [...list];
+  if(sort==='name') list.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='price-asc') list.sort((a,b)=>(a.cost_price||0)-(b.cost_price||0));
+  else if(sort==='price-desc') list.sort((a,b)=>(b.cost_price||0)-(a.cost_price||0));
+  else if(sort==='stok') list.sort((a,b)=>(b.stok||0)-(a.stok||0));
+  // habis selalu ke bawah
+  list.sort((a,b)=>((a.stok<=0)?1:0)-((b.stok<=0)?1:0));
   const grid = document.getElementById('prod-grid');
   if(!list.length){ grid.innerHTML = `<div class="prod-empty">Produk tidak ditemukan</div>`; return; }
   grid.innerHTML = list.map(p=>`
