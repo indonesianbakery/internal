@@ -727,9 +727,19 @@ async function openRiwayat(){
         <div class="ci-price">Kasir: ${r.cashier_name}</div>
       </div>
       <div class="mono" style="font-weight:800;color:var(--g);font-size:13px;">${rp(r.grand_total)}</div>
+      <button class="ci-del" onclick="hapusTransaksi(${r.id})">✕</button>
     </div>`;
   }).join('') || '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px 0;">Belum ada transaksi hari ini</div>';
   openSheet('sheet-riwayat');
+}
+
+async function hapusTransaksi(id){
+  if(!confirm('Hapus transaksi #'+id+'?\n\nStok "di rak" akan dikembalikan.\nTidak bisa dibatalkan.')) return;
+  const { error } = await sb.rpc('delete_pos_transaction', { p_tx_id: id });
+  if(error){ toast('Gagal hapus: '+error.message); return; }
+  toast('Transaksi #'+id+' dihapus');
+  await loadProducts();
+  openRiwayat();
 }
 
 function showReceipt(){
