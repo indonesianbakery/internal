@@ -307,8 +307,10 @@ input,button{font-family:inherit;}
           <button type="button" class="calc-key" onclick="calcInput('2')">2</button>
           <button type="button" class="calc-key" onclick="calcInput('3')">3</button>
           <button type="button" class="calc-key" onclick="calcInput('0')">0</button>
+          <button type="button" class="calc-key" onclick="calcInput('00')">00</button>
           <button type="button" class="calc-key" onclick="calcInput('000')">000</button>
-          <button type="button" class="calc-key del" onclick="calcBackspace()">⌫</button>
+          <button type="button" class="calc-key del" onclick="calcClear()">C</button>
+          <button type="button" class="calc-key del" style="grid-column:span 2" onclick="calcBackspace()">⌫</button>
         </div>
       </div>
       <div class="change-box" id="change-box">
@@ -654,6 +656,11 @@ function calcInput(digit){
   document.getElementById('cash-display').textContent = Number(cashInputStr||0).toLocaleString('id-ID');
   calcChange();
 }
+function calcClear(){
+  cashInputStr = '';
+  document.getElementById('cash-display').textContent = '0';
+  calcChange();
+}
 function calcBackspace(){
   cashInputStr = cashInputStr.slice(0,-1);
   document.getElementById('cash-display').textContent = Number(cashInputStr||0).toLocaleString('id-ID');
@@ -717,11 +724,12 @@ async function openRiwayat(){
   const rows = data||[];
   const total = rows.reduce((s,r)=>s+Number(r.grand_total),0);
   document.getElementById('riwayat-sub').textContent = rows.length+' transaksi · Total '+rp(total);
+  window._rwRows = rows;
   document.getElementById('riwayat-list').innerHTML = rows.map(r=>{
     const jam = new Date(r.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
-    return `<div class="cart-item" style="cursor:default;">
-      <div class="ci-main">
+    return `<div class="cart-item">
+      <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
         <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦'}[r.payment_method]||''} ${r.payment_method}</div>
         <div class="ci-price">${items}</div>
         <div class="ci-price">Kasir: ${r.cashier_name}</div>
@@ -742,10 +750,24 @@ async function hapusTransaksi(id){
   openRiwayat();
 }
 
+function lihatStruk(id){
+  const r = (window._rwRows||[]).find(x=>x.id===id);
+  if(!r) return;
+  lastReceiptData = {
+    items: (r.pos_transaction_items||[]).map(i=>({name:i.product_name, qty:i.qty, price:Number(i.unit_price), item_discount:Number(i.item_discount), is_gift:i.is_gift})),
+    subtotal: Number(r.subtotal), discountTotal: Number(r.discount_total), grand: Number(r.grand_total),
+    payMethod: r.payment_method, cashReceived: r.cash_received!=null?Number(r.cash_received):null,
+    change: r.cash_change!=null?Number(r.cash_change):null,
+    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name
+  };
+  closeSheet('sheet-riwayat');
+  showReceipt();
+}
+
 function showReceipt(){
   const r = lastReceiptData;
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer'}[r.payMethod];
-  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${currentUser.nama} · #${r.txId}</div><hr>`;
+  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-row"><span>${c.qty}x ${c.name}${c.is_gift?' (GRATIS)':''}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty-c.item_discount)}</span></div>`;
   });
