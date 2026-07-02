@@ -456,15 +456,18 @@ function logoutPos(){
 }
 
 // ===== PRODUCTS =====
+let catNames = {};
 async function loadProducts(){
   const { data, error } = await sb.rpc('get_current_stock', { p_branch_id: currentBranch });
   if(error){ toast('Gagal load produk'); return; }
   products = (data||[]).map(p=>({ ...p, cost_price: null, stok: p.now }));
+  const { data: cats } = await sb.from('categories').select('id, name').order('sort_order');
+  (cats||[]).forEach(c=>catNames[c.id]=c.name);
   // ambil harga dari tabel products
   const { data: prices } = await sb.from('products').select('id, cost_price, sort_order').eq('is_active', true);
   (prices||[]).forEach(pr=>{ const p=products.find(x=>x.id===pr.id); if(p){ p.cost_price=pr.cost_price; p.sort_order=pr.sort_order; } });
   products.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
-  const catIds = [...new Set(products.map(p=>p.category_id).filter(c=>c!=null))];
+  const catIds = (cats||[]).map(c=>c.id).filter(id=>products.some(p=>p.category_id===id));
   categories = catIds;
   renderCatTabs();
   renderProducts();
@@ -472,7 +475,7 @@ async function loadProducts(){
 
 function renderCatTabs(){
   let html = `<div class="cat-tab active" data-c="all" onclick="setCat('all')">Semua</div>`;
-  categories.forEach(c=>{ html += `<div class="cat-tab" data-c="${c}" onclick="setCat('${c}')">Kategori ${c}</div>`; });
+  categories.forEach(c=>{ html += `<div class="cat-tab" data-c="${c}" onclick="setCat('${c}')">${catNames[c]||'Kategori '+c}</div>`; });
   document.getElementById('cat-tabs').innerHTML = html;
 }
 function setCat(c){
