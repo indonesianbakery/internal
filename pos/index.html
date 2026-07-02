@@ -648,6 +648,7 @@ function selectPayMethod(m){
   payMethod = m;
   document.querySelectorAll('.pay-method').forEach(el=>el.classList.toggle('active', el.dataset.m===m));
   document.getElementById('cash-block').classList.toggle('hidden', m!=='cash');
+  calcChange();
 }
 function calcInput(digit){
   if(cashInputStr.length>=9) return;
@@ -682,8 +683,10 @@ function calcChange(){
   const total = calcGrandTotal();
   const change = received - total;
   const box = document.getElementById('change-box');
+  box.querySelector('.lbl').textContent = change<0 ? 'Kurang' : 'Kembalian';
   document.getElementById('change-val').textContent = rp(Math.abs(change));
   box.classList.toggle('neg', change<0);
+  document.getElementById('btn-confirm-pay').disabled = (payMethod==='cash' && change<0);
 }
 
 async function confirmPayment(){
