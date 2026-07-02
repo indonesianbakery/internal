@@ -415,7 +415,7 @@ async function loginPin(){
 
 async function loginGoogle(){
   document.getElementById('google-err').textContent='';
-  await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href } });
+  await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: 'https://indonesianbakery.github.io/internal/pos/' } });
 }
 
 async function checkSession(retry){
