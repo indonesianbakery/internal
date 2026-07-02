@@ -13,7 +13,7 @@
   --text:#2A1A1E; --text2:#6B4A52; --text3:#A88E94; --rad:14px; --rad-sm:9px;
   --in:#1B7A43; --in-bg:#E3F6EA; --r:#C0392B; --r-bg:#FBEAE8;
 }
-*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
 body{margin:0; font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); -webkit-font-smoothing:antialiased;}
 input,button{font-family:inherit;}
 .mono{font-family:'DM Mono',monospace;}
@@ -67,6 +67,9 @@ input,button{font-family:inherit;}
 .prod-card:active{border-color:var(--g3); background:var(--g-light);}
 .prod-card .nm{font-size:13px; font-weight:700; line-height:1.25;}
 .prod-card .pr{font-size:13px; font-weight:700; color:var(--g); font-family:'DM Mono',monospace; margin-top:auto;}
+.prod-card .stk{font-size:10px; color:var(--text3); font-weight:600;}
+.prod-card.oos{opacity:.45;}
+.prod-card.oos .stk{color:var(--r);}
 .prod-empty{grid-column:1/-1; text-align:center; color:var(--text3); font-size:13px; padding:30px 0;}
 
 /* ===== CART BAR (bottom sheet trigger) ===== */
@@ -445,9 +448,13 @@ function logoutPos(){
 
 // ===== PRODUCTS =====
 async function loadProducts(){
-  const { data, error } = await sb.from('products').select('*').eq('is_active', true).order('sort_order');
+  const { data, error } = await sb.rpc('get_current_stock', { p_branch_id: currentBranch });
   if(error){ toast('Gagal load produk'); return; }
-  products = data||[];
+  products = (data||[]).map(p=>({ ...p, cost_price: null, stok: p.now }));
+  // ambil harga dari tabel products
+  const { data: prices } = await sb.from('products').select('id, cost_price, sort_order').eq('is_active', true);
+  (prices||[]).forEach(pr=>{ const p=products.find(x=>x.id===pr.id); if(p){ p.cost_price=pr.cost_price; p.sort_order=pr.sort_order; } });
+  products.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const catIds = [...new Set(products.map(p=>p.category_id).filter(c=>c!=null))];
   categories = catIds;
   renderCatTabs();
@@ -473,8 +480,9 @@ function renderProducts(){
   const grid = document.getElementById('prod-grid');
   if(!list.length){ grid.innerHTML = `<div class="prod-empty">Produk tidak ditemukan</div>`; return; }
   grid.innerHTML = list.map(p=>`
-    <div class="prod-card" onclick="addToCart(${p.id})">
+    <div class="prod-card${p.stok<=0?' oos':''}" onclick="addToCart(${p.id})">
       <div class="nm">${p.name}</div>
+      <div class="stk">${p.stok<=0?'Habis':'Di rak: '+p.stok}</div>
       <div class="pr">${rp(p.cost_price)}</div>
     </div>`).join('');
 }
@@ -483,6 +491,9 @@ function renderProducts(){
 function addToCart(productId){
   const p = products.find(x=>x.id===productId);
   if(!p) return;
+  if(p.stok<=0){ toast(p.name+' habis'); return; }
+  const inCart = cart.filter(c=>c.product_id===productId).reduce((s,c)=>s+c.qty,0);
+  if(inCart >= p.stok){ toast('Max '+p.stok+' (sisa di rak)'); return; }
   const existing = cart.find(c=>c.product_id===productId && !c.is_gift);
   if(existing) existing.qty += 1;
   else cart.push({ product_id:p.id, name:p.name, price:p.cost_price, qty:1, item_discount:0, is_gift:false, gift_reason:null });
@@ -537,6 +548,11 @@ function renderCartSheet(){
 }
 
 function changeQty(i,delta){
+  if(delta>0){
+    const p = products.find(x=>x.id===cart[i].product_id);
+    const inCart = cart.filter(c=>c.product_id===cart[i].product_id).reduce((s,c)=>s+c.qty,0);
+    if(p && inCart >= p.stok){ toast('Max '+p.stok+' (sisa di rak)'); return; }
+  }
   cart[i].qty += delta;
   if(cart[i].qty<=0) cart.splice(i,1);
   renderCartSheet(); updateCartBar();
