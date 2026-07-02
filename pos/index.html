@@ -421,6 +421,9 @@ async function checkSession(retry){
 }
 checkSession();
 sb.auth.onAuthStateChange((event)=>{ if(event==='SIGNED_IN' && !currentUser) checkSession(); });
+// debug: kalau balik dari Google bawa error/token tapi gagal
+if(location.hash.includes('error')){ alert('OAuth error: '+decodeURIComponent(location.hash)); }
+else if(location.hash.includes('access_token')){ setTimeout(()=>{ if(!currentUser) checkSession(true); }, 1500); }
 
 function afterLogin(){
   document.getElementById('branch-hi-nama').textContent = currentUser.nama;
