@@ -603,6 +603,7 @@ body{ max-width:none; }
 .ih-type.produksi,.ih-type.masuk{ background:var(--in-bg); color:var(--in); }
 .ih-type.sisa{ background:var(--out-bg); color:var(--out); }
 .ih-type.retur{ background:#F3E8FF; color:#7C3AED; }
+.ih-type.terjual{ background:var(--g-bg); color:var(--g); }
 .ih-qty-input{ width:54px; font-family:'DM Mono',monospace; font-size:13px; border:1.5px solid var(--g3); border-radius:6px; padding:3px 6px; text-align:center; }
 /* Koreksi Data */
 .kor-row{ background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:7px; display:flex; align-items:center; gap:10px; }
@@ -617,6 +618,7 @@ body{ max-width:none; }
 .kor-tag.masuk,.kor-tag.produksi{ background:var(--in-bg); color:var(--in); }
 .kor-tag.sisa{ background:var(--out-bg); color:var(--out); }
 .kor-tag.retur{ background:#F3E8FF; color:#7C3AED; }
+.kor-tag.terjual{ background:var(--g-bg); color:var(--g); }
 .kor-lbl{ font-size:11px; color:var(--text2); font-weight:600; display:block; margin-bottom:4px; }
 .kor-input{ width:100%; padding:9px 11px; border:1.5px solid var(--border); border-radius:9px; font-family:inherit; font-size:14px; }
 .pm-drag-row{ cursor:grab; }
@@ -1019,6 +1021,7 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
+        <option value="terjual">Terjual (POS)</option>
         <option value="produksi">Produksi (lama)</option>
       </select>
     </div>
@@ -1043,6 +1046,7 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
+        <option value="terjual">Terjual (POS)</option>
       </select>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -1377,6 +1381,9 @@ body{ max-width:none; }
 // ===== KONEKSI SUPABASE PRODUCTION (database toko asli / LIVE) =====
 // ============================================================
 // Database PRODUCTION: usfehuwxyvqvjhveeoxx — data toko asli. LIVE.
+let _lastTouch=0;
+document.addEventListener('touchend',e=>{ if(e.target.closest('button,input,select,a,textarea')) return; const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
+document.addEventListener('gesturestart',e=>e.preventDefault());
 const SUPABASE_URL = 'https://usfehuwxyvqvjhveeoxx.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZmVodXd4eXZxdmpodmVlb3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDg1MzcsImV4cCI6MjA5NjkyNDUzN30.8zEUKF1qcBUXyGu3a50k2v92UbdXKbZ2xhJnb2blobY';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -1584,10 +1591,15 @@ async function loadCategories() {
   const { data, error } = await sb.from('categories').select('*').order('sort_order');
   if (!error&&data) categories = data;
 }
+let branchPrices = {}; // { product_id: {melur:x, delima:y} }
 async function loadProducts() {
   const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price,shelf_life_days').order('sort_order');
   if (!error&&data) products = data;
+  const { data: bp } = await sb.from('product_branch_prices').select('*');
+  branchPrices = {};
+  (bp||[]).forEach(r=>{ if(!branchPrices[r.product_id]) branchPrices[r.product_id]={}; branchPrices[r.product_id][r.branch_id]=Number(r.price); });
 }
+function priceFor(p, b){ const bp=branchPrices[p.id]; return (bp && bp[b]!=null) ? bp[b] : (p.cost_price||0); }
 async function loadSettings() {
   const { data, error } = await sb.from('settings').select('*');
   if (!error&&data) data.forEach(r => {
@@ -2272,7 +2284,7 @@ function renderDailyHistory(rows, summary) {
     tls.forEach((t,ti)=>{
       const jam=new Date(t.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
       const total=t.items.reduce((s,it)=>s+it.q,0);
-      const label=(t.type==='produksi'||t.type==='masuk')?'MASUK':t.type==='retur'?'RETUR':'SISA';
+      const label=(t.type==='produksi'||t.type==='masuk')?'MASUK':t.type==='retur'?'RETUR':t.type==='terjual'?'TERJUAL':'SISA';
       const cls=(t.type==='produksi'||t.type==='masuk')?'in':t.type==='retur'?'retur':'out';
       html+='<div class="tl-item" onclick="event.stopPropagation();toggleTl('+di+','+ti+')"><span class="tl-time">'+jam+'</span><span class="tl-type '+cls+'">'+label+'</span><span class="tl-detail">'+(t.user||'-')+' \u00B7 '+total+' pcs<span class="tl-chevron">\u25BC</span></span></div><div class="tl-items-detail" id="tld-'+di+'-'+ti+'">'+t.items.map(it=>'<div class="tl-detail-row"><span>'+it.n+'</span><span>'+it.q+'</span></div>').join('')+'</div>';
     });
@@ -2601,8 +2613,8 @@ function renderProdManageList() {
             +'<div style="font-size:11px;color:var(--text2)">Rp '+(p.cost_price||0)+'/pcs · ⏰ '+(p.shelf_life_days||2)+' hari</div></div></div>';
         }
         const priceRow = isMaster
-          ? '<div class="prod-manage-price"><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:72px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="pm-pcs">/pcs</span><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
-          : (p.cost_price>0 ? '<div class="prod-manage-price-ro">'+fmtRp(p.cost_price)+'/pcs</div>' : '');
+          ? '<div class="prod-manage-price"><span class="pm-rp">Melur Rp</span><input class="mini-input" type="number" min="0" value="'+priceFor(p,'melur')+'" style="width:72px" onchange="updateBranchPrice('+p.id+',\'melur\',this.value)"><span class="pm-rp" style="margin-left:6px">Delima Rp</span><input class="mini-input" type="number" min="0" value="'+priceFor(p,'delima')+'" style="width:72px" onchange="updateBranchPrice('+p.id+',\'delima\',this.value)"><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
+          : (priceFor(p,branch)>0 ? '<div class="prod-manage-price-ro">'+fmtRp(priceFor(p,branch))+'/pcs ('+BRANCHES[branch]+')</div>' : '');
         const shelfRow = isMaster
           ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
           : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
@@ -2676,6 +2688,16 @@ async function bulkDelete() {
   const { error } = await sb.from('products').delete().in('id',ids);
   if (error) { alert('Gagal: '+error.message); return; }
   await loadProducts(); toggleProdSelect();
+}
+async function updateBranchPrice(id, b, val){
+  const price = Math.max(0, parseFloat(val)||0);
+  const statusEl = document.getElementById('price-status-'+id);
+  if (statusEl) statusEl.textContent='...';
+  const { error } = await sb.from('product_branch_prices').upsert({product_id:id, branch_id:b, price});
+  if (error) { if(statusEl){statusEl.textContent='Gagal';statusEl.className='price-save-status err';} return; }
+  if(!branchPrices[id]) branchPrices[id]={};
+  branchPrices[id][b]=price;
+  if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
 }
 async function updateProductPrice(id, val, el) {
   const price = Math.max(0, parseFloat(val)||0);
@@ -3000,7 +3022,7 @@ async function renderKoreksi(){
     return true;
   });
   const pname=id=>{ const p=products.find(x=>x.id===id); return p?p.name:'?'; };
-  const typeLbl={masuk:'Roti Masuk',produksi:'Produksi',sisa:'Sisa',retur:'Retur'};
+  const typeLbl={masuk:'Roti Masuk',produksi:'Produksi',sisa:'Sisa',retur:'Retur',terjual:'Terjual (POS)'};
   const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   let html=_korRows.map(m=>{
     const d=new Date(m.created_at);
