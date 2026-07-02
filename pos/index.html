@@ -378,7 +378,7 @@ let lastReceiptData = null;
 function rp(n){ return 'Rp' + Math.round(n||0).toLocaleString('id-ID'); }
 // blokir double-tap & pinch zoom (iOS Safari ignore meta viewport)
 let _lastTouch=0;
-document.addEventListener('touchend',e=>{ const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
+document.addEventListener('touchend',e=>{ if(e.target.closest('button,input,select,a')) return; const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function show(id){ document.querySelectorAll('#screen-login,#screen-branch,#screen-pos,#screen-pending').forEach(s=>s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
