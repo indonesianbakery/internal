@@ -359,7 +359,8 @@ input,button{font-family:inherit;}
 <div class="sheet-overlay" id="sheet-riwayat">
   <div class="sheet">
     <button class="sheet-close" onclick="closeSheet('sheet-riwayat')">✕</button>
-    <div class="sheet-title">📜 Riwayat Hari Ini</div>
+    <div class="sheet-title">📜 Riwayat Transaksi</div>
+    <input type="date" id="riwayat-date" onchange="openRiwayat()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;margin-bottom:8px;">
     <div class="sheet-sub" id="riwayat-sub"></div>
     <div id="riwayat-list"></div>
   </div>
@@ -743,10 +744,15 @@ async function confirmPayment(){
 
 async function openRiwayat(){
   const today = new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+  const dInp = document.getElementById('riwayat-date');
+  if(!dInp.value) dInp.value = today;
+  const tgl = dInp.value;
+  const next = new Date(new Date(tgl+'T00:00:00+07:00').getTime()+86400000).toISOString();
   const { data, error } = await sb.from('pos_transactions')
     .select('*, pos_transaction_items(*)')
     .eq('branch_id', currentBranch)
-    .gte('created_at', today+'T00:00:00+07:00')
+    .gte('created_at', tgl+'T00:00:00+07:00')
+    .lt('created_at', next)
     .order('id',{ascending:false});
   if(error){ toast('Gagal load riwayat'); return; }
   const rows = data||[];
@@ -812,4 +818,3 @@ function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); }
 </script>
 </body>
 </html>
- 
