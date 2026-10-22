@@ -1909,10 +1909,23 @@ function leaveInput(){
 function unsavedSimpan(){ document.getElementById('unsaved-modal').classList.remove('open'); saveInput(); }
 function unsavedBuang(){ document.getElementById('unsaved-modal').classList.remove('open'); inputDirty=false; show('overview'); }
 function unsavedBatal(){ document.getElementById('unsaved-modal').classList.remove('open'); }
-function openInput(mode) {
+async function openInput(mode) {
   inputMode = mode;
   inputState = {};
   inputDirty = false;
+  const banner = document.getElementById('input-banner');
+  banner.className = 'mode-banner in';
+  document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
+  document.getElementById('input-title').textContent = 'Catat Stok';
+  document.getElementById('input-t1').textContent = 'Catat Masuk, Retur & Sisa';
+  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar tersisa di rak (isi malam saat tutup).';
+  const btn = document.getElementById('input-save');
+  btn.className = 'save-btn save-in';
+  btn.textContent = '\uD83D\uDCBE Simpan';
+  show('input');
+  document.getElementById('input-list').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  // selalu ambil data terbaru (produk baru / aktif-nonaktif / stok) tiap kali layar ini dibuka
+  await Promise.all([loadProducts(), loadStockNow()]);
   // notify produk yang perlu ditarik/diretur (cuma di mode masuk, tempat retur)
   renderTarikNotify(mode);
   // isi awal tiap produk
@@ -1922,17 +1935,7 @@ function openInput(mode) {
       iKemarin: s.now||0, iProduksi: 0, iRetur: 0, iSisa: s.now||0
     };
   });
-  const banner = document.getElementById('input-banner');
-  banner.className = 'mode-banner in';
-  document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
-  document.getElementById('input-title').textContent = 'Catat Stok';
-  document.getElementById('input-t1').textContent = 'Catat Masuk, Retur & Sisa';
-  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar tersisa di rak (isi malam saat tutup).';
-
-  const btn = document.getElementById('input-save');
-  btn.className = 'save-btn save-in';
-  btn.textContent = '\uD83D\uDCBE Simpan';
-  show('input'); renderInput();
+  renderInput();
 }
 function renderInput(filter='') {
   filter = filter||'';
