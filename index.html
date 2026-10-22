@@ -332,6 +332,8 @@ body.font-xl{zoom:1.25;}
 .add-status{font-size:12px;min-height:16px;}
 .add-status.ok{color:var(--g3);}.add-status.err{color:var(--r);}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:12px;margin-bottom:8px;display:flex;flex-direction:column;align-items:stretch;gap:10px;}
+.prod-manage-row-inactive{background:#EDEAEA;border-color:#D8D3D3;}
+.prod-manage-row-inactive .prod-manage-name{color:#8A8484;}
 .prod-manage-row.selected{}
 .pm-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--border);}
 .pm-actions .mini-select{flex:1;min-width:110px;}
@@ -347,6 +349,7 @@ body.font-xl{zoom:1.25;}
 .price-save-status.ok{color:var(--g3);}.price-save-status.err{color:var(--r);}
 .prod-manage-name{flex:1;font-size:13px;}
 .inactive-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--r-bg);color:var(--r);}
+.catat-row-inactive{opacity:.75;background:var(--bg2,#F3F0F0);}
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;display:none;align-items:flex-end;justify-content:center;}
@@ -981,6 +984,7 @@ body{ max-width:none; }
     <div class="add-card">
       <input class="form-input" id="new-prod-name" placeholder="Nama produk...">
       <select class="form-input" id="new-prod-cat"></select>
+      <input class="form-input" id="new-prod-price" type="number" min="0" placeholder="Harga (Rp)/pcs">
       <button class="add-btn" onclick="addProduct()">+ Tambah Produk</button>
       <div class="add-status" id="prod-add-status"></div>
     </div>
@@ -1937,17 +1941,32 @@ async function openInput(mode) {
   });
   renderInput();
 }
+async function catatActivate(id, name){
+  const { error } = await sb.from('products').update({is_active:true}).eq('id',id);
+  if (error){ alert('Gagal mengaktifkan: '+error.message); return; }
+  const p = products.find(x=>x.id===id);
+  if (p) p.is_active = true;
+  if (!stockNow[name]) stockNow[name] = { now:0, produksi:0, stokKemarin:0, retur:0, masuk:0, terjualToday:0 };
+  const s = stockNow[name];
+  inputState[name] = { iKemarin: s.now||0, iProduksi: 0, iRetur: 0, iSisa: s.now||0 };
+  renderInput(document.getElementById('input-search') ? document.getElementById('input-search').value : '');
+}
 function renderInput(filter='') {
   filter = filter||'';
   const wrap = document.getElementById('input-list');
   let html = '';
   categories.forEach(cat => {
-    const prods = products.filter(p=>p.category_id===cat.id && (p.is_active!==false) && p.name.toLowerCase().includes(filter.toLowerCase()) && stockNow[p.name]!==undefined);
+    const prods = products.filter(p=>p.category_id===cat.id && p.name.toLowerCase().includes(filter.toLowerCase()) && (p.is_active!==false ? stockNow[p.name]!==undefined : filter.length>0));
     if (!prods.length) return;
     html += '<div class="cat-header">'+cat.name+'</div>';
     prods.forEach(p => {
       const n=p.name, s=stockNow[n], inp=inputState[n];
       const esc=n.replace(/'/g,"\\'");
+      if (p.is_active===false) {
+        html += '<div class="catat-row catat-row-inactive"><div class="catat-name">'+n+' <span class="inactive-badge">nonaktif</span></div>'
+          +'<button class="mini-btn" style="margin-top:8px" onclick="catatActivate('+p.id+',\''+esc+'\')">\u2713 Aktifkan & catat stok</button></div>';
+        return;
+      }
       // tersedia = kemarin + masuk - retur; terjual = tersedia - sisa (sisa = input manual, angka final)
       const terjualPOS = s.terjualToday||0;
       const tersedia = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
@@ -2697,7 +2716,7 @@ function renderProdManageList() {
         const shelfRow = isMaster
           ? '<div class="prod-manage-price" style="margin-top:4px"><span class="pm-rp" style="color:var(--y)">⏰</span><input class="mini-input" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:50px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
           : '<div class="prod-manage-price-ro" style="color:var(--y)">⏰ '+(p.shelf_life_days||2)+' hari</div>';
-        return '<div class="prod-manage-row" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><div class="pm-actions"><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div></div>';
+        return '<div class="prod-manage-row'+(p.is_active===false?' prod-manage-row-inactive':'')+'" data-id="'+p.id+'"><div style="flex:1"><div class="prod-manage-name">'+p.name+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'+priceRow+shelfRow+'</div><div class="pm-actions"><select class="mini-select" onchange="moveProductCategory('+p.id+',this.value)">'+categories.map(c=>'<option value="'+c.id+'" '+(c.id===p.category_id?'selected':'')+'>'+c.name+'</option>').join('')+'</select><button class="mini-btn" onclick="openRenameModal('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F</button><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="toggleProduct('+p.id+','+(p.is_active!==false)+')">'+(p.is_active===false?'Aktifkan':'Nonaktif')+'</button><button class="del-btn" onclick="deleteProduct('+p.id+',\''+p.name.replace(/'/g,"\\'")+'\')">\uD83D\uDDD1\uFE0F</button></div></div>';
       }).join('');
       }
     }
@@ -2787,7 +2806,7 @@ async function updateShelfLife(id, val, el) {
   if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
 }
 async function addCategory(){ const name=document.getElementById('new-cat-name').value.trim(); const el=document.getElementById('cat-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=categories.length?Math.max.apply(null,categories.map(c=>c.sort_order)):0; const {error}=await sb.from('categories').insert({name,sort_order:mo+1}); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';}else{el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-cat-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800);} }
-async function addProduct(){ const name=document.getElementById('new-prod-name').value.trim(); const cid=parseInt(document.getElementById('new-prod-cat').value); const el=document.getElementById('prod-add-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=products.length?Math.max.apply(null,products.map(p=>p.sort_order||0)):0; const {data:np,error}=await sb.from('products').insert({name,category_id:cid,sort_order:mo+1,is_active:true}).select().single(); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';return;} await sb.from('stock').insert([{product_id:np.id,branch_id:'melur',qty:0},{product_id:np.id,branch_id:'delima',qty:0}]); el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-prod-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800); }
+async function addProduct(){ const name=document.getElementById('new-prod-name').value.trim(); const cid=parseInt(document.getElementById('new-prod-cat').value); const price=parseInt(document.getElementById('new-prod-price').value)||0; const el=document.getElementById('prod-add-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=products.length?Math.max.apply(null,products.map(p=>p.sort_order||0)):0; const {data:np,error}=await sb.from('products').insert({name,category_id:cid,sort_order:mo+1,is_active:true,cost_price:price}).select().single(); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';return;} await sb.from('stock').insert([{product_id:np.id,branch_id:'melur',qty:0},{product_id:np.id,branch_id:'delima',qty:0}]); el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-prod-name').value='';document.getElementById('new-prod-price').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800); }
 async function moveProductCategory(id,cid){ const {error}=await sb.from('products').update({category_id:cid?parseInt(cid):null}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
 async function toggleProduct(id,active){ const {error}=await sb.from('products').update({is_active:!active}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
 async function deleteProduct(id, nama){
