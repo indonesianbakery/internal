@@ -961,7 +961,7 @@ body{ max-width:none; }
 <!-- PRODUCTS -->
 <div id="screen-products" class="screen">
   <div class="sub-header">
-    <button class="back-btn" onclick="show('admin')">← Kembali</button>
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
     <span class="sub-title">Kelola Produk</span>
     <button class="top-btn" id="prod-select-btn" onclick="toggleProdSelect()" style="font-size:13px;padding:4px 10px">Pilih</button>
   </div>
@@ -989,6 +989,7 @@ body{ max-width:none; }
       <div class="add-status" id="prod-add-status"></div>
     </div>
     <div class="section-label">Semua Produk</div>
+    <input class="search-inp" id="prod-manage-search" type="search" placeholder="Cari produk..." oninput="renderProdManageList(this.value)" style="margin-bottom:10px">
     <div id="prod-manage-list"></div>
   </div>
   <!-- Action bar multi-select -->
@@ -2683,17 +2684,25 @@ function pmToggleDrag(){
   if(pmDragMode){ pmCollapsed = new Set(); } // buka semua biar gampang drag
   renderProdManageList();
 }
-function renderProdManageList() {
+function renderProdManageList(filter) {
+  if (filter===undefined) filter = document.getElementById('prod-manage-search') ? document.getElementById('prod-manage-search').value : '';
+  filter = (filter||'').toLowerCase();
   const isMaster = currentUser.role==='master';
   const anyOpen = categories.some(c=>!pmCollapsed.has(c.id));
-  let html = '<div style="display:flex;justify-content:space-between;margin-bottom:8px;gap:6px">'
-    +'<button class="icon-btn '+(pmDragMode?'g':'')+'" onclick="pmToggleDrag()">'+(pmDragMode?'\u2713 Selesai atur':'\u2630 Atur urutan')+'</button>'
-    +'<button class="icon-btn" onclick="pmToggleAll()">'+(anyOpen?'\u229F Tutup semua':'\u229E Buka semua')+'</button></div>';
+  let html = '';
+  if (!filter) {
+    html += '<div style="display:flex;justify-content:space-between;margin-bottom:8px;gap:6px">'
+      +'<button class="icon-btn '+(pmDragMode?'g':'')+'" onclick="pmToggleDrag()">'+(pmDragMode?'\u2713 Selesai atur':'\u2630 Atur urutan')+'</button>'
+      +'<button class="icon-btn" onclick="pmToggleAll()">'+(anyOpen?'\u229F Tutup semua':'\u229E Buka semua')+'</button></div>';
+  }
   if(pmDragMode) html += '<div style="font-size:11px;color:var(--b);background:var(--b-bg);padding:8px 10px;border-radius:8px;margin-bottom:8px">Tahan & geser ⠿ untuk ubah urutan produk dalam kategori.</div>';
+  let hasilCount = 0;
   categories.forEach(cat=>{
-    const cp=products.filter(p=>p.category_id===cat.id).sort((a,b)=> pmDragMode ? (a.sort_order||0)-(b.sort_order||0) : a.name.localeCompare(b.name));
+    let cp=products.filter(p=>p.category_id===cat.id).sort((a,b)=> pmDragMode ? (a.sort_order||0)-(b.sort_order||0) : a.name.localeCompare(b.name));
+    if (filter) cp = cp.filter(p=>p.name.toLowerCase().includes(filter));
     if(!cp.length)return;
-    const isCol = pmCollapsed.has(cat.id);
+    hasilCount += cp.length;
+    const isCol = filter ? false : pmCollapsed.has(cat.id);
     const aktif = cp.filter(p=>p.is_active!==false).length;
     html+='<div class="cat-header '+(pmDragMode?'':'cat-collapsible')+'" '+(pmDragMode?'':'onclick="pmToggleCat('+cat.id+')"')+'>'+cat.name+' <span style="color:var(--text3);font-weight:400;font-size:10px">('+aktif+'/'+cp.length+')</span>'+(pmDragMode?'':'<span class="cat-chevron '+(isCol?'':'open')+'">\u25BC</span>')+'</div>';
     if(!isCol || pmDragMode){
@@ -2721,7 +2730,8 @@ function renderProdManageList() {
       }
     }
   });
-  document.getElementById('prod-manage-list').innerHTML=html||'<div class="empty">Belum ada produk</div>';
+  const emptyMsg = filter ? 'Tidak ada produk bernama "'+filter+'"' : 'Belum ada produk';
+  document.getElementById('prod-manage-list').innerHTML=(hasilCount?html:'') || '<div class="empty">'+emptyMsg+'</div>';
   document.getElementById('prod-select-count').textContent = prodSelected.size+' produk dipilih';
   if(pmDragMode) enableProdDrag();
 }
