@@ -966,31 +966,39 @@ body{ max-width:none; }
     <button class="top-btn" id="prod-select-btn" onclick="toggleProdSelect()" style="font-size:13px;padding:4px 10px">Pilih</button>
   </div>
   <div class="sub-body">
-    <button class="nav-btn-card" onclick="openItemHistory()"><span class="nbc-ic">📋</span><span class="nbc-txt"><span class="nbc-t1">Riwayat Item (Spreadsheet)</span><span class="nbc-t2">Lihat & edit semua catatan stok per baris</span></span><span class="nbc-arrow">›</span></button>
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="add-btn" style="flex:1;background:#1D6F42" onclick="exportProductsExcel()">⬇️ Export Excel</button>
-      <button class="add-btn" style="flex:1;background:var(--b)" onclick="document.getElementById('xlsx-file-input').click()">⬆️ Update via Excel</button>
-      <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this)">
+    <div class="period-row">
+      <button class="period-btn active" id="pm-tab-btn-produk" onclick="setPmTab('produk',this)">🍞 Produk</button>
+      <button class="period-btn" id="pm-tab-btn-kategori" onclick="setPmTab('kategori',this)">🏷️ Kategori</button>
     </div>
-    <div class="section-label">Tambah Kategori</div>
-    <div class="add-card">
-      <input class="form-input" id="new-cat-name" placeholder="Nama kategori...">
-      <button class="add-btn" onclick="addCategory()">+ Tambah Kategori</button>
-      <div class="add-status" id="cat-status"></div>
+    <div id="pm-tab-produk">
+      <button class="nav-btn-card" onclick="openItemHistory()"><span class="nbc-ic">📋</span><span class="nbc-txt"><span class="nbc-t1">Riwayat Item (Spreadsheet)</span><span class="nbc-t2">Lihat & edit semua catatan stok per baris</span></span><span class="nbc-arrow">›</span></button>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="add-btn" style="flex:1;background:#1D6F42" onclick="exportProductsExcel()">⬇️ Export Excel</button>
+        <button class="add-btn" style="flex:1;background:var(--b)" onclick="document.getElementById('xlsx-file-input').click()">⬆️ Update via Excel</button>
+        <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this)">
+      </div>
+      <div class="section-label">Tambah Produk</div>
+      <div class="add-card">
+        <input class="form-input" id="new-prod-name" placeholder="Nama produk...">
+        <select class="form-input" id="new-prod-cat"></select>
+        <input class="form-input" id="new-prod-price" type="number" min="0" placeholder="Harga (Rp)/pcs">
+        <button class="add-btn" onclick="addProduct()">+ Tambah Produk</button>
+        <div class="add-status" id="prod-add-status"></div>
+      </div>
+      <div class="section-label">Semua Produk</div>
+      <input class="search-inp" id="prod-manage-search" type="search" placeholder="Cari produk..." oninput="renderProdManageList(this.value)" style="margin-bottom:10px">
+      <div id="prod-manage-list"></div>
     </div>
-    <div class="section-label">Kategori</div>
-    <div id="cat-list"></div>
-    <div class="section-label">Tambah Produk</div>
-    <div class="add-card">
-      <input class="form-input" id="new-prod-name" placeholder="Nama produk...">
-      <select class="form-input" id="new-prod-cat"></select>
-      <input class="form-input" id="new-prod-price" type="number" min="0" placeholder="Harga (Rp)/pcs">
-      <button class="add-btn" onclick="addProduct()">+ Tambah Produk</button>
-      <div class="add-status" id="prod-add-status"></div>
+    <div id="pm-tab-kategori" style="display:none">
+      <div class="section-label">Tambah Kategori</div>
+      <div class="add-card">
+        <input class="form-input" id="new-cat-name" placeholder="Nama kategori...">
+        <button class="add-btn" onclick="addCategory()">+ Tambah Kategori</button>
+        <div class="add-status" id="cat-status"></div>
+      </div>
+      <div class="section-label">Kategori</div>
+      <div id="cat-list"></div>
     </div>
-    <div class="section-label">Semua Produk</div>
-    <input class="search-inp" id="prod-manage-search" type="search" placeholder="Cari produk..." oninput="renderProdManageList(this.value)" style="margin-bottom:10px">
-    <div id="prod-manage-list"></div>
   </div>
   <!-- Action bar multi-select -->
   <div id="prod-action-bar" style="display:none;position:fixed;bottom:0;left:0;right:0;background:white;border-top:1.5px solid var(--border);padding:10px 16px 24px;z-index:200;box-shadow:0 -4px 16px rgba(0,0,0,.08)">
@@ -2507,6 +2515,12 @@ async function loadProductManagement() {
   document.getElementById('new-prod-cat').innerHTML=categories.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
   document.getElementById('cat-list').innerHTML=categories.map(c=>'<div class="prod-manage-row"><span class="prod-manage-name">'+c.name+'</span><button class="mini-btn" onclick="openRenameModal(\'cat_'+c.id+'\',\''+c.name.replace(/'/g,"\\'")+'\')">\u270F\uFE0F Rename</button></div>').join('')||'<div class="empty">Belum ada</div>';
   renderProdManageList();
+}
+function setPmTab(tab, el){
+  document.getElementById('pm-tab-produk').style.display = tab==='produk' ? '' : 'none';
+  document.getElementById('pm-tab-kategori').style.display = tab==='kategori' ? '' : 'none';
+  document.getElementById('pm-tab-btn-produk').classList.toggle('active', tab==='produk');
+  document.getElementById('pm-tab-btn-kategori').classList.toggle('active', tab==='kategori');
 }
 function pmToggleAll() {
   const anyOpen = categories.some(c=>!pmCollapsed.has(c.id));
