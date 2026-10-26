@@ -350,6 +350,31 @@ body.font-xl{zoom:1.25;}
 .prod-manage-name{flex:1;font-size:13px;}
 .inactive-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--r-bg);color:var(--r);}
 .catat-row-inactive{opacity:.75;background:var(--bg2,#F3F0F0);}
+/* Profil produk */
+.pp-sheet{max-height:88vh;overflow-y:auto;}
+.pp-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px;}
+.pp-stats>div{background:var(--g-light);border-radius:10px;padding:8px 2px;text-align:center;}
+.pp-stats small{display:block;font-size:10px;color:var(--text3);}
+.pp-stats b{font-size:16px;font-family:'DM Mono',monospace;}
+.pp-sec{font-size:12px;font-weight:700;color:var(--text2);margin:16px 0 6px;}
+.pp-empty{font-size:12px;color:var(--text3);padding:4px 0;}
+.pp-batch{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;font-size:13px;}
+.pp-batch small{display:block;font-size:11px;color:var(--text3);margin-top:2px;}
+.pp-batch.habis{opacity:.55;}
+.pp-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;}
+.pp-tag.ok{background:#EAF6EF;color:#1D6F42;}
+.pp-tag.warn{background:var(--y-bg);color:var(--y);}
+.pp-tag.tarik{background:var(--r-bg);color:var(--r);}
+.pp-tag.habis{background:#EDEAEA;color:#8A8484;}
+.pp-mv{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.pp-mv small{margin-left:auto;color:var(--text3);font-size:11px;text-align:right;}
+.pp-mv-t{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--g-bg);color:var(--g);min-width:58px;text-align:center;}
+.pp-mv-t.retur{background:#F3E8FF;color:#7C3AED;}
+.pp-mv-t.sisa{background:var(--out-bg);color:var(--out);}
+.pp-toggle{width:100%;margin-top:16px;padding:10px;border-radius:10px;border:1px dashed var(--g3);background:transparent;color:var(--g);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+.pp-catat{margin-top:10px;}
+.pp-close{width:100%;margin-top:12px;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+
 
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;display:none;align-items:flex-end;justify-content:center;}
@@ -806,6 +831,11 @@ body{ max-width:none; }
     <button class="bb-cancel" onclick="leaveInput()">Batal</button>
     <button class="save-btn" id="input-save" onclick="saveInput()">💾 Simpan</button>
   </div>
+</div>
+
+<!-- MODAL PROFIL PRODUK (tap nama di Beranda) -->
+<div class="modal-overlay" id="prod-profile-modal" onclick="if(event.target===this)closeProdProfile()">
+  <div class="modal-sheet pp-sheet"><div id="pp-body"></div></div>
 </div>
 
 <!-- MODAL PERUBAHAN BELUM DISIMPAN -->
@@ -1870,10 +1900,111 @@ function ovRowHtml(n, draggable=false) {
   else if (alert && alert.warning > 0) shelfBadge = `<span style="font-size:10px;font-weight:700;background:var(--y-bg);color:var(--y);border-radius:5px;padding:2px 6px;margin-left:4px;">⏰ Besok exp ${alert.warning}pcs</span>`;
   return `<div class="ov-row ${rc} ${draggable?'draggable':''}" data-name="${n}" ${draggable?'draggable="true"':''}>
     ${handle}
-    <div class="ov-info"><div class="ov-name">${n}${shelfBadge}</div><div class="ov-sub">Terjual ${sold}${hargaTxt}</div></div>
+    <div class="ov-info" ${draggable?'':'onclick="openProdProfile(this.closest(\'.ov-row\').dataset.name)" style="cursor:pointer"'}><div class="ov-name">${n}${shelfBadge}</div><div class="ov-sub">Terjual ${sold}${hargaTxt}</div></div>
     ${renameBtn}
     <div class="ov-now ${st}"><b>${s.now}</b><small>di rak</small></div>
   </div>`;
+}
+
+// ===== PROFIL PRODUK (tap nama di Beranda) =====
+let ppName = null, ppInput = {iProduksi:0,iRetur:0,iSisa:0};
+function ppFmtJam(ts){ try{ return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(ts)); }catch(e){ return ts; } }
+function closeProdProfile(){ document.getElementById('prod-profile-modal').classList.remove('open'); }
+async function openProdProfile(name){
+  const prod = products.find(p=>p.name===name);
+  if(!prod || !stockNow[name]) return;
+  ppName = name;
+  ppInput = { iProduksi:0, iRetur:0, iSisa: stockNow[name].now||0 };
+  document.getElementById('pp-body').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  document.getElementById('prod-profile-modal').classList.add('open');
+  const [bRes, mRes] = await Promise.all([
+    sb.from('product_batches').select('*').eq('product_id',prod.id).eq('branch_id',branch).order('batch_date',{ascending:false}).limit(8),
+    sb.from('stock_movements').select('type,qty,user_name,created_at').eq('product_id',prod.id).eq('branch_id',branch).order('created_at',{ascending:false}).limit(15)
+  ]);
+  renderProdProfile(prod, (bRes&&bRes.data)||[], (mRes&&mRes.data)||[]);
+}
+function renderProdProfile(prod, batches, moves){
+  const n = prod.name, s = stockNow[n];
+  const cat = (categories.find(c=>c.id===prod.category_id)||{}).name||'';
+  const shelf = prod.shelf_life_days||2;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const typeLbl = {masuk:'Masuk',produksi:'Masuk',sisa:'Sisa',retur:'Retur',terjual:'Terjual POS'};
+  const sold = Math.max(0, s.masuk - s.now);
+  let h = '<div class="modal-title">'+n+'</div><div class="modal-sub">'+cat+(prod.cost_price>0?' · '+fmtRp(prod.cost_price)+'/pcs':'')+' · simpan '+shelf+' hari</div>';
+  h += '<div class="pp-stats">'
+    +'<div><small>Kemarin</small><b>'+(s.stokKemarin||0)+'</b></div>'
+    +'<div><small>Masuk</small><b>'+(s.produksi||0)+'</b></div>'
+    +'<div><small>Retur</small><b>'+(s.retur||0)+'</b></div>'
+    +'<div><small>Di rak</small><b>'+s.now+'</b></div>'
+    +'<div><small>Terjual</small><b>'+sold+'</b></div></div>';
+  h += '<div class="pp-sec">Batch masuk</div>';
+  if(!batches.length) h += '<div class="pp-empty">Belum ada catatan batch</div>';
+  else h += batches.map(b=>{
+    const sisa = b.qty_in - b.qty_sold;
+    const bd = new Date(b.batch_date); bd.setHours(0,0,0,0);
+    const exp = new Date(bd); exp.setDate(exp.getDate()+shelf);
+    const diff = Math.floor((exp - today)/86400000);
+    let st, cls;
+    if (sisa<=0){ st='Habis'; cls='habis'; }
+    else if (diff<=0){ st='Tarik'; cls='tarik'; }
+    else if (diff===1){ st='Besok exp'; cls='warn'; }
+    else { st='Aman · '+diff+' hari lagi'; cls='ok'; }
+    return '<div class="pp-batch '+cls+'"><div><b>Masuk '+fmtTglID(b.batch_date)+'</b><small>'+b.qty_in+' pcs · sisa '+Math.max(0,sisa)+' · exp '+fmtTglID(exp)+'</small></div><span class="pp-tag '+cls+'">'+st+'</span></div>';
+  }).join('');
+  h += '<div class="pp-sec">Riwayat terbaru</div>';
+  if(!moves.length) h += '<div class="pp-empty">Belum ada riwayat</div>';
+  else h += moves.map(m=>'<div class="pp-mv"><span class="pp-mv-t '+m.type+'">'+(typeLbl[m.type]||m.type)+'</span><b>'+m.qty+'</b><small>'+ppFmtJam(m.created_at)+' · '+(m.user_name||'-')+'</small></div>').join('');
+  if (canEdit()) {
+    h += '<button class="pp-toggle" onclick="ppToggleCatat()">✏️ Catat stok produk ini</button><div class="pp-catat" id="pp-catat" style="display:none"></div>';
+  }
+  h += '<button class="pp-close" onclick="closeProdProfile()">Tutup</button>';
+  document.getElementById('pp-body').innerHTML = h;
+}
+function ppToggleCatat(){
+  const el = document.getElementById('pp-catat');
+  if(!el) return;
+  const open = el.style.display==='none';
+  el.style.display = open ? '' : 'none';
+  if(open) ppRenderCatat();
+}
+function ppAdj(f,d){ ppSet(f,(ppInput[f]||0)+d); }
+function ppSet(f,v){
+  let x = Math.max(0,parseInt(v)||0);
+  if(f==='iRetur') x = Math.min(x, stockNow[ppName].now||0); // retur tidak boleh lebih dari stok yang ada
+  ppInput[f] = x; ppRenderCatat();
+}
+function ppRenderCatat(){
+  const el = document.getElementById('pp-catat'); if(!el) return;
+  const s = stockNow[ppName];
+  const tersedia = Math.max(0,(s.now||0)+(ppInput.iProduksi||0)-(ppInput.iRetur||0));
+  const terjual = Math.max(0, tersedia-(ppInput.iSisa||0));
+  const fld = (f,lbl,cls)=>'<div class="cfield"><div class="cflbl '+cls+'">'+lbl+'</div><div class="mini-qc"><button class="mini-qb" onclick="ppAdj(\''+f+'\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(ppInput[f]||0)+'" onchange="ppSet(\''+f+'\',this.value)"><button class="mini-qb" onclick="ppAdj(\''+f+'\',1)">+</button></div></div>';
+  el.innerHTML = '<div class="catat-grid">'+fld('iProduksi','🥖 Masuk','masuk')+fld('iRetur','↩️ Retur','retur')+fld('iSisa','📤 Sisa','sisa')+'</div>'
+    +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span></div>'
+    +'<button class="save-btn save-in" id="pp-save" style="width:100%;margin-top:10px" onclick="ppSave()">\uD83D\uDCBE Simpan</button>'
+    +'<div id="pp-msg" style="font-size:12px;text-align:center;margin-top:6px"></div>';
+}
+async function ppSave(){
+  const prod = products.find(p=>p.name===ppName), s = stockNow[ppName];
+  const btn = document.getElementById('pp-save'), msg = document.getElementById('pp-msg');
+  const calls = [];
+  if (ppInput.iProduksi>0) {
+    calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:[{nama:ppName,qty:ppInput.iProduksi}]}));
+    calls.push(sb.from('product_batches').insert([{branch_id:branch,product_id:prod.id,batch_date:new Date().toISOString().slice(0,10),qty_in:ppInput.iProduksi,qty_sold:0}]));
+  }
+  if (ppInput.iRetur>0) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:[{nama:ppName,qty:ppInput.iRetur}]}));
+  if (ppInput.iSisa!==(s.now||0)) {
+    const items=[{nama:ppName,qty:ppInput.iSisa}];
+    calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:items}));
+    calls.push(updateBatchFIFO(items));
+  }
+  if (!calls.length) { msg.textContent='Belum ada perubahan'; msg.style.color='var(--text3)'; return; }
+  btn.disabled=true; btn.textContent='Menyimpan...';
+  const results = await Promise.all(calls);
+  const err = results.find(r=>r&&r.error);
+  if (err) { btn.disabled=false; btn.textContent='\uD83D\uDCBE Simpan'; msg.textContent='Gagal: '+err.error.message; msg.style.color='var(--r)'; return; }
+  await loadStockNow(); await checkShelfLifeAlert();
+  await openProdProfile(ppName); // segarkan data profil
 }
 
 // DRAG SORT (2-level)
