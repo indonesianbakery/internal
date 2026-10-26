@@ -373,6 +373,12 @@ body.font-xl{zoom:1.25;}
 .pp-mv-t.sisa{background:var(--out-bg);color:var(--out);}
 .pp-toggle{width:100%;margin-top:16px;padding:10px;border-radius:10px;border:1px dashed var(--g3);background:transparent;color:var(--g);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
 .pp-catat{margin-top:10px;}
+.ta-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.ta-info{flex:1;min-width:0;}
+.ta-info b{display:block;font-size:14px;}
+.ta-info small{display:block;font-size:11px;color:var(--text3);margin-top:2px;}
+.ta-info .ta-warn{color:var(--y);font-weight:600;}
+.ta-actions{display:flex;gap:8px;margin-top:16px;}
 .pp-close{width:100%;margin-top:12px;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
 
 
@@ -831,6 +837,11 @@ body{ max-width:none; }
     <button class="bb-cancel" onclick="leaveInput()">Batal</button>
     <button class="save-btn" id="input-save" onclick="saveInput()">💾 Simpan</button>
   </div>
+</div>
+
+<!-- MODAL TARIK SEMUA -->
+<div class="modal-overlay" id="tarik-all-modal" onclick="if(event.target===this)closeTarikAll()">
+  <div class="modal-sheet pp-sheet"><div id="ta-body"></div></div>
 </div>
 
 <!-- MODAL PROFIL PRODUK (tap nama di Beranda) -->
@@ -2259,6 +2270,11 @@ async function openShelfReport() {
   let html = '';
   if (expired.length) {
     html += '<div class="section-label" style="color:var(--r)">🔴 Harus Ditarik Sekarang</div>';
+    const grp = {};
+    expired.forEach(r=>{ if(!grp[r.name]) grp[r.name]={name:r.name,productId:r.productId,total:0}; grp[r.name].total += r.sisa; });
+    tarikAllList = Object.values(grp);
+    const totPcs = tarikAllList.reduce((s,x)=>s+x.total,0);
+    if (canEdit()) html += '<div style="padding:0 16px 10px"><button class="add-btn" style="width:100%;background:var(--r)" onclick="openTarikAll()">↩️ Tarik semua ('+tarikAllList.length+' produk · '+totPcs+' pcs)</button></div>';
     html += '<div style="padding:0 16px">'+expired.map(r=>`<div class="ov-row zero" style="flex-direction:column;align-items:flex-start;gap:4px">
       <div style="font-size:14px;font-weight:600">${r.name}</div>
       <div style="font-size:11px;color:var(--text2)">Batch: ${fmtD(r.batchDate)} · Exp: ${fmtD(r.expDate)} · <b style="color:var(--r)">${r.sisa} pcs harus ditarik</b></div>
@@ -2267,7 +2283,7 @@ async function openShelfReport() {
   }
   if (!html) html = '<div class="empty">Tidak ada yang harus ditarik 🎉</div>';
   // riwayat retur 7 hari terakhir
-  const branchRiwayat = currentUser.branch_id;
+  const branchRiwayat = branch;
   sb.from('stock_movements').select('qty,created_at,user_name,products(name)')
     .eq('branch_id', branchRiwayat).eq('type','retur')
     .order('created_at',{ascending:false}).limit(20)
@@ -2288,6 +2304,48 @@ async function openShelfReport() {
   wrap.innerHTML = html;
 }
 
+// ===== TARIK SEMUA (dengan koreksi jumlah sebelum ditarik) =====
+let tarikAllList = [], tarikAllQty = {};
+function openTarikAll(){
+  if(!tarikAllList.length) return;
+  tarikAllQty = {};
+  tarikAllList.forEach((x,i)=>tarikAllQty[i]=x.total);
+  renderTarikAll();
+  document.getElementById('tarik-all-modal').classList.add('open');
+}
+function closeTarikAll(){ document.getElementById('tarik-all-modal').classList.remove('open'); }
+function taAdj(i,d){ taSet(i,(tarikAllQty[i]||0)+d); }
+function taSet(i,v){
+  const it = tarikAllList[i]; if(!it) return;
+  tarikAllQty[i] = Math.max(0, Math.min(it.total, parseInt(v)||0)); // tidak bisa lebih dari yang kedaluwarsa
+  renderTarikAll();
+}
+function renderTarikAll(){
+  let total = 0;
+  const rows = tarikAllList.map((x,i)=>{
+    const q = tarikAllQty[i]||0; total += q;
+    const rak = (stockNow[x.name]&&stockNow[x.name].now)||0;
+    const warn = q>rak ? ' <span class="ta-warn">· melebihi stok di rak</span>' : '';
+    return '<div class="ta-row"><div class="ta-info"><b>'+x.name+'</b><small>'+x.total+' pcs kedaluwarsa · di rak '+rak+warn+'</small></div>'
+      +'<div class="mini-qc"><button class="mini-qb" onclick="taAdj('+i+',-1)">\u2212</button><input class="mini-qn" type="number" value="'+q+'" onchange="taSet('+i+',this.value)"><button class="mini-qb" onclick="taAdj('+i+',1)">+</button></div></div>';
+  }).join('');
+  document.getElementById('ta-body').innerHTML =
+    '<div class="modal-title">↩️ Tarik semua</div><div class="modal-sub">Cek dan koreksi jumlah tiap produk sebelum ditarik. Isi 0 kalau tidak jadi ditarik.</div>'
+    + rows
+    + '<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeTarikAll()">Batal</button>'
+    + '<button class="save-btn save-in" id="ta-save" style="flex:2" '+(total>0?'':'disabled')+' onclick="confirmTarikAll()">Tarik '+total+' pcs</button></div>';
+}
+async function confirmTarikAll(){
+  const items = tarikAllList.map((x,i)=>({nama:x.name,qty:tarikAllQty[i]||0})).filter(x=>x.qty>0);
+  if(!items.length) return;
+  const btn = document.getElementById('ta-save'); btn.disabled = true; btn.textContent = 'Menyimpan...';
+  const {error} = await sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:items});
+  if(error){ btn.disabled=false; btn.textContent='Coba lagi'; alert('Gagal: '+error.message); return; }
+  closeTarikAll();
+  await loadStockNow(); await checkShelfLifeAlert();
+  openShelfReport();
+}
+
 async function tarikBatch(productId, productName, qty) {
   const rakSaatIni = (stockNow[productName]&&stockNow[productName].now)||0;
   const input = prompt(`Tarik berapa pcs ${productName}?\n\nDi rak sekarang: ${rakSaatIni}\nMax bisa ditarik: ${qty}`, qty);
@@ -2296,7 +2354,6 @@ async function tarikBatch(productId, productName, qty) {
   if (tarikQty<=0) return;
   const sisaSetelah = Math.max(0, rakSaatIni - tarikQty);
   if (!confirm(`Tarik ${tarikQty} pcs ${productName}?\n\nDi rak setelah ditarik: ${sisaSetelah} pcs`)) return;
-  const branch = currentUser.branch_id;
   const {error} = await sb.rpc('add_movement', {
     p_branch_id: branch,
     p_user_name: currentUser.nama,
