@@ -2336,16 +2336,39 @@ function renderTarikAll(){
     + '<button class="save-btn save-in" id="ta-save" style="flex:2" '+(total>0?'':'disabled')+' onclick="confirmTarikAll()">Tarik '+total+' pcs</button></div>';
 }
 async function confirmTarikAll(){
-  const items = tarikAllList.map((x,i)=>({nama:x.name,qty:tarikAllQty[i]||0})).filter(x=>x.qty>0);
-  if(!items.length) return;
+  const picks = tarikAllList.map((x,i)=>({nama:x.name,productId:x.productId,qty:tarikAllQty[i]||0})).filter(x=>x.qty>0);
+  if(!picks.length) return;
+  const items = picks.map(x=>({nama:x.nama,qty:x.qty}));
   const btn = document.getElementById('ta-save'); btn.disabled = true; btn.textContent = 'Menyimpan...';
   const {error} = await sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:items});
   if(error){ btn.disabled=false; btn.textContent='Coba lagi'; alert('Gagal: '+error.message); return; }
+  let batchErr = null;
+  for (const x of picks) { const e = await applyTarikToBatches(x.productId, x.qty); if (e && !batchErr) batchErr = e; }
   closeTarikAll();
+  if (batchErr) alert('Retur sudah tercatat, tapi batch belum ter-update ('+batchErr.message+'). Daftar kedaluwarsa mungkin belum berubah.');
   await loadStockNow(); await checkShelfLifeAlert();
   openShelfReport();
 }
 
+// Setelah retur/tarik dicatat, kurangi batch (terlama dulu) supaya hilang dari daftar kedaluwarsa.
+// Mengembalikan error pertama kalau ada (retur tetap sudah tercatat).
+async function applyTarikToBatches(productId, qty){
+  let left = qty, firstErr = null;
+  const { data: batches, error } = await sb.from('product_batches').select('*')
+    .eq('branch_id',branch).eq('product_id',productId)
+    .order('batch_date',{ascending:true}).order('id',{ascending:true});
+  if (error) return error;
+  for (const b of (batches||[])) {
+    if (left<=0) break;
+    const rem = (b.qty_in||0) - (b.qty_sold||0);
+    if (rem<=0) continue;
+    const take = Math.min(rem,left);
+    const res = await sb.from('product_batches').update({qty_sold:(b.qty_sold||0)+take}).eq('id',b.id);
+    if (res && res.error && !firstErr) firstErr = res.error;
+    left -= take;
+  }
+  return firstErr;
+}
 async function tarikBatch(productId, productName, qty) {
   const rakSaatIni = (stockNow[productName]&&stockNow[productName].now)||0;
   const input = prompt(`Tarik berapa pcs ${productName}?\n\nDi rak sekarang: ${rakSaatIni}\nMax bisa ditarik: ${qty}`, qty);
@@ -2361,6 +2384,8 @@ async function tarikBatch(productId, productName, qty) {
     p_items: [{nama: productName, qty: tarikQty}]
   });
   if (error) { alert('Gagal: '+error.message); return; }
+  const batchErr = await applyTarikToBatches(productId, tarikQty);
+  if (batchErr) alert('Retur sudah tercatat, tapi batch belum ter-update ('+batchErr.message+'). Daftar kedaluwarsa mungkin belum berubah.');
   await loadStockNow();
   openShelfReport();
 }
