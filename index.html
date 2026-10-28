@@ -839,6 +839,13 @@ body{ max-width:none; }
   </div>
 </div>
 
+<!--NEUTRAL-START-->
+<!-- MODAL NETRALKAN STOK -->
+<div class="modal-overlay" id="neutral-modal" onclick="if(event.target===this&&!neutralBusy)closeNeutral()">
+  <div class="modal-sheet pp-sheet"><div id="neutral-body"></div></div>
+</div>
+
+<!--NEUTRAL-END-->
 <!-- MODAL TARIK SEMUA -->
 <div class="modal-overlay" id="tarik-all-modal" onclick="if(event.target===this)closeTarikAll()">
   <div class="modal-sheet pp-sheet"><div id="ta-body"></div></div>
@@ -1080,6 +1087,13 @@ body{ max-width:none; }
     ⚠️ <b>Khusus Super Admin.</b> Edit/hapus/tambah catatan stok manual. Hati-hati — perubahan langsung mempengaruhi perhitungan stok.
   </div>
   <div class="sub-body">
+<!--NEUTRAL-START-->
+    <div class="set-card" style="margin-bottom:12px">
+      <div class="set-card-head">🧹 Mulai dari nol</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Netralkan semua stok di kedua cabang. Dicatat sebagai retur + sisa 0, riwayat lama tidak dihapus.</div>
+      <button class="add-btn" style="width:100%;background:var(--r)" onclick="openNeutral()">🧹 Netralkan semua stok</button>
+    </div>
+<!--NEUTRAL-END-->
     <div style="margin-bottom:10px">
       <label class="kor-lbl">📅 Pilih Tanggal</label>
       <input class="kor-input" type="date" id="kor-filter-date" onchange="renderKoreksi()">
@@ -2350,6 +2364,78 @@ async function confirmTarikAll(){
   openShelfReport();
 }
 
+// NEUTRAL-START
+// ===== NETRALKAN SEMUA STOK (Super Admin) =====
+let neutralPlan = null, neutralBusy = false;
+function closeNeutral(){ if(neutralBusy) return; document.getElementById('neutral-modal').classList.remove('open'); }
+async function neutralOpenBatches(b){
+  let all = [];
+  for (let page=0; page<30; page++) {
+    const { data, error } = await sb.from('product_batches').select('id,qty_in,qty_sold').eq('branch_id',b).order('id',{ascending:true}).range(page*1000,page*1000+999);
+    if (error || !data) break;
+    all = all.concat(data);
+    if (data.length<1000) break;
+  }
+  return all.filter(x=>(x.qty_in||0)-(x.qty_sold||0)>0);
+}
+async function openNeutral(){
+  if (currentUser.role!=='master') { alert('Khusus Super Admin'); return; }
+  const body = document.getElementById('neutral-body');
+  body.innerHTML = '<div class="loading"><div class="spinner"></div>Menghitung stok...</div>';
+  document.getElementById('neutral-modal').classList.add('open');
+  const plan = [];
+  for (const b of Object.keys(BRANCHES)) {
+    const { data: st, error } = await sb.rpc('get_current_stock',{p_branch_id:b});
+    if (error) { body.innerHTML = '<div class="modal-sub" style="color:var(--r)">Gagal membaca stok '+BRANCHES[b]+': '+error.message+'</div><button class="pp-close" onclick="closeNeutral()">Tutup</button>'; return; }
+    const rows = st||[];
+    plan.push({ branch:b, names:rows.map(r=>r.name), retur:rows.filter(r=>(r.now||0)>0).map(r=>({nama:r.name,qty:r.now})), batches:await neutralOpenBatches(b) });
+  }
+  neutralPlan = plan; renderNeutral();
+}
+function renderNeutral(){
+  const pcsOf = p => p.retur.reduce((s,x)=>s+x.qty,0);
+  const nothing = neutralPlan.every(p=>!p.retur.length && !p.batches.length);
+  const rows = neutralPlan.map(p=>'<div class="ta-row"><div class="ta-info"><b>'+BRANCHES[p.branch]+'</b><small>'+p.retur.length+' produk ada stok · '+pcsOf(p)+' pcs di rak · '+p.batches.length+' batch masih terbuka</small></div></div>').join('');
+  document.getElementById('neutral-body').innerHTML =
+    '<div class="modal-title">🧹 Netralkan semua stok</div>'
+    +'<div class="modal-sub">'+(nothing?'Semua stok sudah 0 dan tidak ada batch terbuka, tidak ada yang perlu dinetralkan.':'Yang akan dilakukan: catat retur sebanyak stok di rak, lalu sisa 0 untuk semua produk, dan tutup semua batch. Riwayat lama tidak dihapus dan angka penjualan tidak berubah.')+'</div>'
+    + rows
+    + '<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeNeutral()">'+(nothing?'Tutup':'Batal')+'</button>'
+    + (nothing?'':'<button class="save-btn save-in" id="neutral-go" style="flex:2;background:var(--r)" onclick="runNeutral()">Netralkan sekarang</button>')+'</div>';
+}
+async function runNeutral(){
+  if (!neutralPlan || neutralBusy) return;
+  if (!confirm('Yakin menetralkan semua stok di kedua cabang?\n\nIni mencatat retur sebanyak stok sekarang dan sisa 0, serta menutup semua batch. Riwayat lama tidak dihapus.')) return;
+  neutralBusy = true;
+  const go = document.getElementById('neutral-go'); if (go) { go.disabled = true; go.textContent = 'Memproses...'; }
+  const user = currentUser.nama+' (netralkan stok)', done = [];
+  let errMsg = null;
+  for (const p of neutralPlan) {
+    if (p.retur.length) {
+      const { error } = await sb.rpc('add_movement',{p_branch_id:p.branch,p_user_name:user,p_type:'retur',p_items:p.retur});
+      if (error) { errMsg = BRANCHES[p.branch]+' (retur): '+error.message; break; }
+    }
+    if (p.names.length) {
+      const { error } = await sb.rpc('add_movement',{p_branch_id:p.branch,p_user_name:user,p_type:'sisa',p_items:p.names.map(n=>({nama:n,qty:0}))});
+      if (error) { errMsg = BRANCHES[p.branch]+' (sisa 0): '+error.message; break; }
+    }
+    let failed = 0;
+    for (let i=0; i<p.batches.length; i+=10) {
+      const res = await Promise.all(p.batches.slice(i,i+10).map(b=>sb.from('product_batches').update({qty_sold:b.qty_in}).eq('id',b.id)));
+      res.forEach(r=>{ if (r&&r.error) failed++; });
+    }
+    done.push({branch:p.branch, produk:p.retur.length, pcs:p.retur.reduce((s,x)=>s+x.qty,0), batch:p.batches.length-failed, failed});
+  }
+  neutralBusy = false; neutralPlan = null;
+  await loadStockNow(); await checkShelfLifeAlert();
+  const sum = done.map(d=>'<div class="ta-row"><div class="ta-info"><b>'+BRANCHES[d.branch]+'</b><small>'+d.produk+' produk · '+d.pcs+' pcs dinetralkan · '+d.batch+' batch ditutup'+(d.failed?' · <span class="ta-warn">'+d.failed+' batch gagal ditutup</span>':'')+'</small></div></div>').join('');
+  document.getElementById('neutral-body').innerHTML =
+    '<div class="modal-title">'+(errMsg?'⚠️ Belum selesai':'✓ Selesai')+'</div>'
+    +(errMsg?'<div class="modal-sub" style="color:var(--r)">Berhenti karena: '+errMsg+'. Yang sudah jalan tetap tercatat; aman dijalankan ulang.</div>':'<div class="modal-sub">Semua stok sekarang 0. Tinggal catat Masuk saat roti baru datang.</div>')
+    + sum + '<button class="pp-close" onclick="closeNeutral()">Tutup</button>';
+}
+
+// NEUTRAL-END
 // Setelah retur/tarik dicatat, kurangi batch (terlama dulu) supaya hilang dari daftar kedaluwarsa.
 // Mengembalikan error pertama kalau ada (retur tetap sudah tercatat).
 async function applyTarikToBatches(productId, qty){
