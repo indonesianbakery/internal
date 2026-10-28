@@ -1917,7 +1917,7 @@ function renderOverview(filter='') {
 function ovRowHtml(n, draggable=false) {
   const s = stockNow[n];
   const st = statusOf(s.now);
-  const sold = Math.max(0, s.masuk - s.now);
+  const sold = s.terjualToday||0;
   const rc = st==='zero'?'zero':st==='low'?'low':'';
   const dc = st==='zero'?'dot-zero':st==='low'?'dot-low':'dot-ok';
   const handle = draggable?`<span class="drag-handle">⠿</span>`:`<div class="dot ${dc}"></div>`;
@@ -1940,14 +1940,14 @@ function ovRowHtml(n, draggable=false) {
 }
 
 // ===== PROFIL PRODUK (tap nama di Beranda) =====
-let ppName = null, ppInput = {iProduksi:0,iRetur:0,iSisa:0};
+let ppName = null, ppSisaTouched = false, ppInput = {iProduksi:0,iRetur:0,iSisa:0};
 function ppFmtJam(ts){ try{ return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(ts)); }catch(e){ return ts; } }
 function closeProdProfile(){ document.getElementById('prod-profile-modal').classList.remove('open'); }
 async function openProdProfile(name){
   const prod = products.find(p=>p.name===name);
   if(!prod || !stockNow[name]) return;
   ppName = name;
-  ppInput = { iProduksi:0, iRetur:0, iSisa: stockNow[name].now||0 };
+  ppInput = { iProduksi:0, iRetur:0, iSisa: stockNow[name].now||0 }; ppSisaTouched = false;
   document.getElementById('pp-body').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
   document.getElementById('prod-profile-modal').classList.add('open');
   const [bRes, mRes] = await Promise.all([
@@ -1962,7 +1962,7 @@ function renderProdProfile(prod, batches, moves){
   const shelf = prod.shelf_life_days||2;
   const today = new Date(); today.setHours(0,0,0,0);
   const typeLbl = {masuk:'Masuk',produksi:'Masuk',sisa:'Sisa',retur:'Retur',terjual:'Terjual POS'};
-  const sold = Math.max(0, s.masuk - s.now);
+  const sold = s.terjualToday||0;
   let h = '<div class="modal-title">'+n+'</div><div class="modal-sub">'+cat+(priceFor(prod,branch)>0?' · '+fmtRp(priceFor(prod,branch))+'/pcs':'')+' · simpan '+shelf+' hari</div>';
   h += '<div class="pp-stats">'
     +'<div><small>Kemarin</small><b>'+(s.stokKemarin||0)+'</b></div>'
@@ -2004,16 +2004,19 @@ function ppAdj(f,d){ ppSet(f,(ppInput[f]||0)+d); }
 function ppSet(f,v){
   let x = Math.max(0,parseInt(v)||0);
   if(f==='iRetur') x = Math.min(x, stockNow[ppName].now||0); // retur tidak boleh lebih dari stok yang ada
-  ppInput[f] = x; ppRenderCatat();
+  ppInput[f] = x;
+  if (f==='iSisa') ppSisaTouched = true;
+  else if (!ppSisaTouched) ppInput.iSisa = Math.max(0,(stockNow[ppName].now||0)+(ppInput.iProduksi||0)-(ppInput.iRetur||0));
+  ppRenderCatat();
 }
 function ppRenderCatat(){
   const el = document.getElementById('pp-catat'); if(!el) return;
   const s = stockNow[ppName];
   const tersedia = Math.max(0,(s.now||0)+(ppInput.iProduksi||0)-(ppInput.iRetur||0));
-  const terjual = Math.max(0, tersedia-(ppInput.iSisa||0));
+  const selisih = (ppInput.iSisa||0) - tersedia; const terjualPOS = s.terjualToday||0;
   const fld = (f,lbl,cls)=>'<div class="cfield"><div class="cflbl '+cls+'">'+lbl+'</div><div class="mini-qc"><button class="mini-qb" onclick="ppAdj(\''+f+'\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(ppInput[f]||0)+'" onchange="ppSet(\''+f+'\',this.value)"><button class="mini-qb" onclick="ppAdj(\''+f+'\',1)">+</button></div></div>';
   el.innerHTML = '<div class="catat-grid">'+fld('iProduksi','🥖 Masuk','masuk')+fld('iRetur','↩️ Retur','retur')+fld('iSisa','📤 Sisa','sisa')+'</div>'
-    +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span></div>'
+    +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual POS: <b>'+terjualPOS+'</b></span>'+(selisih!==0?'<span class="cf-sep">·</span><span style="color:var(--y);font-weight:600">Selisih: <b>'+(selisih>0?'+':'')+selisih+'</b></span>':'')+'</div>'
     +'<button class="save-btn save-in" id="pp-save" style="width:100%;margin-top:10px" onclick="ppSave()">\uD83D\uDCBE Simpan</button>'
     +'<div id="pp-msg" style="font-size:12px;text-align:center;margin-top:6px"></div>';
 }
@@ -2089,13 +2092,14 @@ function unsavedBatal(){ document.getElementById('unsaved-modal').classList.remo
 async function openInput(mode) {
   inputMode = mode;
   inputState = {};
+  sisaTouched = {};
   inputDirty = false;
   const banner = document.getElementById('input-banner');
   banner.className = 'mode-banner in';
   document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
   document.getElementById('input-title').textContent = 'Catat Stok';
   document.getElementById('input-t1').textContent = 'Catat Masuk, Retur & Sisa';
-  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar tersisa di rak (isi malam saat tutup).';
+  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar ada di rak: otomatis ikut saat Masuk/Retur diisi, ubah hanya kalau hitungan fisik berbeda. Terjual hanya dari POS.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn save-in';
   btn.textContent = '\uD83D\uDCBE Simpan';
@@ -2122,6 +2126,7 @@ async function catatActivate(id, name){
   if (!stockNow[name]) stockNow[name] = { now:0, produksi:0, stokKemarin:0, retur:0, masuk:0, terjualToday:0 };
   const s = stockNow[name];
   inputState[name] = { iKemarin: s.now||0, iProduksi: 0, iRetur: 0, iSisa: s.now||0 };
+  delete sisaTouched[name];
   renderInput(document.getElementById('input-search') ? document.getElementById('input-search').value : '');
 }
 function renderInput(filter='') {
@@ -2143,25 +2148,29 @@ function renderInput(filter='') {
       // tersedia = kemarin + masuk - retur; terjual = tersedia - sisa (sisa = input manual, angka final)
       const terjualPOS = s.terjualToday||0;
       const tersedia = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
-      const terjual = Math.max(0, tersedia-(inp.iSisa||0));
+      const selisih = (inp.iSisa||0) - tersedia;
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
           +'<div class="cfield"><div class="cflbl retur">↩️ Retur</div><div class="mini-qc retur"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iRetur||0)+'" onchange="setF(\''+esc+'\',\'iRetur\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iRetur\',1)">+</button></div></div>'
           +'<div class="cfield"><div class="cflbl sisa">📤 Sisa</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div>'
         +'</div>'
-        +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual: <b>'+terjual+'</b></span>'+(terjualPOS?'<span class="cf-sep">·</span><span style="color:var(--g2)">POS: <b>'+terjualPOS+'</b></span>':'')+'<button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
+        +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual POS: <b>'+terjualPOS+'</b></span>'+(selisih!==0?'<span class="cf-sep">·</span><span style="color:var(--y);font-weight:600">Selisih: <b>'+(selisih>0?'+':'')+selisih+'</b></span>':'')+'<button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div>'
         +'</div>';
     });
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
 }
+let sisaTouched = {};
+// Sisa ikut otomatis (stok di rak + masuk - retur) sampai diubah manual (hitungan fisik)
+function syncSisaAuto(n){ if(sisaTouched[n]) return; const i=inputState[n]; i.iSisa = Math.max(0,(i.iKemarin||0)+(i.iProduksi||0)-(i.iRetur||0)); }
 function adjF(n,field,d){
   const prev = inputState[n][field]||0;
   inputState[n][field] = Math.max(0, prev+d);
   // cap retur <= kemarin (tidak bisa retur lebih dari yang ada kemarin)
   const maxRetur = inputState[n].iKemarin||0;
   if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
+  if(field==='iSisa') sisaTouched[n]=true; else syncSisaAuto(n);
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
 function setF(n,field,v){
@@ -2169,9 +2178,10 @@ function setF(n,field,v){
   // cap retur <= kemarin
   const maxRetur = inputState[n].iKemarin||0;
   if((inputState[n].iRetur||0) > maxRetur) inputState[n].iRetur = maxRetur;
+  if(field==='iSisa') sisaTouched[n]=true; else syncSisaAuto(n);
   markInputDirty(); renderInput(document.getElementById('input-search').value);
 }
-function setHabis(n){ inputState[n].iSisa = 0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
+function setHabis(n){ sisaTouched[n]=true; inputState[n].iSisa = 0; markInputDirty(); renderInput(document.getElementById('input-search').value); }
 
 async function saveInput() {
   const btn = document.getElementById('input-save');
@@ -2867,19 +2877,17 @@ let pmDragMode = false;
 
 // ===== EXPORT / IMPORT EXCEL =====
 function exportProductsExcel(){
+  // "Harga (Rp)" = harga dasar. Kolom "Harga <cabang>" = harga yang berlaku di cabang itu (harga cabang kalau ada, kalau tidak harga dasar).
   const rows = products.map(p=>{
     const cat = categories.find(c=>c.id===p.category_id);
-    return {
-      ID: p.id,
-      Nama: p.name,
-      Kategori: cat ? cat.name : '',
-      'Harga (Rp)': p.cost_price||0,
-      'Shelf Life (hari)': p.shelf_life_days||2,
-      Status: p.is_active===false ? 'nonaktif' : 'aktif'
-    };
+    const o = { ID: p.id, Nama: p.name, Kategori: cat ? cat.name : '', 'Harga (Rp)': p.cost_price||0 };
+    Object.keys(BRANCHES).forEach(b=>{ o['Harga '+BRANCHES[b]] = priceFor(p,b); });
+    o['Shelf Life (hari)'] = p.shelf_life_days||2;
+    o.Status = p.is_active===false ? 'nonaktif' : 'aktif';
+    return o;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:6},{wch:24},{wch:16},{wch:12},{wch:16},{wch:10}];
+  ws['!cols'] = [{wch:6},{wch:24},{wch:16},{wch:12}].concat(Object.keys(BRANCHES).map(()=>({wch:16}))).concat([{wch:16},{wch:10}]);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Produk');
   const today = new Date().toISOString().slice(0,10);
@@ -2892,7 +2900,7 @@ function exportSalesExcel(){
   // sheet ranking
   const rankRows = (window._lastSalesTop||[]).map((r,i)=>{
     const prod = products.find(p=>p.name===r.product_name);
-    return { Peringkat:i+1, Produk:r.product_name, 'Terjual (pcs)':r.total_sold, 'Estimasi Omzet':prod?Math.round(r.total_sold*(prod.cost_price||0)*1.4):0 };
+    return { Peringkat:i+1, Produk:r.product_name, 'Terjual (pcs)':r.total_sold, 'Estimasi Omzet':prod?Math.round(r.total_sold*priceFor(prod,branch)*1.4):0 };
   });
   const ws1 = XLSX.utils.json_to_sheet(rankRows);
   ws1['!cols']=[{wch:9},{wch:24},{wch:14},{wch:16}];
@@ -2940,6 +2948,14 @@ function processExcelRows(rows){
     // Harga
     const newHarga = row['Harga (Rp)']!=null ? parseFloat(row['Harga (Rp)']) : (row.Harga!=null?parseFloat(row.Harga):null);
     if(newHarga!=null && !isNaN(newHarga) && newHarga!==p.cost_price) changes.cost_price = Math.max(0,newHarga);
+    // Harga per cabang (kolom "Harga <nama cabang>"; kosong = tidak diubah)
+    Object.keys(BRANCHES).forEach(b=>{
+      const raw = row['Harga '+BRANCHES[b]];
+      if(raw==null || String(raw).trim()==='') return;
+      const v = parseFloat(raw); if(isNaN(v)) return;
+      const nv = Math.max(0,v);
+      if(nv!==priceFor(p,b)){ if(!changes.branch_price) changes.branch_price = {}; changes.branch_price[b] = nv; }
+    });
     // Shelf life
     const newShelf = row['Shelf Life (hari)']!=null ? parseInt(row['Shelf Life (hari)']) : null;
     if(newShelf!=null && !isNaN(newShelf) && newShelf!==p.shelf_life_days) changes.shelf_life_days = Math.max(1,newShelf);
@@ -2970,9 +2986,10 @@ function renderXlsxPreview(errors){
   } else {
     sub.textContent = _xlsxChanges.length+' produk akan diupdate';
     applyBtn.style.display = '';
-    const labelMap = {name:'Nama', cost_price:'Harga', shelf_life_days:'Shelf life', category_id:'Kategori'};
+    const labelMap = {name:'Nama', cost_price:'Harga', shelf_life_days:'Shelf life', category_id:'Kategori', branch_price:'Harga cabang'};
     html += _xlsxChanges.map(ch=>{
       const detail = Object.keys(ch.changes).map(k=>{
+        if(k==='branch_price') return Object.keys(ch.changes[k]).map(b=>'<div style="font-size:11px;color:var(--text2);margin-top:2px">Harga '+BRANCHES[b]+': <span style="color:var(--text3)">'+fmtRp(priceFor(ch.prod,b))+'</span> → <b style="color:var(--g)">'+fmtRp(ch.changes[k][b])+'</b></div>').join('');
         let oldV, newV;
         if(k==='category_id'){ oldV=(categories.find(c=>c.id===ch.prod.category_id)||{}).name||'-'; newV=(categories.find(c=>c.id===ch.changes[k])||{}).name; }
         else if(k==='cost_price'){ oldV=fmtRp(ch.prod.cost_price||0); newV=fmtRp(ch.changes[k]); }
@@ -2993,11 +3010,24 @@ async function applyExcelUpdate(){
   if(!_xlsxChanges.length){ closeXlsxModal(); return; }
   const st = document.getElementById('xlsx-status');
   st.textContent = 'Menyimpan...'; st.className='modal-status';
+  let bpErr = 0;
   for(const ch of _xlsxChanges){
-    await sb.from('products').update(ch.changes).eq('id', ch.id);
+    const prodChanges = Object.assign({}, ch.changes); delete prodChanges.branch_price;
+    if(Object.keys(prodChanges).length) await sb.from('products').update(prodChanges).eq('id', ch.id);
+    if(ch.changes.branch_price){
+      const base = prodChanges.cost_price!=null ? prodChanges.cost_price : (ch.prod.cost_price||0);
+      for(const b of Object.keys(ch.changes.branch_price)){
+        const nv = ch.changes.branch_price[b];
+        const d = await sb.from('product_branch_prices').delete().eq('product_id',ch.id).eq('branch_id',b);
+        if(d && d.error){ bpErr++; continue; }
+        if(nv!==base){ const ins = await sb.from('product_branch_prices').insert({product_id:ch.id,branch_id:b,price:nv}); if(ins && ins.error) bpErr++; } // sama dengan harga dasar = tidak perlu harga cabang
+      }
+    }
   }
   await loadProducts();
-  st.textContent = '✓ '+_xlsxChanges.length+' produk berhasil diupdate'; st.className='modal-status ok';
+  const nUpd = _xlsxChanges.length;
+  if(bpErr){ st.textContent = '⚠️ '+nUpd+' produk diupdate, tapi '+bpErr+' harga cabang gagal disimpan'; st.className='modal-status'; }
+  else { st.textContent = '✓ '+nUpd+' produk berhasil diupdate'; st.className='modal-status ok'; }
   setTimeout(()=>{ closeXlsxModal(); renderProdManageList(); }, 1000);
 }
 
