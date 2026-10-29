@@ -167,6 +167,60 @@ input,button{font-family:inherit;}
   #receipt-print, #receipt-print *{visibility:visible;}
   #receipt-print{position:absolute; left:0; top:0; width:100%;}
 }
+
+/* ===== UKURAN TULISAN (tombol Aa): default otomatis, iPad = Sedang ===== */
+:root{--fs:1; --text3:#85696F;}
+html[data-fs="1"]{--fs:1;}
+html[data-fs="2"]{--fs:1.25;}
+html[data-fs="3"]{--fs:1.5;}
+#pos-topbar{padding:calc(10px*var(--fs)) 14px; gap:calc(8px*var(--fs));}
+#pos-topbar .brand{font-size:calc(15px*var(--fs));}
+#pos-topbar .meta{font-size:calc(12px*var(--fs));}
+#pos-clock{font-size:calc(12px*var(--fs)) !important;}
+#pos-topbar .out-btn{font-size:calc(12px*var(--fs)); padding:calc(6px*var(--fs)) calc(10px*var(--fs)); min-height:calc(34px*var(--fs));}
+#prod-search{font-size:calc(15px*var(--fs)); padding:calc(11px*var(--fs)) 14px;}
+#prod-sort{font-size:calc(13px*var(--fs)) !important;}
+#cat-tabs{width:calc(96px*var(--fs)); top:calc(56px*var(--fs)); max-height:calc(100vh - calc(60px*var(--fs)));}
+.cat-tab{font-size:calc(13px*var(--fs)); padding:calc(12px*var(--fs)) calc(6px*var(--fs)); border-left-width:5px;}
+#prod-grid{grid-template-columns:repeat(auto-fill,minmax(calc(100px*var(--fs)),1fr)); gap:calc(8px*var(--fs));}
+.prod-card{padding:calc(9px*var(--fs)) calc(9px*var(--fs)) calc(9px*var(--fs)) calc(10px*var(--fs)); min-height:calc(84px*var(--fs)); border-left-width:5px; gap:calc(4px*var(--fs));}
+.prod-card .nm{font-size:calc(13px*var(--fs)); line-height:1.25; padding-right:calc(20px*var(--fs)); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word;}
+.prod-card .pr{font-size:calc(14px*var(--fs)); font-weight:800; background:var(--g-bg); padding:2px calc(7px*var(--fs)); border-radius:6px; align-self:flex-start;}
+.prod-card .stk{font-size:calc(11px*var(--fs)); color:var(--text2);}
+.prod-card.oos{opacity:.5;}
+.fav-btn{width:calc(26px*var(--fs)) !important; height:calc(26px*var(--fs)) !important; font-size:calc(16px*var(--fs)) !important;}
+.az-l{font-size:calc(11px*var(--fs)); padding:calc(1px*var(--fs)) calc(6px*var(--fs));}
+#cart-bar{padding:calc(13px*var(--fs)) 16px;}
+#cart-bar .cb-count{font-size:calc(13px*var(--fs));}
+#cart-bar .cb-total{font-size:calc(17px*var(--fs));}
+#cart-bar .cb-cta{font-size:calc(14px*var(--fs));}
+.sheet{max-width:min(94vw, calc(480px*var(--fs)));}
+.sheet-title{font-size:calc(17px*var(--fs));}
+.sheet-sub{font-size:calc(13px*var(--fs));}
+.sheet-close{width:calc(32px*var(--fs)); height:calc(32px*var(--fs)); font-size:calc(16px*var(--fs));}
+.cart-item .ci-nm{font-size:calc(14px*var(--fs));}
+.cart-item .ci-price{font-size:calc(12px*var(--fs));}
+.cart-item .ci-disc{font-size:calc(11px*var(--fs));}
+.qty-ctrl button{width:calc(30px*var(--fs)); height:calc(30px*var(--fs)); font-size:calc(16px*var(--fs));}
+.qty-ctrl .qv{width:calc(24px*var(--fs)); font-size:calc(15px*var(--fs));}
+.ci-del{width:calc(30px*var(--fs)); height:calc(30px*var(--fs));}
+.ci-mini-btn{font-size:calc(11px*var(--fs)); padding:calc(5px*var(--fs)) calc(9px*var(--fs));}
+.cs-row{font-size:calc(14px*var(--fs));}
+.cs-row.total{font-size:calc(18px*var(--fs));}
+.form-lbl,.field-lbl{font-size:calc(13px*var(--fs));}
+.form-inp,.field-inp{font-size:calc(15px*var(--fs));}
+.sheet-btn{font-size:calc(15px*var(--fs));}
+.pay-method{font-size:calc(13px*var(--fs));}
+.change-box .lbl{font-size:calc(12px*var(--fs));}
+.change-box .val{font-size:calc(22px*var(--fs));}
+.calc-display{font-size:calc(24px*var(--fs));}
+.calc-quick-btn{font-size:calc(13px*var(--fs));}
+.calc-key{font-size:calc(19px*var(--fs)); padding:calc(14px*var(--fs)) 0;}
+.login-card{max-width:calc(360px*var(--fs));}
+.login-title{font-size:calc(19px*var(--fs));} .login-sub{font-size:calc(13px*var(--fs));}
+.login-btn{font-size:calc(16px*var(--fs));} .login-tab{font-size:calc(13px*var(--fs));}
+.branch-hi{font-size:calc(14px*var(--fs));} .branch-card .nm{font-size:calc(16px*var(--fs));} .branch-card .sub{font-size:calc(12px*var(--fs));}
+.prod-empty{font-size:calc(14px*var(--fs));}
 </style>
 </head>
 <body>
@@ -223,6 +277,7 @@ input,button{font-family:inherit;}
     <span class="brand">🍞 POS</span>
     <span class="meta" id="pos-meta"></span>
     <span class="mono" id="pos-clock" style="font-size:11px;color:var(--text2);font-weight:700;"></span>
+    <button class="out-btn" id="fs-btn" onclick="cycleFs()" title="Ukuran tulisan">Aa</button>
     <button class="out-btn" onclick="openRiwayat()">📜</button>
     <button class="out-btn" onclick="refreshPos()">↻</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
@@ -409,6 +464,24 @@ let _lastTouch=0;
 document.addEventListener('touchend',e=>{ if(e.target.closest('button,input,select,a')) return; const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+// ===== Ukuran tulisan (Aa) & warna penanda kategori =====
+const FS_LABEL = {'1':'Kecil','2':'Sedang','3':'Besar'};
+function applyFs(){
+  let v = null; try{ v = localStorage.getItem('pos_fs'); }catch(e){}
+  if(!FS_LABEL[v]) v = window.innerWidth>=700 ? '2' : '1'; // iPad/tablet otomatis Sedang
+  document.documentElement.dataset.fs = v; return v;
+}
+function cycleFs(){
+  const cur = document.documentElement.dataset.fs || '1';
+  const nx = cur==='1' ? '2' : cur==='2' ? '3' : '1';
+  try{ localStorage.setItem('pos_fs', nx); }catch(e){}
+  document.documentElement.dataset.fs = nx;
+  toast('Ukuran tulisan: '+FS_LABEL[nx]);
+}
+const CAT_PALETTE = ['#7B2D3A','#B5562A','#C77D0A','#1B7A43','#2F6F8F','#6B4FA0','#A0527A','#5E6B2E'];
+function catColor(id){ const ids=Object.keys(catNames); const i=Math.max(0,ids.indexOf(String(id))); return CAT_PALETTE[i%CAT_PALETTE.length]; }
+applyFs();
 function show(id){ document.querySelectorAll('#screen-login,#screen-branch,#screen-pos,#screen-pending').forEach(s=>s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
 function openSheet(id){ document.getElementById(id).classList.add('open'); }
 function closeSheet(id){ document.getElementById(id).classList.remove('open'); }
@@ -557,7 +630,7 @@ function renderCatTabs(){
   let html = `<div class="cat-tab active" data-c="all" onclick="setCat('all')">Semua</div>`;
   html += `<div class="cat-tab" data-c="fav" onclick="setCat('fav')">📌 Favoritku</div>`;
   if(topIds.length) html += `<div class="cat-tab" data-c="top" onclick="setCat('top')">⭐ Top 5</div>`;
-  categories.forEach(c=>{ html += `<div class="cat-tab" data-c="${c}" onclick="setCat('${c}')">${catNames[c]||'Kategori '+c}</div>`; });
+  categories.forEach(c=>{ html += `<div class="cat-tab" data-c="${c}" style="border-left-color:${catColor(c)}" onclick="setCat('${c}')">${catNames[c]||'Kategori '+c}</div>`; });
   document.getElementById('cat-tabs').innerHTML = html;
 }
 function setCat(c){
@@ -590,7 +663,7 @@ function renderProducts(){
   const grid = document.getElementById('prod-grid');
   if(!list.length){ grid.innerHTML = `<div class="prod-empty">${activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
   grid.innerHTML = list.map(p=>`
-    <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" onclick="addToCart(${p.id})">
+    <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="addToCart(${p.id})">
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
       <div class="nm">${p.name}</div>
       <div class="stk">${p.stok<=0?'Habis':'Di rak: '+p.stok}</div>
