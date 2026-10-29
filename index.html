@@ -1147,6 +1147,7 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
+        <option value="terjual">Terjual (POS)</option>
         <option value="produksi">Produksi (lama)</option>
       </select>
     </div>
@@ -1171,6 +1172,7 @@ body{ max-width:none; }
         <option value="masuk">Roti Masuk</option>
         <option value="sisa">Sisa</option>
         <option value="retur">Retur</option>
+        <option value="terjual">Terjual (POS)</option>
       </select>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:8px">
@@ -3005,7 +3007,7 @@ function renderDailyHistory(rows, summary) {
     tls.forEach((t,ti)=>{
       const jam=new Date(t.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
       const total=t.items.reduce((s,it)=>s+it.q,0);
-      const label=(t.type==='produksi'||t.type==='masuk')?'MASUK':t.type==='retur'?'RETUR':'SISA';
+      const label=(t.type==='produksi'||t.type==='masuk')?'MASUK':t.type==='retur'?'RETUR':t.type==='terjual'?'TERJUAL':'SISA';
       const cls=(t.type==='produksi'||t.type==='masuk')?'in':t.type==='retur'?'retur':'out';
       html+='<div class="tl-item" onclick="event.stopPropagation();toggleTl('+di+','+ti+')"><span class="tl-time">'+jam+'</span><span class="tl-type '+cls+'">'+label+'</span><span class="tl-detail">'+(t.user||'-')+' \u00B7 '+total+' pcs<span class="tl-chevron">\u25BC</span></span></div><div class="tl-items-detail" id="tld-'+di+'-'+ti+'">'+t.items.map(it=>'<div class="tl-detail-row"><span>'+it.n+'</span><span>'+it.q+'</span></div>').join('')+'</div>';
     });
