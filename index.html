@@ -385,6 +385,35 @@ body.font-xl{zoom:1.25;}
 .ta-info small{display:block;font-size:11px;color:var(--text3);margin-top:2px;}
 .ta-info .ta-warn{color:var(--y);font-weight:600;}
 .ta-actions{display:flex;gap:8px;margin-top:16px;}
+/* Keuangan */
+.fin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.fin-card{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:10px 8px;text-align:center;cursor:pointer;}
+.fin-card.on{border-color:var(--g);background:var(--g-light);}
+.fin-card small{display:block;font-size:11px;font-weight:700;color:var(--text2);}
+.fin-card b{display:block;font-size:14px;font-family:'DM Mono',monospace;margin:4px 0 2px;color:var(--text);}
+.fin-card span{display:block;font-size:10px;color:var(--text3);}
+.fin-note{font-size:11px;color:var(--text3);line-height:1.5;margin-top:10px;}
+.fin-day{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+.fin-day-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;}
+.fin-day-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;}
+.fin-day-g small{display:block;font-size:10px;color:var(--text3);}
+.fin-day-g b{font-size:12px;font-family:'DM Mono',monospace;}
+.fin-day-m{font-size:11px;color:var(--text3);margin-top:8px;}
+.fin-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;}
+.fin-badge.ok{background:#EAF6EF;color:#1D6F42;}
+.fin-badge.warn{background:var(--y-bg);color:var(--y);}
+.fin-badge.none{background:#EDEAEA;color:#8A8484;}
+.fin-bar-row{margin-bottom:8px;font-size:12px;}
+.fin-bar-row .t{display:flex;justify-content:space-between;margin-bottom:3px;}
+.fin-bar{height:8px;border-radius:4px;background:var(--g-bg);overflow:hidden;}
+.fin-bar>i{display:block;height:100%;background:var(--g3);}
+.exp-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:12px;}
+.exp-row .m{flex:1;min-width:0;}
+.exp-row .m b{display:block;font-size:13px;}
+.exp-row .m small{display:block;color:var(--text3);font-size:11px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.exp-row .a{font-family:'DM Mono',monospace;font-weight:700;font-size:13px;white-space:nowrap;}
+.exp-row a{text-decoration:none;font-size:15px;}
+.exp-row button{border:none;background:none;color:var(--r);font-size:14px;cursor:pointer;}
 .pp-close{width:100%;margin-top:12px;padding:11px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
 
 
@@ -845,6 +874,11 @@ body{ max-width:none; }
   </div>
 </div>
 
+<!-- MODAL CATAT PENGELUARAN -->
+<div class="modal-overlay" id="exp-modal" onclick="if(event.target===this)closeExpModal()">
+  <div class="modal-sheet pp-sheet"><div id="exp-body"></div></div>
+</div>
+
 <!--NEUTRAL-START-->
 <!-- MODAL NETRALKAN STOK -->
 <div class="modal-overlay" id="neutral-modal" onclick="if(event.target===this&&!neutralBusy)closeNeutral()">
@@ -1198,6 +1232,29 @@ body{ max-width:none; }
   </div>
 </div>
 
+<div id="screen-keuangan" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">🧾 Keuangan</span>
+  </div>
+  <div class="sub-body">
+    <div class="period-row" id="fin-period-row">
+      <button class="period-btn active" data-p="7" onclick="setFinPeriod('7')">7 hari</button>
+      <button class="period-btn" data-p="30" onclick="setFinPeriod('30')">30 hari</button>
+      <button class="period-btn" data-p="bulan" onclick="setFinPeriod('bulan')">Bulan ini</button>
+    </div>
+    <select class="form-input" id="fin-branch" onchange="loadKeuangan()" style="margin-bottom:10px"></select>
+    <div class="period-row" id="fin-tab-row">
+      <button class="period-btn active" data-t="ringkasan" onclick="setFinTab('ringkasan')">Ringkasan</button>
+      <button class="period-btn" data-t="penjualan" onclick="setFinTab('penjualan')">Penjualan</button>
+      <button class="period-btn" data-t="pengeluaran" onclick="setFinTab('pengeluaran')">Pengeluaran</button>
+    </div>
+    <div id="fin-tab-ringkasan"></div>
+    <div id="fin-tab-penjualan" style="display:none"></div>
+    <div id="fin-tab-pengeluaran" style="display:none"></div>
+  </div>
+</div>
+
 <div id="screen-settings" class="screen">
   <div class="sub-header">
     <button class="back-btn" onclick="show('admin')">← Kembali</button>
@@ -1223,6 +1280,13 @@ body{ max-width:none; }
       <input class="form-input" id="set-sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
       <button class="add-btn" onclick="saveSheetUrl()">Simpan</button>
       <div class="add-status" id="sheet-url-status"></div>
+    </div>
+    <div class="section-label">Google Drive — Foto Nota Pengeluaran</div>
+    <div class="add-card">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Tempel URL Apps Script Drive (dari langkah pasang script di akun Google toko). Dipakai semua perangkat, cukup diisi sekali.</div>
+      <input class="form-input" id="set-drive-url" placeholder="https://script.google.com/macros/s/.../exec">
+      <button class="add-btn" onclick="saveDriveUrl()">Simpan</button>
+      <div class="add-status" id="drive-url-status"></div>
     </div>
   </div>
 </div>
@@ -1727,6 +1791,7 @@ function refreshActiveScreen(){
   else if(id==='shipments' && typeof openShipments==='function') openShipments();
   else if(id==='itemhistory' && typeof renderItemHistory==='function') renderItemHistory();
   else if(id==='koreksi' && typeof renderKoreksi==='function') renderKoreksi();
+  else if(id==='keuangan' && typeof loadKeuangan==='function'){ var fb=document.getElementById('fin-branch'); if(fb && fb.value!=='all') fb.value=branch; loadKeuangan(); }
   else if(id==='input'){ /* layar catat: balik ke overview biar ga campur cabang */ show('overview'); }
 }
 
@@ -1749,6 +1814,7 @@ async function loadSettings() {
   if (!error&&data) data.forEach(r => {
     if (r.key==='threshold_sedikit_max') thresholdSedikit = parseInt(r.value)||3;
     if (r.key==='whatsapp_master') waMaster = r.value;
+    if (r.key==='drive_script_url') driveScriptUrl = r.value||'';
   });
 }
 async function loadUserPrefs() {
@@ -2336,6 +2402,237 @@ async function openShelfReport() {
   wrap.innerHTML = html;
 }
 
+// ===== KEUANGAN (rekap penjualan + pengeluaran) =====
+let finPeriod='7', finTab='ringkasan', finBasis='setoran', finData=null, finExpErr=null, driveScriptUrl='';
+const FIN_CATS=['Bahan baku','Kemasan','Gaji','Listrik/Air/Gas','Sewa','Transport','Peralatan & perawatan','Marketing','Lainnya'];
+function finEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function finTodayWIB(){ return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'}); }
+function finAddDays(ds,n){ const d=new Date(ds+'T00:00:00+07:00'); d.setTime(d.getTime()+n*86400000); return d.toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'}); }
+function finDiffDays(a,b){ return Math.round((new Date(b+'T00:00:00+07:00')-new Date(a+'T00:00:00+07:00'))/86400000); }
+function finRange(){ const to=finTodayWIB(); const from = finPeriod==='bulan' ? to.slice(0,8)+'01' : finAddDays(to,-(parseInt(finPeriod)-1)); return {from,to}; }
+function finLabel(ds){ return new Date(ds+'T00:00:00+07:00').toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta',weekday:'short',day:'numeric',month:'short'}); }
+function finBranches(){ const v=document.getElementById('fin-branch').value; return v==='all' ? Object.keys(BRANCHES) : [v]; }
+
+function openKeuangan(){
+  show('keuangan');
+  const sel=document.getElementById('fin-branch');
+  sel.innerHTML=Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+BRANCHES[b]+'</option>').join('')+'<option value="all">Semua cabang</option>';
+  sel.value=branch;
+  loadKeuangan();
+}
+function setFinPeriod(p){ finPeriod=p; document.querySelectorAll('#fin-period-row .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.p===p)); loadKeuangan(); }
+function setFinTab(t){
+  finTab=t;
+  document.querySelectorAll('#fin-tab-row .period-btn').forEach(b=>b.classList.toggle('active',b.dataset.t===t));
+  ['ringkasan','penjualan','pengeluaran'].forEach(x=>{ document.getElementById('fin-tab-'+x).style.display = x===t ? '' : 'none'; });
+}
+function setFinBasis(k){ finBasis=k; finRenderRingkasan(); }
+
+async function finFetchPos(from,to,branches){
+  const startISO=from+'T00:00:00+07:00', endISO=finAddDays(to,1)+'T00:00:00+07:00', size=1000;
+  let all=[];
+  for(let page=0; page<20; page++){
+    const { data, error } = await sb.from('pos_transactions').select('created_at,branch_id,grand_total,payment_method,discount_total')
+      .in('branch_id',branches).gte('created_at',startISO).lt('created_at',endISO).order('created_at',{ascending:true}).range(page*size,page*size+size-1);
+    if(error) return {rows:all,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<size) break;
+  }
+  return {rows:all};
+}
+async function finFetchEstimate(from,to,branches){
+  const days=finDiffDays(from,to), out={};
+  for(const b of branches){
+    const [h,t] = await Promise.all([ sb.rpc('get_daily_summary',{p_branch_id:b,p_days:days}), sb.rpc('get_top_sold',{p_branch_id:b,p_days:days}) ]);
+    let tq=0, tv=0;
+    ((t&&t.data)||[]).forEach(r=>{ const p=products.find(x=>x.name===r.product_name); tq+=r.total_sold; tv+=r.total_sold*(p?priceFor(p,b):0); });
+    const simple = products.length ? products.reduce((s,p)=>s+priceFor(p,b),0)/products.length : 0;
+    const wavg = tq>0 ? tv/tq : simple; // rata-rata harga jual tertimbang dari produk yang laku
+    ((h&&h.data)||[]).forEach(r=>{ if(r.d<from||r.d>to) return; out[r.d]=(out[r.d]||0)+Math.round((r.terjual||0)*wavg); });
+  }
+  return out;
+}
+async function loadKeuangan(){
+  const {from,to}=finRange(), brs=finBranches();
+  ['ringkasan','penjualan','pengeluaran'].forEach(x=>{ document.getElementById('fin-tab-'+x).innerHTML='<div class="loading"><div class="spinner"></div>Memuat...</div>'; });
+  const [dep,pos,est,exp] = await Promise.all([
+    sb.from('daily_deposits').select('deposit_date,branch_id,net_profit,total_cash,qris,modal').in('branch_id',brs).gte('deposit_date',from).lte('deposit_date',to),
+    finFetchPos(from,to,brs),
+    finFetchEstimate(from,to,brs),
+    (()=>{ let q=sb.from('expenses').select('*').gte('expense_date',from).lte('expense_date',to).order('expense_date',{ascending:false}).order('id',{ascending:false});
+           if(brs.length<Object.keys(BRANCHES).length) q=q.or('branch_id.eq.'+brs[0]+',branch_id.is.null');
+           return q; })()
+  ]);
+  const S={}, P={}, E=est||{};
+  ((dep&&dep.data)||[]).forEach(r=>{ S[r.deposit_date]=(S[r.deposit_date]||0)+Number(r.net_profit||0); });
+  let totP={total:0,cash:0,qris:0,transfer:0,n:0,disc:0};
+  (pos.rows||[]).forEach(t=>{
+    const d=new Date(t.created_at).toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+    if(!P[d]) P[d]={total:0,cash:0,qris:0,transfer:0,n:0};
+    const amt=Number(t.grand_total)||0, m=(t.payment_method||'').toLowerCase();
+    P[d].total+=amt; P[d].n++; totP.total+=amt; totP.n++; totP.disc+=Number(t.discount_total)||0;
+    if(m==='cash'||m==='qris'||m==='transfer'){ P[d][m]+=amt; totP[m]+=amt; }
+  });
+  finExpErr = (exp&&exp.error) ? exp.error : null;
+  const expRows = finExpErr ? [] : ((exp&&exp.data)||[]);
+  const totS=Object.values(S).reduce((a,b)=>a+b,0), totE=Object.values(E).reduce((a,b)=>a+b,0);
+  const totExp=expRows.reduce((s,r)=>s+Number(r.amount||0),0);
+  const nDays=finDiffDays(from,to)+1;
+  finData={from,to,brs,S,P,E,totS,totP,totE,expRows,totExp,nDays,
+    cov:{s:Object.keys(S).length,p:Object.keys(P).length,e:Object.keys(E).filter(d=>E[d]>0).length}, posErr:pos.error||null};
+  finRenderRingkasan(); finRenderPenjualan(); finRenderPengeluaran();
+}
+
+function finRenderRingkasan(){
+  const d=finData; if(!d) return;
+  const el=document.getElementById('fin-tab-ringkasan');
+  const val={setoran:d.totS,pos:d.totP.total,estimasi:d.totE}[finBasis];
+  const nm={setoran:'Setoran',pos:'POS',estimasi:'Estimasi stok'}[finBasis];
+  const sisa=val-d.totExp;
+  const card=(k,t,sub,v)=>'<div class="fin-card'+(finBasis===k?' on':'')+'" onclick="setFinBasis(\''+k+'\')"><small>'+t+'</small><b>'+fmtRp(v)+'</b><span>'+sub+'</span></div>';
+  let h='<div class="section-label">Pemasukan <span style="font-weight:400;color:var(--text3);font-size:11px">(tap untuk pilih patokan)</span></div><div class="fin-grid">'
+    +card('setoran','Setoran','uang dihitung',d.totS)+card('pos','POS',d.totP.n+' transaksi',d.totP.total)+card('estimasi','Estimasi','terjual × harga',d.totE)+'</div>'
+    +'<div class="fin-note">Terisi: Setoran '+d.cov.s+'/'+d.nDays+' hari · POS '+d.cov.p+'/'+d.nDays+' hari · Estimasi '+d.cov.e+'/'+d.nDays+' hari</div>'
+    +'<div class="set-summary" style="margin-top:12px">'
+    +'<div class="set-sum-row"><span>Pemasukan ('+nm+')</span><span class="mono">'+fmtRp(val)+'</span></div>'
+    +'<div class="set-sum-row"><span>Pengeluaran</span><span class="mono minus">-'+fmtRp(d.totExp)+'</span></div>'
+    +'<div class="set-sum-row net"><span>Sisa</span><span class="mono" style="'+(sisa<0?'color:var(--r)':'')+'">'+(sisa<0?'-':'')+fmtRp(Math.abs(sisa))+'</span></div></div>'
+    +'<div class="fin-note">Setoran = uang yang dihitung di laci + QRIS, sudah dikurangi kas awal. POS sudah termasuk transfer. Estimasi = jumlah terjual × harga jual, jadi hanya perkiraan kasar.'
+    +(d.brs.length>1?'':' Pengeluaran "Umum" ikut dihitung di tiap cabang.')+'</div>';
+  if(finExpErr) h+='<div class="fin-note" style="color:var(--r)">⚠️ Tabel pengeluaran belum siap, jadi pengeluaran dihitung Rp0. Lihat tab Pengeluaran.</div>';
+  el.innerHTML=h;
+}
+
+function finRenderPenjualan(){
+  const d=finData; if(!d) return;
+  const dates=[...new Set([...Object.keys(d.S),...Object.keys(d.P),...Object.keys(d.E).filter(x=>d.E[x]>0)])].sort().reverse();
+  let h='<div class="section-label">Ringkasan POS</div><div class="fin-grid">'
+    +'<div class="fin-card"><small>💵 Cash</small><b>'+fmtRp(d.totP.cash)+'</b></div>'
+    +'<div class="fin-card"><small>📱 QRIS</small><b>'+fmtRp(d.totP.qris)+'</b></div>'
+    +'<div class="fin-card"><small>🏦 Transfer</small><b>'+fmtRp(d.totP.transfer)+'</b></div></div>'
+    +'<div class="fin-note">'+d.totP.n+' transaksi · diskon total '+fmtRp(d.totP.disc)+'</div>'
+    +'<div class="section-label">Per hari</div>';
+  if(!dates.length) h+='<div class="empty">Belum ada data penjualan di periode ini</div>';
+  h+=dates.map(ds=>{
+    const s=d.S[ds], p=d.P[ds], e=d.E[ds];
+    let badge='<span class="fin-badge none">data belum lengkap</span>';
+    if(s!==undefined && p){
+      const diff=s-p.total, big=Math.max(s,p.total), ok=Math.abs(diff)<=Math.max(5000,big*0.02);
+      badge='<span class="fin-badge '+(ok?'ok':'warn')+'">Setoran − POS: '+(diff>0?'+':diff<0?'-':'')+fmtRp(Math.abs(diff))+'</span>';
+    }
+    const m=p?'<div class="fin-day-m">'+(p.cash?'💵 '+fmtRp(p.cash)+'  ':'')+(p.qris?'📱 '+fmtRp(p.qris)+'  ':'')+(p.transfer?'🏦 '+fmtRp(p.transfer)+'  ':'')+'· '+p.n+' transaksi</div>':'';
+    return '<div class="fin-day"><div class="fin-day-h"><b>'+finLabel(ds)+'</b>'+badge+'</div>'
+      +'<div class="fin-day-g"><div><small>Setoran</small><b>'+(s!==undefined?fmtRp(s):'—')+'</b></div><div><small>POS</small><b>'+(p?fmtRp(p.total):'—')+'</b></div><div><small>Estimasi</small><b>'+(e>0?fmtRp(e):'—')+'</b></div></div>'+m+'</div>';
+  }).join('');
+  document.getElementById('fin-tab-penjualan').innerHTML=h;
+}
+
+function finRenderPengeluaran(){
+  const d=finData; if(!d) return;
+  const el=document.getElementById('fin-tab-pengeluaran');
+  if(finExpErr){
+    el.innerHTML='<div class="fin-note" style="color:var(--r);font-size:13px">⚠️ Tabel pengeluaran belum dibuat di database. Jalankan file SQL <b>buat-tabel-pengeluaran.sql</b> di Supabase (SQL Editor), lalu buka halaman ini lagi.</div>';
+    return;
+  }
+  const byCat={}; d.expRows.forEach(r=>{ byCat[r.category]=(byCat[r.category]||0)+Number(r.amount||0); });
+  const cats=Object.keys(byCat).sort((a,b)=>byCat[b]-byCat[a]); const max=cats.length?byCat[cats[0]]:1;
+  const isMaster=currentUser.role==='master';
+  let h='<button class="add-btn" style="width:100%" onclick="openExpModal()">+ Catat pengeluaran</button>'
+    +'<div class="section-label">Total pengeluaran: '+fmtRp(d.totExp)+'</div>';
+  const umum=d.expRows.filter(r=>!r.branch_id).reduce((s,r)=>s+Number(r.amount||0),0);
+  if(umum>0 && d.brs.length===1) h+='<div class="fin-note" style="margin:-6px 0 8px">Termasuk pengeluaran umum (semua cabang): '+fmtRp(umum)+'</div>';
+  h+=cats.map(k=>'<div class="fin-bar-row"><div class="t"><span>'+finEsc(k)+'</span><b class="mono">'+fmtRp(byCat[k])+'</b></div><div class="fin-bar"><i style="width:'+Math.round(byCat[k]/max*100)+'%"></i></div></div>').join('');
+  h+='<div class="section-label">Daftar</div>';
+  if(!d.expRows.length) h+='<div class="empty">Belum ada pengeluaran di periode ini</div>';
+  h+=d.expRows.map(r=>'<div class="exp-row"><div class="m"><b>'+finEsc(r.category)+'</b><small>'+finLabel(r.expense_date)+' · '+(r.branch_id?(BRANCHES[r.branch_id]||r.branch_id):'Umum')+(r.note?' · '+finEsc(r.note):'')+'</small></div>'
+    +(r.receipt_url?'<a href="'+finEsc(r.receipt_url)+'" target="_blank" rel="noopener" title="Lihat nota">📎</a>':'')
+    +'<span class="a">'+fmtRp(r.amount)+'</span>'+(isMaster?'<button onclick="deleteExpense('+r.id+')">🗑️</button>':'')+'</div>').join('');
+  el.innerHTML=h;
+}
+
+// ----- catat pengeluaran -----
+let expPhoto=null;
+function openExpModal(){
+  expPhoto=null;
+  const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+BRANCHES[b]+'</option>').join('');
+  document.getElementById('exp-body').innerHTML=
+    '<div class="modal-title">Catat pengeluaran</div><div class="modal-sub">Foto nota (opsional) disimpan ke Google Drive toko.</div>'
+    +'<label class="kor-lbl">Tanggal</label><input class="kor-input" type="date" id="exp-date" value="'+finTodayWIB()+'">'
+    +'<label class="kor-lbl" style="margin-top:10px">Cabang</label><select class="kor-input" id="exp-branch">'+brOpts+'</select>'
+    +'<label class="kor-lbl" style="margin-top:10px">Kategori</label><select class="kor-input" id="exp-cat">'+FIN_CATS.map(k=>'<option>'+finEsc(k)+'</option>').join('')+'</select>'
+    +'<label class="kor-lbl" style="margin-top:10px">Nominal (Rp)</label><input class="kor-input mono" type="number" inputmode="numeric" id="exp-amount" placeholder="0">'
+    +'<label class="kor-lbl" style="margin-top:10px">Catatan</label><input class="kor-input" id="exp-note" placeholder="misal: tepung 5 sak">'
+    +'<label class="kor-lbl" style="margin-top:10px">Foto nota</label><label class="pp-toggle" style="display:block;text-align:center;margin-top:0">📷 Ambil / pilih foto nota<input type="file" id="exp-photo" accept="image/*" onchange="expPickPhoto(this)" style="display:none"></label>'
+    +'<div id="exp-preview" style="margin-top:8px"></div>'
+    +'<div id="exp-msg" style="font-size:12px;margin-top:8px;text-align:center"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeExpModal()">Batal</button><button class="save-btn save-in" id="exp-save" style="flex:2" onclick="saveExpense()">💾 Simpan</button></div>';
+  const sel=document.getElementById('fin-branch').value; if(sel!=='all') document.getElementById('exp-branch').value=sel;
+  document.getElementById('exp-modal').classList.add('open');
+}
+function closeExpModal(){ document.getElementById('exp-modal').classList.remove('open'); }
+function expPickPhoto(inp){
+  expPhoto = inp.files && inp.files[0] ? inp.files[0] : null;
+  const pv=document.getElementById('exp-preview');
+  if(!expPhoto){ pv.innerHTML=''; return; }
+  pv.innerHTML='<img src="'+URL.createObjectURL(expPhoto)+'" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid var(--border)">';
+}
+function finCompress(file,maxSide,q){
+  maxSide=maxSide||1280; q=q||0.72;
+  return new Promise((resolve,reject)=>{
+    const img=new Image(), url=URL.createObjectURL(file);
+    img.onload=()=>{ const sc=Math.min(1,maxSide/Math.max(img.width,img.height)); const cv=document.createElement('canvas'); cv.width=Math.round(img.width*sc); cv.height=Math.round(img.height*sc); cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height); URL.revokeObjectURL(url); resolve(cv.toDataURL('image/jpeg',q)); };
+    img.onerror=()=>{ URL.revokeObjectURL(url); reject(new Error('foto tidak bisa dibaca')); };
+    img.src=url;
+  });
+}
+async function finUploadReceipt(dataUrl,meta){
+  const res=await fetch(driveScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'upload',filename:meta.filename,mime:'image/jpeg',month:meta.month,data:dataUrl.split(',')[1]})});
+  const j=await res.json();
+  if(j.status!=='ok') throw new Error(j.message||'upload gagal');
+  return j;
+}
+async function saveExpense(){
+  const date=document.getElementById('exp-date').value, br=document.getElementById('exp-branch').value||null;
+  const cat=document.getElementById('exp-cat').value, amount=parseInt(document.getElementById('exp-amount').value)||0;
+  const note=document.getElementById('exp-note').value.trim(), msg=document.getElementById('exp-msg'), btn=document.getElementById('exp-save');
+  if(!date){ msg.textContent='Pilih tanggal dulu'; msg.style.color='var(--r)'; return; }
+  if(amount<=0){ msg.textContent='Nominal harus lebih dari 0'; msg.style.color='var(--r)'; return; }
+  btn.disabled=true; btn.textContent='Menyimpan...';
+  const { data:row, error } = await sb.from('expenses').insert({expense_date:date,branch_id:br,category:cat,amount:amount,note:note||null,created_by:currentUser.nama}).select().single();
+  if(error||!row){ btn.disabled=false; btn.textContent='💾 Simpan'; msg.textContent='Gagal: '+(error?error.message:'tidak ada respons'); msg.style.color='var(--r)'; return; }
+  let info='';
+  if(expPhoto){
+    if(!driveScriptUrl){ info='Pengeluaran tersimpan. Foto belum diunggah karena Google Drive belum diatur di Pengaturan.'; }
+    else {
+      try{
+        msg.textContent='Mengunggah foto...'; msg.style.color='var(--text3)';
+        const dataUrl=await finCompress(expPhoto);
+        const fn=date+'_'+cat.replace(/[^a-zA-Z0-9]+/g,'-')+'_'+amount+'_'+row.id+'.jpg';
+        const up=await finUploadReceipt(dataUrl,{filename:fn,month:date.slice(0,7)});
+        await sb.from('expenses').update({receipt_url:up.url,receipt_file_id:up.id}).eq('id',row.id);
+      }catch(e){ info='Pengeluaran tersimpan, tapi foto belum bisa dipastikan terunggah ('+e.message+'). Cek folder Drive toko.'; }
+    }
+  }
+  btn.disabled=false; btn.textContent='💾 Simpan';
+  if(info){ msg.textContent=info; msg.style.color='var(--y)'; await loadKeuangan(); setTimeout(closeExpModal,2600); return; }
+  closeExpModal(); await loadKeuangan();
+}
+async function deleteExpense(id){
+  if(!confirm('Hapus pengeluaran ini?\n\nFoto nota di Google Drive tidak ikut terhapus.')) return;
+  const { error } = await sb.from('expenses').delete().eq('id',id);
+  if(error){ alert('Gagal hapus: '+error.message); return; }
+  loadKeuangan();
+}
+// ----- pengaturan Google Drive -----
+function loadDriveUrlSetting(){ const el=document.getElementById('set-drive-url'); if(el) el.value=driveScriptUrl||''; }
+async function saveDriveUrl(){
+  const v=document.getElementById('set-drive-url').value.trim(), el=document.getElementById('drive-url-status');
+  const { data:ex } = await sb.from('settings').select('key').eq('key','drive_script_url');
+  const res = (ex&&ex.length) ? await sb.from('settings').update({value:v}).eq('key','drive_script_url') : await sb.from('settings').insert({key:'drive_script_url',value:v});
+  if(res&&res.error){ el.textContent='Gagal: '+res.error.message; el.className='add-status err'; return; }
+  driveScriptUrl=v; el.textContent='✓ Tersimpan'; el.className='add-status ok'; setTimeout(()=>{el.textContent='';},1800);
+}
+
 // ===== TARIK SEMUA (dengan koreksi jumlah sebelum ditarik) =====
 let tarikAllList = [], tarikAllQty = {};
 function openTarikAll(){
@@ -2800,7 +3097,7 @@ function show(name) {
   if(name==='admin')loadUsers();
   if(name==='products')loadProductManagement();
   if(name==='faq')renderFAQ();
-  if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; loadSheetUrlSetting(); }
+  if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; loadSheetUrlSetting(); loadDriveUrlSetting(); }
   window.scrollTo(0,0);
 }
 
@@ -3879,6 +4176,7 @@ const SB_NAV = [
   {scr:'overview', ic:'🏠', label:'Beranda', roles:['master','manager','karyawan']},
   {scr:'dashboard', ic:'📊', label:'Dashboard', roles:['master','manager']},
   {scr:'salesreport', ic:'💰', label:'Laporan Penjualan', roles:['master'], fn:'openSalesReport'},
+  {scr:'keuangan', ic:'🧾', label:'Keuangan', roles:['master','manager'], fn:'openKeuangan'},
   {scr:'shelf', ic:'🏷️', label:'Kedaluwarsa', roles:['master','manager','karyawan'], fn:'openShelfReport'},
   {section:'Operasional'},
   {scr:'setoran', ic:'💵', label:'Setoran Harian', roles:['master','manager','karyawan'], fn:'openSetoran'},
