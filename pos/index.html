@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Indonesian Bakery - POS</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="IBP POS">
+<meta name="apple-mobile-web-app-title" content="IB POS">
 <meta name="theme-color" content="#7B2D3A">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
@@ -232,6 +232,12 @@ html[data-fs="3"]{--fs:1.5;}
 .login-btn{font-size:calc(16px*var(--fs));} .login-tab{font-size:calc(13px*var(--fs));}
 .branch-hi{font-size:calc(14px*var(--fs));} .branch-card .nm{font-size:calc(16px*var(--fs));} .branch-card .sub{font-size:calc(12px*var(--fs));}
 .prod-empty{font-size:calc(14px*var(--fs));}
+.shift-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--border);color:var(--text2);}
+.shift-row b{color:var(--text);font-family:'DM Mono',monospace;}
+.shift-row.tot{font-size:15px;font-weight:800;color:var(--g);border-bottom:none;padding-top:8px;}
+.shift-row.tot b{color:var(--g);}
+#shift-badge.open{background:var(--in-bg);color:var(--in);border-color:var(--in);}
+#shift-badge.closed{background:var(--r-bg);color:var(--r);border-color:var(--r);}
 </style>
 </head>
 <body>
@@ -289,6 +295,7 @@ html[data-fs="3"]{--fs:1.5;}
     <span class="meta" id="pos-meta"></span>
     <span class="mono" id="pos-clock" style="font-size:11px;color:var(--text2);font-weight:700;"></span>
     <button class="out-btn" id="fs-btn" onclick="cycleFs()" title="Ukuran tulisan">Aa</button>
+    <button class="out-btn closed" id="shift-badge" onclick="openCloseShift()">Shift</button>
     <button class="out-btn" onclick="openRiwayat()">📜</button>
     <button class="out-btn" onclick="refreshPos()">↻</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
@@ -426,13 +433,49 @@ html[data-fs="3"]{--fs:1.5;}
 <div class="sheet-overlay" id="sheet-receipt">
   <div class="sheet">
     <button class="sheet-close" onclick="closeReceiptSheet()">✕</button>
-    <div class="sheet-title">✅ Transaksi Berhasil</div>
-    <div class="sheet-sub">Struk transaksi</div>
+    <div class="sheet-title" id="rc-title">✅ Transaksi Berhasil</div>
+    <div class="sheet-sub" id="rc-sub">Struk transaksi</div>
     <div id="receipt-print">
       <div id="receipt-body"></div>
     </div>
+    <button class="sheet-btn primary" id="btn-ble" onclick="printBLE()" style="display:none;">🖨️ Print Bluetooth</button>
+    <button class="sheet-btn primary" id="btn-thermal" onclick="printThermal()" style="display:none;">🖨️ Print Thermal (RawBT)</button>
     <button class="sheet-btn ghost" onclick="window.print()">🖨️ Print Struk</button>
-    <button class="sheet-btn primary" onclick="closeReceiptSheet()">Transaksi Baru</button>
+    <button class="sheet-btn primary" id="rc-next" onclick="closeReceiptSheet()">Transaksi Baru</button>
+  </div>
+</div>
+
+<!-- ===== BUKA SHIFT ===== -->
+<div class="sheet-overlay" id="sheet-shift-open">
+  <div class="sheet">
+    <div class="sheet-title">🟢 Buka Shift</div>
+    <div class="sheet-sub" id="shift-open-sub"></div>
+    <div class="form-row">
+      <label class="form-lbl">Kas awal di laci (Rp)</label>
+      <input class="form-inp mono" id="shift-open-cash" inputmode="numeric" placeholder="0" oninput="fmtMoneyInp(this)" style="font-size:20px;font-weight:800;text-align:right;">
+    </div>
+    <button class="sheet-btn primary" id="btn-open-shift" onclick="submitOpenShift()">Buka Shift</button>
+    <button class="sheet-btn ghost" onclick="closeSheet('sheet-shift-open');logoutPos()">Keluar</button>
+  </div>
+</div>
+
+<!-- ===== TUTUP SHIFT ===== -->
+<div class="sheet-overlay" id="sheet-shift-close">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-shift-close')">✕</button>
+    <div class="sheet-title">🔒 Tutup Shift</div>
+    <div class="sheet-sub" id="shift-close-sub"></div>
+    <div id="shift-close-summary"></div>
+    <div class="form-row" style="margin-top:12px;">
+      <label class="form-lbl">Uang yang dihitung di laci (Rp)</label>
+      <input class="form-inp mono" id="shift-close-cash" inputmode="numeric" placeholder="0" oninput="fmtMoneyInp(this);calcShiftDiff()" style="font-size:20px;font-weight:800;text-align:right;">
+    </div>
+    <div class="change-box" id="shift-diff-box"><div class="lbl" id="shift-diff-lbl">Selisih</div><div class="val" id="shift-diff-val">-</div></div>
+    <div class="form-row" style="margin-top:10px;">
+      <label class="form-lbl" id="shift-note-lbl">Catatan (opsional)</label>
+      <input class="form-inp" id="shift-close-note" placeholder="Misal: uang kembalian kurang">
+    </div>
+    <button class="sheet-btn primary" id="btn-close-shift" onclick="submitCloseShift()">Tutup Shift</button>
   </div>
 </div>
 
@@ -574,6 +617,116 @@ async function pickBranch(b){
   document.getElementById('pos-meta').textContent = `${currentUser.nama} · ${BRANCHES[b]}`;
   show('screen-pos');
   await loadProducts();
+  await loadShift();
+}
+
+// ===== SHIFT KASIR =====
+let currentShift = null, _shiftSum = null;
+function parseMoney(v){ return parseInt(String(v||'').replace(/\D/g,''))||0; }
+function fmtMoneyInp(el){ const n=parseMoney(el.value); el.value = el.value.replace(/\D/g,'')==='' ? '' : n.toLocaleString('id-ID'); }
+function jamWIB(iso){ return new Date(iso).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}); }
+async function loadShift(){
+  const { data } = await sb.from('pos_shifts').select('*').eq('branch_id', currentBranch).eq('status','open').maybeSingle();
+  currentShift = data || null;
+  renderShiftBadge();
+  if(!currentShift) openShiftOpenSheet();
+}
+function renderShiftBadge(){
+  const b = document.getElementById('shift-badge');
+  if(!b) return;
+  b.className = 'out-btn ' + (currentShift ? 'open' : 'closed');
+  b.textContent = currentShift ? '🟢 Shift '+jamWIB(currentShift.opened_at) : '🔴 Shift';
+}
+function openShiftOpenSheet(){
+  document.getElementById('shift-open-sub').textContent = BRANCHES[currentBranch]+' · '+currentUser.nama+' — hitung dulu uang di laci';
+  document.getElementById('shift-open-cash').value = '';
+  openSheet('sheet-shift-open');
+}
+async function submitOpenShift(){
+  const btn = document.getElementById('btn-open-shift');
+  const cash = parseMoney(document.getElementById('shift-open-cash').value);
+  btn.disabled = true;
+  const { error } = await sb.rpc('open_pos_shift', { p_branch_id: currentBranch, p_opened_by: currentUser.nama, p_opening_cash: cash });
+  btn.disabled = false;
+  if(error){ toast('Gagal buka shift: '+error.message); return; }
+  closeSheet('sheet-shift-open');
+  await loadShift();
+  toast('Shift dibuka · kas awal '+rp(cash));
+}
+async function openCloseShift(){
+  if(!currentShift){ openShiftOpenSheet(); return; }
+  const { data, error } = await sb.rpc('get_shift_summary', { p_shift_id: currentShift.id });
+  if(error || !data){ toast('Gagal load ringkasan shift'); return; }
+  _shiftSum = data;
+  const sh = data.shift;
+  const expected = Number(sh.opening_cash) + Number(data.cash);
+  _shiftSum.expected = expected;
+  document.getElementById('shift-close-sub').textContent = BRANCHES[currentBranch]+' · dibuka '+jamWIB(sh.opened_at)+' oleh '+sh.opened_by;
+  let html = `<div class="shift-row"><span>Kas awal</span><b>${rp(sh.opening_cash)}</b></div>
+    <div class="shift-row"><span>💵 Penjualan Cash</span><b>${rp(data.cash)}</b></div>
+    <div class="shift-row"><span>📱 QRIS</span><b>${rp(data.qris)}</b></div>
+    <div class="shift-row"><span>🏦 Transfer</span><b>${rp(data.transfer)}</b></div>
+    <div class="shift-row"><span>Jumlah transaksi</span><b>${data.tx_count}</b></div>`;
+  (data.per_kasir||[]).forEach(k=>{ html += `<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;· ${k.nama} (${k.n} trx)</span><b>${rp(k.total)}</b></div>`; });
+  html += `<div class="shift-row tot"><span>Harusnya di laci</span><b>${rp(expected)}</b></div>`;
+  document.getElementById('shift-close-summary').innerHTML = html;
+  document.getElementById('shift-close-cash').value = '';
+  document.getElementById('shift-close-note').value = '';
+  calcShiftDiff();
+  openSheet('sheet-shift-close');
+}
+function calcShiftDiff(){
+  const inp = document.getElementById('shift-close-cash');
+  const box = document.getElementById('shift-diff-box');
+  const lbl = document.getElementById('shift-diff-lbl'), val = document.getElementById('shift-diff-val');
+  if(!_shiftSum || inp.value===''){ lbl.textContent='Selisih'; val.textContent='-'; box.classList.remove('neg'); document.getElementById('shift-note-lbl').textContent='Catatan (opsional)'; return; }
+  const diff = parseMoney(inp.value) - _shiftSum.expected;
+  lbl.textContent = diff===0 ? 'Pas ✅' : (diff>0 ? 'Lebih' : 'Kurang');
+  val.textContent = diff===0 ? rp(0) : rp(Math.abs(diff));
+  box.classList.toggle('neg', diff<0);
+  document.getElementById('shift-note-lbl').textContent = diff===0 ? 'Catatan (opsional)' : 'Catatan (wajib, ada selisih)';
+}
+async function submitCloseShift(){
+  const inp = document.getElementById('shift-close-cash');
+  if(inp.value===''){ toast('Isi dulu uang yang dihitung'); return; }
+  const counted = parseMoney(inp.value);
+  const note = document.getElementById('shift-close-note').value.trim();
+  if(counted !== _shiftSum.expected && !note){ toast('Ada selisih, isi catatan dulu'); return; }
+  if(!confirm('Tutup shift sekarang?\n\nHarusnya: '+rp(_shiftSum.expected)+'\nDihitung: '+rp(counted))) return;
+  const btn = document.getElementById('btn-close-shift');
+  btn.disabled = true;
+  const { data, error } = await sb.rpc('close_pos_shift', { p_shift_id: currentShift.id, p_closed_by: currentUser.nama, p_counted_cash: counted, p_note: note||null });
+  btn.disabled = false;
+  if(error){ toast('Gagal tutup shift: '+error.message); return; }
+  closeSheet('sheet-shift-close');
+  currentShift = null; renderShiftBadge();
+  showShiftReceipt(data);
+}
+function showShiftReceipt(d){
+  const sh = d.shift;
+  const tgl = new Date(sh.closed_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta'});
+  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[sh.branch_id]||''}<br>TUTUP SHIFT #${sh.id}<br>${tgl}</div><hr>`;
+  html += `<div class="rc-row"><span>Buka</span><span>${jamWIB(sh.opened_at)} ${sh.opened_by}</span></div>`;
+  html += `<div class="rc-row"><span>Tutup</span><span>${jamWIB(sh.closed_at)} ${sh.closed_by}</span></div><hr>`;
+  html += `<div class="rc-row"><span>Kas awal</span><span>${rp(sh.opening_cash)}</span></div>`;
+  html += `<div class="rc-row"><span>Cash</span><span>${rp(sh.cash_sales)}</span></div>`;
+  html += `<div class="rc-row"><span>QRIS</span><span>${rp(sh.qris_sales)}</span></div>`;
+  html += `<div class="rc-row"><span>Transfer</span><span>${rp(sh.transfer_sales)}</span></div>`;
+  html += `<div class="rc-row"><span>Transaksi</span><span>${d.tx_count}</span></div><hr>`;
+  (d.per_kasir||[]).forEach(k=>{ html += `<div class="rc-row"><span>${k.nama} (${k.n})</span><span>${rp(k.total)}</span></div>`; });
+  if((d.per_kasir||[]).length) html += `<hr>`;
+  html += `<div class="rc-row"><span>Harusnya</span><span>${rp(sh.expected_cash)}</span></div>`;
+  html += `<div class="rc-row"><span>Dihitung</span><span>${rp(sh.counted_cash)}</span></div>`;
+  const df = Number(sh.difference);
+  html += `<div class="rc-row rc-tot"><span>SELISIH</span><span>${df===0?'PAS':(df>0?'+':'-')+rp(Math.abs(df))}</span></div>`;
+  if(sh.note) html += `<div style="margin-top:4px;">Catatan: ${sh.note}</div>`;
+  document.getElementById('receipt-body').innerHTML = html;
+  document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
+  document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
+  document.getElementById('rc-title').textContent = '✅ Shift Ditutup';
+  document.getElementById('rc-sub').textContent = 'Ringkasan shift';
+  document.getElementById('rc-next').textContent = 'Buka Shift Baru';
+  openSheet('sheet-receipt');
 }
 
 async function refreshPos(){
@@ -588,7 +741,7 @@ setInterval(tickClock,1000); tickClock();
 
 function logoutPos(){
   const wasGoogle = currentUser && currentUser.mode==='google';
-  cart = []; discountTotal = 0; currentUser = null; currentBranch = null;
+  cart = []; discountTotal = 0; currentUser = null; currentBranch = null; currentShift = null;
   document.getElementById('pin-nama').value='';
   ['p0','p1','p2','p3'].forEach(id=>document.getElementById(id).value='');
   if(wasGoogle) sb.auth.signOut();
@@ -873,6 +1026,11 @@ function calcChange(){
 
 async function confirmPayment(){
   const btn = document.getElementById('btn-confirm-pay');
+  if(currentShift){
+    const { data: chk } = await sb.from('pos_shifts').select('status').eq('id', currentShift.id).maybeSingle();
+    if(!chk || chk.status!=='open') currentShift = null;
+  }
+  if(!currentShift){ closeSheet('sheet-payment'); toast('Shift belum dibuka'); await loadShift(); return; }
   const total = calcGrandTotal();
   let cashReceived = null;
   if(payMethod==='cash'){
@@ -887,7 +1045,7 @@ async function confirmPayment(){
     }));
     const { data, error } = await sb.rpc('create_pos_transaction', {
       p_branch_id: currentBranch, p_cashier_name: currentUser.nama, p_payment_method: payMethod,
-      p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived
+      p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived, p_shift_id: currentShift.id
     });
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data, ts:new Date() };
@@ -956,6 +1114,11 @@ function lihatStruk(id){
 
 function showReceipt(){
   const r = lastReceiptData;
+  document.getElementById('rc-title').textContent = '✅ Transaksi Berhasil';
+  document.getElementById('rc-sub').textContent = 'Struk transaksi';
+  document.getElementById('rc-next').textContent = 'Transaksi Baru';
+  document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
+  document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer'}[r.payMethod];
   let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}</div><hr>`;
   r.items.forEach(c=>{
@@ -970,7 +1133,70 @@ function showReceipt(){
   document.getElementById('receipt-body').innerHTML = html;
   openSheet('sheet-receipt');
 }
-function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); }
+// ===== PRINT THERMAL 58mm via RawBT (Android) =====
+const RC_W = 32;
+function rcClean(t){ return String(t||'').replace(/·/g,'-').normalize('NFD').replace(/[^\x20-\x7E]/g,'').replace(/\s+/g,' ').trim(); }
+function rcCenter(t){ t=rcClean(t).slice(0,RC_W); const p=Math.floor((RC_W-t.length)/2); return ' '.repeat(p)+t; }
+function rcLR(l,r){ l=rcClean(l); r=rcClean(r); const sp=RC_W-l.length-r.length; if(sp>=1) return l+' '.repeat(sp)+r; return l.slice(0,RC_W)+'\n'+' '.repeat(Math.max(0,RC_W-r.length))+r; }
+function rcWrap(t){ t=rcClean(t); const out=[]; while(t.length>RC_W){ let i=t.lastIndexOf(' ',RC_W); if(i<=0) i=RC_W; out.push(t.slice(0,i)); t=t.slice(i).trim(); } if(t) out.push(t); return out.join('\n'); }
+function buildReceiptText(){
+  const body = document.getElementById('receipt-body');
+  const lines = [];
+  [...body.children].forEach(el=>{
+    if(el.tagName==='HR'){ lines.push('-'.repeat(RC_W)); return; }
+    if(el.classList.contains('rc-hd')){ el.innerHTML.split(/<br\s*\/?>/i).forEach(part=>{ const d=document.createElement('div'); d.innerHTML=part; const t=d.textContent; if(rcClean(t)) lines.push(rcCenter(t)); }); return; }
+    if(el.classList.contains('rc-row')){ const sp=el.querySelectorAll('span'); lines.push(rcLR(sp[0]?sp[0].textContent:'', sp[1]?sp[1].textContent:'')); return; }
+    const t = el.textContent; if(rcClean(t)) lines.push(el.style.textAlign==='center'?rcCenter(t):rcWrap(t));
+  });
+  return lines.join('\n') + '\n\n\n\n';
+}
+// ===== PRINT BLE (iPad via Bluefy, juga Chrome Android) =====
+const BLE_SERVICES = ['000018f0-0000-1000-8000-00805f9b34fb','e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455','0000ff00-0000-1000-8000-00805f9b34fb','0000fee7-0000-1000-8000-00805f9b34fb','0000ffe0-0000-1000-8000-00805f9b34fb','0000ae30-0000-1000-8000-00805f9b34fb'];
+let bleDev = null, bleChar = null;
+async function bleConnect(){
+  if(bleChar && bleDev && bleDev.gatt.connected) return bleChar;
+  if(!bleDev) bleDev = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: BLE_SERVICES });
+  const server = await bleDev.gatt.connect();
+  const services = await server.getPrimaryServices();
+  for(const sv of services){
+    const chars = await sv.getCharacteristics();
+    const c = chars.find(c=>c.properties.writeWithoutResponse || c.properties.write);
+    if(c){ bleChar = c; return c; }
+  }
+  throw new Error('Printer gak punya jalur tulis yang dikenal');
+}
+async function bleWrite(c, bytes){
+  const size = 100;
+  for(let i=0;i<bytes.length;i+=size){
+    const part = bytes.slice(i,i+size);
+    if(c.properties.writeWithoutResponse){ await c.writeValueWithoutResponse(part); await new Promise(r=>setTimeout(r,25)); }
+    else await c.writeValue(part);
+  }
+}
+async function printBLE(){
+  const btn = document.getElementById('btn-ble');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Menghubungkan...';
+  try{
+    const c = await bleConnect();
+    btn.textContent = 'Mencetak...';
+    const text = buildReceiptText();
+    const body = new TextEncoder().encode(text);
+    const bytes = new Uint8Array(2 + body.length);
+    bytes.set([0x1B,0x40],0); bytes.set(body,2);
+    await bleWrite(c, bytes);
+    toast('Struk dicetak');
+  }catch(e){
+    if(e && e.name==='NotFoundError') toast('Printer belum dipilih');
+    else { toast('Gagal print: '+(e.message||e)); bleChar=null; }
+  }
+  btn.disabled = false; btn.textContent = orig;
+}
+function printThermal(){
+  const text = buildReceiptText();
+  const b64 = btoa(unescape(encodeURIComponent(text)));
+  location.href = 'intent:base64,' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
+}
+function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); if(currentUser && currentBranch && !currentShift) openShiftOpenSheet(); }
 </script>
 </body>
 </html>
