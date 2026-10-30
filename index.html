@@ -355,6 +355,10 @@ body.font-xl{zoom:1.25;}
 .price-save-status.ok{color:var(--g3);}.price-save-status.err{color:var(--r);}
 .prod-manage-name{flex:1;font-size:13px;}
 .inactive-badge{font-size:10px;padding:1px 6px;border-radius:4px;background:var(--r-bg);color:var(--r);}
+.act-box{background:var(--g-light);border:1px solid var(--g-bg);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:12px;color:var(--text2);}
+.act-title{font-weight:700;color:var(--g);margin-bottom:4px;}
+.act-row{margin:2px 0;}
+.act-warn{background:var(--y-bg);color:#9A6700;border-radius:10px;padding:8px 10px;font-size:12px;font-weight:600;margin-bottom:8px;}
 .catat-row-inactive{opacity:.75;background:var(--bg2,#F3F0F0);}
 /* Profil produk */
 .pp-sheet{max-height:88vh;overflow-y:auto;}
@@ -828,6 +832,7 @@ body{ max-width:none; }
 
   <div class="action-row">
     <button class="action-btn action-in" onclick="openInput('catat')" style="flex:1">📝 Catat Stok</button>
+    <button class="action-btn action-out" onclick="openInput('tutup')" style="flex:1">🌙 Tutup Hari</button>
   </div>
 
   <div class="controls">
@@ -866,6 +871,7 @@ body{ max-width:none; }
     <div class="txt"><div class="t1" id="input-t1">Mode: Roti Masuk</div><div class="t2" id="input-t2"></div></div>
   </div>
   <div class="controls"><input class="search-inp" id="input-search" type="search" placeholder="Cari produk..." oninput="renderInput(this.value)"></div>
+  <div id="input-tools" style="padding:0 16px"></div>
   <div id="input-tarik-notify"></div>
   <div id="input-list" style="padding-bottom:100px"><div class="loading"><div class="spinner"></div>Memuat...</div></div>
   <div class="bottombar">
@@ -2159,24 +2165,26 @@ function unsavedBuang(){ document.getElementById('unsaved-modal').classList.remo
 function unsavedBatal(){ document.getElementById('unsaved-modal').classList.remove('open'); }
 async function openInput(mode) {
   inputMode = mode;
+  inputShowAll = false;
   inputState = {};
   sisaTouched = {};
   inputDirty = false;
   const banner = document.getElementById('input-banner');
   banner.className = 'mode-banner in';
   document.getElementById('input-ic').textContent = '\uD83D\uDCDD';
-  document.getElementById('input-title').textContent = 'Catat Stok';
-  document.getElementById('input-t1').textContent = 'Catat Masuk, Retur & Sisa';
-  document.getElementById('input-t2').textContent = 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar ada di rak: otomatis ikut saat Masuk/Retur diisi, ubah hanya kalau hitungan fisik berbeda. Terjual hanya dari POS.';
+  const _tutup = mode==='tutup';
+  document.getElementById('input-title').textContent = _tutup ? 'Tutup Hari' : 'Catat Stok';
+  document.getElementById('input-t1').textContent = _tutup ? 'Hitung fisik malam' : 'Catat Masuk, Retur & Sisa';
+  document.getElementById('input-t2').textContent = _tutup ? 'Hitung roti yang benar-benar ada di rak, ubah angka yang berbeda, lalu simpan. SEMUA produk dicatat (stok 0 otomatis 0) dan jadi stok awal besok. Lakukan setelah penjualan terakhir.' : 'Masuk = roti baru datang. Retur = roti kemarin yang ditarik/dibawa balik. Sisa = jumlah yang benar-benar ada di rak: otomatis ikut saat Masuk/Retur diisi, ubah hanya kalau hitungan fisik berbeda. Terjual hanya dari POS.';
   const btn = document.getElementById('input-save');
   btn.className = 'save-btn save-in';
-  btn.textContent = '\uD83D\uDCBE Simpan';
+  btn.textContent = _tutup ? '\uD83C\uDF19 Simpan Hitungan Malam' : '\uD83D\uDCBE Simpan';
   show('input');
   document.getElementById('input-list').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
   // selalu ambil data terbaru (produk baru / aktif-nonaktif / stok) tiap kali layar ini dibuka
   await Promise.all([loadProducts(), loadStockNow()]);
   // notify produk yang perlu ditarik/diretur (cuma di mode masuk, tempat retur)
-  renderTarikNotify(mode);
+  if (mode==='tutup') document.getElementById('input-tarik-notify').innerHTML=''; else renderTarikNotify(mode);
   // isi awal tiap produk
   Object.keys(stockNow).forEach(n => {
     const s = stockNow[n];
@@ -2184,6 +2192,7 @@ async function openInput(mode) {
       iKemarin: s.now||0, iProduksi: 0, iRetur: 0, iSisa: s.now||0
     };
   });
+  renderInputTools(); loadInputActivity();
   renderInput();
 }
 async function catatActivate(id, name){
@@ -2202,7 +2211,7 @@ function renderInput(filter='') {
   const wrap = document.getElementById('input-list');
   let html = '';
   categories.forEach(cat => {
-    const prods = products.filter(p=>p.category_id===cat.id && p.name.toLowerCase().includes(filter.toLowerCase()) && (p.is_active!==false ? stockNow[p.name]!==undefined : filter.length>0));
+    const prods = products.filter(p=>p.category_id===cat.id && p.name.toLowerCase().includes(filter.toLowerCase()) && (p.is_active!==false ? (stockNow[p.name]!==undefined && inputVisible(p,filter)) : filter.length>0));
     if (!prods.length) return;
     html += '<div class="cat-header">'+cat.name+'</div>';
     prods.forEach(p => {
@@ -2217,6 +2226,12 @@ function renderInput(filter='') {
       const terjualPOS = s.terjualToday||0;
       const tersedia = Math.max(0,(inp.iKemarin||0)+(inp.iProduksi||0)-(inp.iRetur||0));
       const selisih = (inp.iSisa||0) - tersedia;
+      if (inputMode==='tutup') {
+        html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
+          +'<div class="catat-grid" style="grid-template-columns:1fr"><div class="cfield"><div class="cflbl sisa">📤 Hitungan di rak</div><div class="mini-qc sisa"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iSisa||0)+'" onchange="setF(\''+esc+'\',\'iSisa\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iSisa\',1)">+</button></div></div></div>'
+          +'<div class="catat-foot"><span>Seharusnya: <b>'+tersedia+'</b></span>'+(selisih!==0?'<span class="cf-sep">·</span><span style="color:var(--y);font-weight:600">Selisih: <b>'+(selisih>0?'+':'')+selisih+'</b></span>':'')+'<button class="habis-btn" onclick="setHabis(\''+esc+'\')">Habis</button></div></div>';
+        return;
+      }
       html += '<div class="catat-row"><div class="catat-name">'+n+'</div>'
         +'<div class="catat-grid">'
           +'<div class="cfield"><div class="cflbl masuk">🥖 Masuk</div><div class="mini-qc produksi"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(inp.iProduksi||0)+'" onchange="setF(\''+esc+'\',\'iProduksi\',this.value)"><button class="mini-qb" onclick="adjF(\''+esc+'\',\'iProduksi\',1)">+</button></div></div>'
@@ -2228,6 +2243,53 @@ function renderInput(filter='') {
     });
   });
   wrap.innerHTML = html || '<div class="empty">Tidak ada produk</div>';
+}
+// ===== MODE CEPAT, AKTIVITAS HARI INI, TUTUP HARI =====
+let inputShowAll = false;
+function inputHasActivity(p){
+  const s = stockNow[p.name], inp = inputState[p.name];
+  if (!s || !inp) return true;
+  return (s.now||0)>0 || (s.produksi||0)>0 || (s.retur||0)>0 || (s.terjualToday||0)>0 || (inp.iProduksi||0)>0 || (inp.iRetur||0)>0 || (inp.iSisa||0)>0;
+}
+function inputVisible(p, filter){ return !!filter || inputShowAll || inputHasActivity(p); }
+function setInputShowAll(v){ inputShowAll = v; renderInputTools(); renderInput(document.getElementById('input-search').value); }
+function renderInputTools(){
+  const el = document.getElementById('input-tools'); if (!el) return;
+  const act = products.filter(p=>p.is_active!==false && stockNow[p.name]!==undefined);
+  const vis = act.filter(inputHasActivity).length;
+  const note = (inputMode==='tutup' && !inputShowAll && act.length-vis>0) ? '<div class="fin-note" style="margin:-2px 0 8px">'+(act.length-vis)+' produk stok 0 disembunyikan, otomatis dicatat 0 saat simpan.</div>' : '';
+  const prev = document.getElementById('input-activity');
+  el.innerHTML = '<div class="period-row" style="margin-bottom:8px"><button class="period-btn'+(!inputShowAll?' active':'')+'" onclick="setInputShowAll(false)">Ada stok ('+vis+')</button><button class="period-btn'+(inputShowAll?' active':'')+'" onclick="setInputShowAll(true)">Semua produk ('+act.length+')</button></div>'+note+'<div id="input-activity">'+(prev?prev.innerHTML:'')+'</div>';
+}
+async function loadInputActivity(){
+  const today = new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+  const { data } = await sb.from('stock_movements').select('type,user_name,created_at,product_id').eq('branch_id',branch).eq('movement_date',today).in('type',['masuk','produksi','retur','sisa']).order('created_at',{ascending:true}).limit(2000);
+  const el = document.getElementById('input-activity'); if (!el) return;
+  const groups = {};
+  (data||[]).forEach(r=>{ const t = r.type==='produksi' ? 'masuk' : r.type; const k = t+'|'+(r.user_name||'-'); if(!groups[k]) groups[k]={t:t,u:r.user_name||'-',prods:new Set(),last:r.created_at}; groups[k].prods.add(r.product_id); if(r.created_at>groups[k].last) groups[k].last=r.created_at; });
+  const lbl = {masuk:'Masuk',retur:'Retur',sisa:'Sisa / hitungan'};
+  const jam = ts => new Date(ts).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
+  const rows = Object.values(groups).sort((a,b)=>a.last<b.last?-1:1);
+  const nAct = products.filter(p=>p.is_active!==false).length;
+  const closed = rows.find(g=>g.t==='sisa' && g.prods.size>=Math.max(1,Math.round(nAct*0.6)));
+  let h = '';
+  if (rows.length) h += '<div class="act-box"><div class="act-title">📋 Sudah dicatat hari ini ('+finEsc(BRANCHES[branch]||branch)+')</div>'+rows.map(g=>'<div class="act-row"><b>'+lbl[g.t]+'</b> · '+finEsc(g.u)+' · '+jam(g.last)+' · '+g.prods.size+' produk</div>').join('')+'</div>';
+  if (closed && inputMode==='tutup') h += '<div class="act-warn">⚠️ Hitungan malam hari ini sudah pernah dicatat oleh '+finEsc(closed.u)+' ('+jam(closed.last)+'). Menyimpan lagi akan menimpanya.</div>';
+  el.innerHTML = h;
+}
+async function saveTutupHari(btn, orig){
+  const names = Object.keys(inputState);
+  const items = names.map(n=>({nama:n,qty:Math.max(0,inputState[n].iSisa||0)}));
+  const ada = items.filter(x=>x.qty>0).length;
+  const beda = names.filter(n=>(inputState[n].iSisa||0)!==(inputState[n].iKemarin||0)).length;
+  if (!confirm('Simpan hitungan malam '+(BRANCHES[branch]||branch)+'?\n\n'+items.length+' produk dicatat ('+ada+' ada stok, '+(items.length-ada)+' stok 0).'+(beda?'\n'+beda+' produk berbeda dari yang seharusnya.':'')+'\n\nIni jadi stok awal besok.')) { btn.disabled=false; btn.textContent=orig; return; }
+  const { error } = await sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'sisa',p_items:items});
+  if (error) { btn.disabled=false; btn.textContent=orig; alert('Gagal simpan: '+error.message); return; }
+  for (let i=0; i<items.length; i+=6) await Promise.all(items.slice(i,i+6).map(it=>updateBatchFIFO([it])));
+  btn.disabled=false; btn.textContent=orig; inputDirty=false;
+  await loadStockNow(); await checkShelfLifeAlert();
+  show('overview');
+  alert('✓ Hitungan malam tersimpan ('+items.length+' produk). Stok awal besok sudah siap.');
 }
 let sisaTouched = {};
 // Sisa ikut otomatis (stok di rak + masuk - retur) sampai diubah manual (hitungan fisik)
@@ -2254,6 +2316,7 @@ function setHabis(n){ sisaTouched[n]=true; inputState[n].iSisa = 0; markInputDir
 async function saveInput() {
   const btn = document.getElementById('input-save');
   btn.disabled=true; const orig=btn.textContent; btn.textContent='Menyimpan...';
+  if (inputMode==='tutup') return await saveTutupHari(btn, orig);
   let calls = [];
   // 1. MASUK (roti baru datang) — + buat batch baru untuk shelf life
   const masukProds = Object.keys(inputState).filter(n=>inputState[n].iProduksi>0);
@@ -2294,17 +2357,15 @@ async function updateBatchFIFO(sisaItems) {
     if (!prod) continue;
     const { data: batches } = await sb.from('product_batches')
       .select('*').eq('branch_id',branch).eq('product_id',prod.id)
-      .order('batch_date',{ascending:true});
+      .order('batch_date',{ascending:true}).order('id',{ascending:true});
     if (!batches||!batches.length) continue;
     const totalQtyIn = batches.reduce((s,b)=>s+b.qty_in,0);
-    const silaTotal = item.qty; // sisa sekarang
-    let terjualTotal = Math.max(0, totalQtyIn - silaTotal);
-    // distribusi terjual FIFO
+    let terjualTotal = Math.max(0, totalQtyIn - item.qty); // sisa sekarang = item.qty
+    // distribusi FIFO ke SEMUA batch (yang sisanya diisi 0, bukan dibiarkan basi); tulis hanya yang berubah
     for (const bat of batches) {
       const terjualBatch = Math.min(terjualTotal, bat.qty_in);
-      await sb.from('product_batches').update({qty_sold: terjualBatch}).eq('id', bat.id);
+      if ((bat.qty_sold||0) !== terjualBatch) await sb.from('product_batches').update({qty_sold: terjualBatch}).eq('id', bat.id);
       terjualTotal -= terjualBatch;
-      if (terjualTotal <= 0) break;
     }
   }
 }
