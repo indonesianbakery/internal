@@ -198,7 +198,7 @@ html[data-fs="3"]{--fs:1.5;}
 .prod-card .nm{font-size:calc(13px*var(--fs)); line-height:1.25; padding-right:calc(20px*var(--fs)); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word;}
 .prod-card .pr{font-size:calc(14px*var(--fs)); font-weight:800; background:var(--g-bg); padding:2px calc(7px*var(--fs)); border-radius:6px; align-self:flex-start;}
 .prod-card .stk{font-size:calc(11px*var(--fs)); color:var(--text2);}
-.prod-card.oos{opacity:.5;}
+.prod-card.oos{opacity:.75;}
 .fav-btn{width:calc(26px*var(--fs)) !important; height:calc(26px*var(--fs)) !important; font-size:calc(16px*var(--fs)) !important;}
 .az-l{font-size:calc(11px*var(--fs)); padding:calc(1px*var(--fs)) calc(6px*var(--fs));}
 #cart-bar{padding:calc(13px*var(--fs)) 16px;}
@@ -238,6 +238,11 @@ html[data-fs="3"]{--fs:1.5;}
 .shift-row.tot b{color:var(--g);}
 #shift-badge.open{background:var(--in-bg);color:var(--in);border-color:var(--in);}
 #shift-badge.closed{background:var(--r-bg);color:var(--r);border-color:var(--r);}
+#ch-toggle{flex-shrink:0;border:1.5px solid var(--border);border-radius:var(--rad-sm);background:#fff;font-family:inherit;font-size:13px;font-weight:800;padding:0 12px;color:var(--text2);cursor:pointer;}
+body.gofood-mode #ch-toggle{background:#00880F;border-color:#00880F;color:#fff;}
+body.gofood-mode #cart-bar{background:#00880F;}
+body.gofood-mode .prod-card .pr{color:#00880F;}
+.gf-edit{border:none;background:var(--g-bg);color:var(--g);border-radius:6px;font-size:11px;padding:2px 6px;margin-left:4px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -306,6 +311,7 @@ html[data-fs="3"]{--fs:1.5;}
   </div>
   <div id="pos-main">
     <div id="prod-search-wrap" style="display:flex;gap:8px;">
+      <button id="ch-toggle" onclick="toggleChannel()">🏪 Toko</button>
       <div style="position:relative;flex:1;display:flex;">
         <input id="prod-search" placeholder="Cari produk..." oninput="renderProducts()" style="flex:1;padding-right:36px;">
         <button id="search-clear" class="hidden" onclick="clearSearch()" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);width:26px;height:26px;border:none;border-radius:50%;background:var(--g-bg);color:var(--g);font-size:13px;font-weight:700;cursor:pointer;">✕</button>
@@ -688,6 +694,7 @@ async function openCloseShift(){
     <div class="shift-row"><span>💵 Penjualan Cash</span><b>${rp(data.cash)}</b></div>
     <div class="shift-row"><span>📱 QRIS</span><b>${rp(data.qris)}</b></div>
     <div class="shift-row"><span>🏦 Transfer</span><b>${rp(data.transfer)}</b></div>
+    <div class="shift-row"><span>🟢 GoFood</span><b>${rp(data.gofood||0)}</b></div>
     <div class="shift-row"><span>Jumlah transaksi</span><b>${data.tx_count}</b></div>`;
   (data.per_kasir||[]).forEach(k=>{ html += `<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;· ${k.nama} (${k.n} trx)</span><b>${rp(k.total)}</b></div>`; });
   html += `<div class="shift-row tot"><span>Harusnya di laci</span><b>${rp(expected)}</b></div>`;
@@ -734,6 +741,7 @@ function showShiftReceipt(d){
   html += `<div class="rc-row"><span>Cash</span><span>${rp(sh.cash_sales)}</span></div>`;
   html += `<div class="rc-row"><span>QRIS</span><span>${rp(sh.qris_sales)}</span></div>`;
   html += `<div class="rc-row"><span>Transfer</span><span>${rp(sh.transfer_sales)}</span></div>`;
+  html += `<div class="rc-row"><span>GoFood</span><span>${rp(sh.gofood_sales||0)}</span></div>`;
   html += `<div class="rc-row"><span>Transaksi</span><span>${d.tx_count}</span></div><hr>`;
   (d.per_kasir||[]).forEach(k=>{ html += `<div class="rc-row"><span>${k.nama} (${k.n})</span><span>${rp(k.total)}</span></div>`; });
   if((d.per_kasir||[]).length) html += `<hr>`;
@@ -784,6 +792,9 @@ async function loadProducts(){
   (prices||[]).forEach(pr=>{ const p=products.find(x=>x.id===pr.id); if(p){ p.cost_price=pr.cost_price; p.sort_order=pr.sort_order; } });
   const { data: bp } = await sb.from('product_branch_prices').select('product_id, price').eq('branch_id', currentBranch);
   (bp||[]).forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if(p) p.cost_price=Number(r.price); });
+  const { data: gp } = await sb.from('product_gofood_prices').select('product_id, price').eq('branch_id', currentBranch);
+  products.forEach(p=>{ p.gofood_price = null; });
+  (gp||[]).forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if(p) p.gofood_price=Number(r.price); });
   products.sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const catIds = (cats||[]).map(c=>c.id).filter(id=>products.some(p=>p.category_id===id));
   categories = catIds;
@@ -858,8 +869,8 @@ function renderProducts(){
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="addToCart(${p.id})">
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
       <div class="nm">${p.name}</div>
-      <div class="stk">${p.stok<=0?'Habis':'Di rak: '+p.stok}</div>
-      <div class="pr">${rp(p.cost_price)}</div>
+      <div class="stk">${p.stok<=0?'Di rak: 0 (tetap bisa dijual)':'Di rak: '+p.stok}</div>
+      <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel==='gofood'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setGofoodPrice(${p.id})">✏️</button>`:''}</div>
     </div>`).join('');
   renderAZ(sort==='name', list);
 }
@@ -895,7 +906,7 @@ function renderTxBanner(){
     ? '✏️ Mode edit transaksi #'+txMode.id
     : '➕ Transaksi manual · '+txMode.ts.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 }
-function cancelTxMode(){ txMode=null; cart=[]; discountTotal=0; updateCartBar(); renderTxBanner(); renderProducts(); }
+function cancelTxMode(){ txMode=null; cart=[]; discountTotal=0; channel='toko'; renderChannel(); updateCartBar(); renderTxBanner(); renderProducts(); }
 function startEditTx(){
   if(!canManageTx()) return;
   const r = (window._rwRows||[]).find(x=>x.id===(lastReceiptData&&lastReceiptData.txId));
@@ -905,6 +916,7 @@ function startEditTx(){
   txMode = { type:'edit', id:r.id, orig, pay:r.payment_method, cash:r.cash_received!=null?Number(r.cash_received):null, ts:new Date(r.created_at), cashier:r.cashier_name };
   cart = (r.pos_transaction_items||[]).map(i=>({ product_id:i.product_id, name:i.product_name, price:Number(i.unit_price), qty:i.qty, item_discount:Number(i.item_discount)||0, is_gift:!!i.is_gift, gift_reason:i.gift_reason }));
   discountTotal = Number(r.discount_total)||0;
+  channel = r.payment_method==='gofood' ? 'gofood' : 'toko'; renderChannel();
   closeSheet('sheet-receipt');
   renderTxBanner(); updateCartBar(); renderProducts(); openCart();
 }
@@ -927,15 +939,48 @@ function startManualTx(){
   renderTxBanner(); updateCartBar(); renderProducts();
   toast('Pilih produk untuk transaksi manual');
 }
+// ===== CHANNEL: TOKO / GOFOOD =====
+let channel = 'toko';
+function priceOf(p){ return channel==='gofood' ? (p.gofood_price!=null ? Number(p.gofood_price) : null) : p.cost_price; }
+function renderChannel(){
+  document.body.classList.toggle('gofood-mode', channel==='gofood');
+  const b = document.getElementById('ch-toggle'); if(b) b.textContent = channel==='gofood' ? '🟢 GoFood' : '🏪 Toko';
+}
+function toggleChannel(){
+  if(txMode){ toast('Selesaikan / batalkan mode edit dulu'); return; }
+  const next = channel==='gofood' ? 'toko' : 'gofood';
+  if(cart.length && !confirm('Ganti ke '+(next==='gofood'?'GoFood':'Toko')+'? Keranjang akan dikosongkan (harganya beda).')) return;
+  channel = next; cart = []; discountTotal = 0;
+  updateCartBar(); renderChannel(); renderProducts();
+  toast(channel==='gofood' ? 'Mode GoFood · harga GoFood' : 'Mode Toko · harga toko');
+}
+async function setGofoodPrice(id){
+  if(!canManageTx()) return;
+  const p = products.find(x=>x.id===id); if(!p) return;
+  const v = prompt('Harga GoFood '+p.name+' ('+BRANCHES[currentBranch]+')\nHarga toko: '+rp(p.cost_price)+'\n\nKosongkan untuk hapus.', p.gofood_price!=null?p.gofood_price:'');
+  if(v===null) return;
+  const n = parseMoney(v);
+  let res;
+  if(String(v).trim()==='') res = await sb.from('product_gofood_prices').delete().eq('product_id',id).eq('branch_id',currentBranch);
+  else res = await sb.from('product_gofood_prices').upsert({ product_id:id, branch_id:currentBranch, price:n, updated_by:currentUser.nama, updated_at:new Date().toISOString() });
+  if(res.error){ toast('Gagal simpan: '+res.error.message); return; }
+  p.gofood_price = String(v).trim()==='' ? null : n;
+  renderProducts(); toast('Harga GoFood '+p.name+' disimpan');
+}
+// Stok TIDAK membatasi penjualan (sementara, buat crosscheck rak vs transaksi). Ganti ke true kalau mau dikunci lagi.
+const ENFORCE_STOCK = false;
+function overStockWarn(p, after){ if(after > maxStok(p)) toast('⚠️ '+p.name+': di rak tercatat '+Math.max(0,maxStok(p))+', tetap dicatat'); }
 function addToCart(productId){
   const p = products.find(x=>x.id===productId);
   if(!p) return;
-  if(maxStok(p)<=0){ toast(p.name+' habis'); return; }
+  if(ENFORCE_STOCK && maxStok(p)<=0){ toast(p.name+' habis'); return; }
+  if(priceOf(p)==null){ if(canManageTx()) setGofoodPrice(p.id); else toast('Harga GoFood '+p.name+' belum diisi, minta manager'); return; }
   const inCart = cart.filter(c=>c.product_id===productId).reduce((s,c)=>s+c.qty,0);
-  if(inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
+  if(ENFORCE_STOCK && inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
+  if(!ENFORCE_STOCK && inCart+1 > maxStok(p)){ overStockWarn(p, inCart+1); }
   const existing = cart.find(c=>c.product_id===productId && !c.is_gift);
   if(existing) existing.qty += 1;
-  else cart.push({ product_id:p.id, name:p.name, price:p.cost_price, qty:1, item_discount:0, is_gift:false, gift_reason:null });
+  else cart.push({ product_id:p.id, name:p.name, price:priceOf(p), qty:1, item_discount:0, is_gift:false, gift_reason:null });
   updateCartBar();
   toast(`${p.name} ditambahkan`);
 }
@@ -990,7 +1035,8 @@ function changeQty(i,delta){
   if(delta>0){
     const p = products.find(x=>x.id===cart[i].product_id);
     const inCart = cart.filter(c=>c.product_id===cart[i].product_id).reduce((s,c)=>s+c.qty,0);
-    if(p && inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
+    if(ENFORCE_STOCK && p && inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
+    if(!ENFORCE_STOCK && p && inCart+1 > maxStok(p)){ overStockWarn(p, inCart+1); }
   }
   cart[i].qty += delta;
   if(cart[i].qty<=0) cart.splice(i,1);
@@ -1048,6 +1094,9 @@ function openPayment(){
     selectPayMethod(txMode.pay||'cash');
     if(txMode.pay==='cash' && txMode.cash!=null){ cashInputStr=String(Math.round(txMode.cash)); document.getElementById('cash-display').textContent=Number(cashInputStr).toLocaleString('id-ID'); calcChange(); }
   }
+  const isGF = channel==='gofood';
+  document.querySelector('#sheet-payment .pay-methods').style.display = isGF ? 'none' : '';
+  if(isGF){ payMethod='gofood'; document.getElementById('cash-block').classList.add('hidden'); document.getElementById('pay-total-sub').textContent = 'Total: ' + rp(calcGrandTotal()) + ' · 🟢 GoFood'; calcChange(); }
   openSheet('sheet-payment');
 }
 function selectPayMethod(m){
@@ -1132,6 +1181,7 @@ async function confirmPayment(){
     closeSheet('sheet-payment');
     showReceipt();
     cart = []; discountTotal = 0; updateCartBar();
+    if(channel==='gofood'){ channel='toko'; renderChannel(); renderProducts(); }
     if(wasMode){ txMode = null; renderTxBanner(); toast(wasMode.type==='edit' ? 'Transaksi #'+data+' diperbarui' : 'Transaksi manual #'+data+' tersimpan'); loadProducts(); }
   }catch(e){ toast('Koneksi gagal, coba lagi'); }
   btn.disabled = false; btn.textContent = 'Konfirmasi Bayar';
@@ -1160,7 +1210,7 @@ async function openRiwayat(){
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
     return `<div class="cart-item">
       <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
-        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
         <div class="ci-price">${items}</div>
         <div class="ci-price">Kasir: ${r.cashier_name}${r.edited_by?' · diedit '+r.edited_by+' '+new Date(r.edited_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):''}</div>
       </div>
@@ -1202,7 +1252,7 @@ function showReceipt(){
   document.getElementById('btn-edit-tx').style.display = (canManageTx() && r.fromHistory) ? '' : 'none';
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
-  const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer'}[r.payMethod];
+  const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', gofood:'GoFood'}[r.payMethod];
   let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-row"><span>${c.qty}x ${c.name}${c.is_gift?' (GRATIS)':''}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty-c.item_discount)}</span></div>`;
@@ -1339,4 +1389,5 @@ function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); if(
 </script>
 </body>
 </html>
+
 
