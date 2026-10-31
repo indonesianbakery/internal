@@ -1210,7 +1210,7 @@ function showReceipt(){
   html += `<hr><div class="rc-row"><span>Subtotal</span><span>${rp(r.subtotal)}</span></div>`;
   if(r.discountTotal>0) html += `<div class="rc-row"><span>Diskon</span><span>-${rp(r.discountTotal)}</span></div>`;
   html += `<div class="rc-row rc-tot"><span>TOTAL</span><span>${rp(r.grand)}</span></div>`;
-  html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):'-'}</span></div>`;
+  html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):rp(r.grand)}</span></div>`;
   if(r.change!=null) html += `<div class="rc-row"><span>Kembali</span><span>${rp(r.change)}</span></div>`;
   html += `<hr><div style="text-align:center;">Terima kasih! 🍞</div>`;
   document.getElementById('receipt-body').innerHTML = html;
