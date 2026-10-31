@@ -243,6 +243,14 @@ body.gofood-mode #ch-toggle{background:#00880F;border-color:#00880F;color:#fff;}
 body.gofood-mode #cart-bar{background:#00880F;}
 body.gofood-mode .prod-card .pr{color:#00880F;}
 .gf-edit{border:none;background:var(--g-bg);color:var(--g);border-radius:6px;font-size:11px;padding:2px 6px;margin-left:4px;cursor:pointer;}
+.v-step{font-size:12px;font-weight:800;color:var(--text2);margin:10px 0 6px;}
+.v-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
+.v-opt{border:1.5px solid var(--border);border-radius:11px;background:#fff;padding:10px;text-align:left;cursor:pointer;font-family:inherit;}
+.v-opt.sel{border-color:var(--g);background:var(--g-bg);}
+.v-opt .vn{font-size:14px;font-weight:800;color:var(--text);}
+.v-opt .vs{font-size:11px;color:var(--text3);margin-top:2px;}
+.v-opt .vp{font-size:12px;font-weight:800;color:var(--g);font-family:'DM Mono',monospace;margin-top:4px;}
+.prod-card .vtag{font-size:10px;font-weight:700;color:var(--g);background:var(--g-bg);border-radius:5px;padding:1px 6px;align-self:flex-start;}
 </style>
 </head>
 <body>
@@ -502,6 +510,16 @@ body.gofood-mode .prod-card .pr{color:#00880F;}
       <input class="form-inp" type="datetime-local" id="manual-ts">
     </div>
     <button class="sheet-btn primary" onclick="startManualTx()">Lanjut pilih produk</button>
+  </div>
+</div>
+
+<!-- ===== PILIH VARIAN ===== -->
+<div class="sheet-overlay" id="sheet-variant">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-variant')">✕</button>
+    <div class="sheet-title" id="v-title"></div>
+    <div class="sheet-sub">Pilih varian</div>
+    <div id="v-body"></div>
   </div>
 </div>
 
@@ -863,12 +881,34 @@ function renderProducts(){
   else if(sort==='stok') list.sort((a,b)=>(b.stok||0)-(a.stok||0));
   // habis selalu ke bawah
   list.sort((a,b)=>((a.stok<=0)?1:0)-((b.stok<=0)?1:0));
+  _vGroups = [];
+  if(activeCategoryId!=='fav' && activeCategoryId!=='top'){
+    const out = [], seen = {};
+    list.forEach(p=>{
+      const a = vParts(p);
+      if(!a){ out.push(p); return; }
+      if(seen[a[0]]!=null) return;
+      const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0]; });
+      const prices = vars.map(priceOf).filter(x=>x!=null);
+      seen[a[0]] = _vGroups.length; _vGroups.push(a[0]);
+      out.push({ __vg: seen[a[0]], id:p.id, name:a[0], category_id:p.category_id, n:vars.length,
+        stok: vars.reduce((t,x)=>t+Math.max(0,x.stok||0),0),
+        pmin: prices.length?Math.min(...prices):null, pmax: prices.length?Math.max(...prices):null });
+    });
+    list = out;
+  }
   const grid = document.getElementById('prod-grid');
   if(!list.length){ grid.innerHTML = `<div class="prod-empty">${activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
-  grid.innerHTML = list.map(p=>`
+  grid.innerHTML = list.map(p=> p.__vg!=null ? `
+    <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="openVariant(${p.__vg})">
+      <div class="nm">${p.name}</div>
+      <div class="vtag">${p.n} varian</div>
+      <div class="stk">Di rak: ${p.stok}</div>
+      <div class="pr">${p.pmin==null?'-':(p.pmin===p.pmax?rp(p.pmin):rp(p.pmin)+' – '+rp(p.pmax))}</div>
+    </div>` : `
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="addToCart(${p.id})">
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
-      <div class="nm">${p.name}</div>
+      <div class="nm">${dispName(p)}</div>
       <div class="stk">${p.stok<=0?'Di rak: 0 (tetap bisa dijual)':'Di rak: '+p.stok}</div>
       <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel==='gofood'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setGofoodPrice(${p.id})">✏️</button>`:''}</div>
     </div>`).join('');
@@ -970,6 +1010,42 @@ async function setGofoodPrice(id){
 // Stok TIDAK membatasi penjualan (sementara, buat crosscheck rak vs transaksi). Ganti ke true kalau mau dikunci lagi.
 const ENFORCE_STOCK = false;
 function overStockWarn(p, after){ if(after > maxStok(p)) toast('⚠️ '+p.name+': di rak tercatat '+Math.max(0,maxStok(p))+', tetap dicatat'); }
+// ===== VARIAN PRODUK =====
+// Nama produk pakai tanda | → "Keripik Ani | Kecil | Bubuk" = induk | pilihan 1 | pilihan 2
+function vParts(p){ if(!p || !p.name || p.name.indexOf('|')<0) return null; const a=p.name.split('|').map(x=>x.trim()).filter(Boolean); return a.length>=2 ? a : null; }
+function dispName(p){ const a=vParts(p); return a ? a.join(' ') : p.name; }
+let _vGroups = [], vSel = null;
+function openVariant(gi){
+  const g = _vGroups[gi]; if(!g) return;
+  vSel = { g, opt1:null };
+  document.getElementById('v-title').textContent = g;
+  renderVariant(); openSheet('sheet-variant');
+}
+function vOptHtml(label, items, onclickFn, sel){
+  const prices = items.map(priceOf).filter(x=>x!=null);
+  const pr = prices.length ? (Math.min(...prices)===Math.max(...prices) ? rp(prices[0]) : rp(Math.min(...prices))+'+') : '-';
+  const stk = items.reduce((t,p)=>t+Math.max(0,p.stok||0),0);
+  return `<button class="v-opt${sel?' sel':''}" onclick="${onclickFn}"><div class="vn">${label}</div><div class="vs">Di rak: ${stk}</div><div class="vp">${pr}</div></button>`;
+}
+function renderVariant(){
+  const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g; });
+  const opt1 = [...new Set(vars.map(p=>vParts(p)[1]))];
+  let html = '<div class="v-step">1. Pilih</div><div class="v-opts">';
+  opt1.forEach((o,i)=>{
+    const items = vars.filter(p=>vParts(p)[1]===o);
+    const direct = items.length===1 && !vParts(items[0])[2];
+    html += vOptHtml(o, items, direct ? `pickVariant(${items[0].id})` : `vSel.opt1=${JSON.stringify(o).replace(/"/g,'&quot;')};renderVariant()`, vSel.opt1===o);
+  });
+  html += '</div>';
+  if(vSel.opt1){
+    const items = vars.filter(p=>vParts(p)[1]===vSel.opt1);
+    html += '<div class="v-step">2. Pilih</div><div class="v-opts">';
+    items.forEach(p=>{ html += vOptHtml(vParts(p).slice(2).join(' ')||vSel.opt1, [p], `pickVariant(${p.id})`, false); });
+    html += '</div>';
+  }
+  document.getElementById('v-body').innerHTML = html;
+}
+function pickVariant(id){ addToCart(id); closeSheet('sheet-variant'); }
 function addToCart(productId){
   const p = products.find(x=>x.id===productId);
   if(!p) return;
@@ -980,7 +1056,7 @@ function addToCart(productId){
   if(!ENFORCE_STOCK && inCart+1 > maxStok(p)){ overStockWarn(p, inCart+1); }
   const existing = cart.find(c=>c.product_id===productId && !c.is_gift);
   if(existing) existing.qty += 1;
-  else cart.push({ product_id:p.id, name:p.name, price:priceOf(p), qty:1, item_discount:0, is_gift:false, gift_reason:null });
+  else cart.push({ product_id:p.id, name:dispName(p), price:priceOf(p), qty:1, item_discount:0, is_gift:false, gift_reason:null });
   updateCartBar();
   toast(`${p.name} ditambahkan`);
 }
