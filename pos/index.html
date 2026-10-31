@@ -444,6 +444,7 @@ html[data-fs="3"]{--fs:1.5;}
     </div>
     <button class="sheet-btn primary" id="btn-ble" onclick="printBLE()" style="display:none;">🖨️ Print Bluetooth</button>
     <button class="sheet-btn primary" id="btn-thermal" onclick="printThermal()" style="display:none;">🖨️ Print Thermal (RawBT)</button>
+    <button class="sheet-btn ghost" id="btn-pdf" onclick="shareReceiptPDF()">📄 Kirim PDF (WhatsApp / Gmail)</button>
     <button class="sheet-btn ghost" onclick="window.print()">🖨️ Print Struk</button>
     <button class="sheet-btn ghost" id="btn-edit-tx" onclick="startEditTx()" style="display:none;">✏️ Edit Transaksi</button>
     <button class="sheet-btn primary" id="rc-next" onclick="closeReceiptSheet()">Transaksi Baru</button>
@@ -513,6 +514,7 @@ html[data-fs="3"]{--fs:1.5;}
 <div class="toast" id="toast"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 // ============================================================
 // KONEKSI SUPABASE PRODUCTION (database toko asli / LIVE)
@@ -1282,6 +1284,52 @@ async function printBLE(){
     else { toast('Gagal print: '+(e.message||e)); bleChar=null; }
   }
   btn.disabled = false; btn.textContent = orig;
+}
+// ===== EXPORT PDF STRUK (bagikan ke WA / Gmail) =====
+function renderReceiptCanvas(){
+  const S = 2, W = 384*S, PAD = 14*S;
+  const lines = buildReceiptText().replace(/\n+$/,'').split('\n');
+  const c = document.createElement('canvas'), ctx = c.getContext('2d');
+  ctx.font = (20*S)+'px "Courier New", monospace';
+  const cw = ctx.measureText('M').width;
+  const fs = Math.floor(20*S*(W-PAD*2)/(cw*32));
+  const lh = Math.round(fs*1.35);
+  const logoW = LOGO_W*S, logoH = LOGO_H*S;
+  c.width = W; c.height = PAD + logoH + 12*S + lines.length*lh + PAD;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
+  // logo dari bitmap struk
+  const raw = atob(LOGO_B64), id = ctx.createImageData(LOGO_W, LOGO_H), wB = LOGO_W/8;
+  for(let y=0;y<LOGO_H;y++) for(let x=0;x<LOGO_W;x++){
+    const on = raw.charCodeAt(y*wB + (x>>3)) & (0x80>>(x&7));
+    const k = (y*LOGO_W+x)*4; const v = on?0:255;
+    id.data[k]=id.data[k+1]=id.data[k+2]=v; id.data[k+3]=255;
+  }
+  const tmp = document.createElement('canvas'); tmp.width=LOGO_W; tmp.height=LOGO_H; tmp.getContext('2d').putImageData(id,0,0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(tmp, (W-logoW)/2, PAD, logoW, logoH);
+  ctx.fillStyle = '#000'; ctx.font = fs+'px "Courier New", monospace'; ctx.textBaseline = 'top';
+  let y = PAD + logoH + 12*S;
+  lines.forEach(l=>{ ctx.fillText(l, PAD, y); y += lh; });
+  return c;
+}
+async function shareReceiptPDF(){
+  try{
+    const c = renderReceiptCanvas();
+    const wMM = 58, hMM = wMM * c.height / c.width;
+    const doc = new window.jspdf.jsPDF({ unit:'mm', format:[wMM, hMM], orientation:'portrait' });
+    doc.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, wMM, hMM);
+    const r = lastReceiptData || {};
+    const isShift = (document.getElementById('rc-title').textContent||'').includes('Shift');
+    const name = (isShift ? 'tutup-shift' : 'struk-IB-'+(r.txId||'')) + '.pdf';
+    const file = new File([doc.output('blob')], name, { type:'application/pdf' });
+    if(navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title: name });
+    } else {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      toast('PDF terunduh, tinggal lampirkan di WA / Gmail');
+    }
+  }catch(e){ if(e && e.name==='AbortError') return; toast('Gagal bikin PDF: '+(e.message||e)); }
 }
 function printThermal(){
   const b64 = bytesToB64(buildReceiptBytes());
