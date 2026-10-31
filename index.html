@@ -923,6 +923,12 @@ body{ max-width:none; }
   <div class="modal-sheet pp-sheet"><div id="pm-detail-body"></div></div>
 </div>
 
+<!--MOVE-START-->
+<div class="modal-overlay" id="move-data-modal" onclick="if(event.target===this)closeMoveData()">
+  <div class="modal-sheet pp-sheet"><div id="move-data-body"></div></div>
+</div>
+<!--MOVE-END-->
+
 <!-- MODAL PROFIL PRODUK (tap nama di Beranda) -->
 <div class="modal-overlay" id="prod-profile-modal" onclick="if(event.target===this)closeProdProfile()">
   <div class="modal-sheet pp-sheet"><div id="pp-body"></div></div>
@@ -3594,6 +3600,62 @@ async function updateShelfLife(id, val, el) {
   if (statusEl) { statusEl.textContent='✓'; statusEl.className='price-save-status ok'; setTimeout(()=>{statusEl.textContent='';},1200); }
 }
 async function addCategory(){ const name=document.getElementById('new-cat-name').value.trim(); const el=document.getElementById('cat-status'); if(!name){el.textContent='Nama kosong';el.className='add-status err';return;} const mo=categories.length?Math.max.apply(null,categories.map(c=>c.sort_order)):0; const {error}=await sb.from('categories').insert({name,sort_order:mo+1}); if(error){el.textContent='Gagal: '+error.message;el.className='add-status err';}else{el.textContent='\u2713';el.className='add-status ok';document.getElementById('new-cat-name').value='';setTimeout(function(){el.textContent='';loadProductManagement();},800);} }
+// MOVE-START
+// ===== OPSI SEMENTARA: pindahkan data produk ke produk lain (Super Admin, login Google) =====
+let moveSrc = null;
+function moveDataButtonHtml(){ return '<div class="pd-sec">🔀 Pindahkan data <small style="font-weight:400;color:var(--text3)">(opsi sementara)</small></div><button class="mini-btn" onclick="openMoveData()">Pindahkan data ke produk lain…</button>'; }
+function closeMoveData(){ document.getElementById('move-data-modal').classList.remove('open'); if (moveSrc!==null && !products.find(p=>p.id===moveSrc)) closeProdDetail(); moveSrc=null; }
+async function countProdData(id){
+  const q = t => sb.from(t).select('id',{count:'exact',head:true}).eq('product_id',id);
+  const r = await Promise.all([q('stock_movements'),q('product_batches'),q('shipment_items')]);
+  return { mv:r[0].count||0, bt:r[1].count||0, sh:r[2].count||0 };
+}
+function moveOptionsHtml(q){
+  q = (q||'').toLowerCase();
+  return products.filter(p=>p.id!==moveSrc && (!q || dn(p.name).toLowerCase().includes(q)))
+    .sort((a,b)=>dn(a.name).localeCompare(dn(b.name)))
+    .map(p=>'<option value="'+p.id+'">'+finEsc(dn(p.name))+(p.is_active===false?' (nonaktif)':'')+'</option>').join('');
+}
+function moveFilter(q){ const s=document.getElementById('mv-target'); if(s) s.innerHTML='<option value="">— pilih produk tujuan —</option>'+moveOptionsHtml(q); }
+async function openMoveData(){
+  const src = products.find(p=>p.id===pmDetailId); if (!src) return;
+  moveSrc = src.id;
+  document.getElementById('move-data-modal').classList.add('open');
+  const body = document.getElementById('move-data-body');
+  body.innerHTML = '<div class="loading"><div class="spinner"></div>Menghitung data...</div>';
+  const n = await countProdData(src.id);
+  body.innerHTML = '<div class="modal-title">🔀 Pindahkan data</div><div class="modal-sub">Dari: <b>'+finEsc(dn(src.name))+'</b><br>Yang ikut pindah: '+n.mv+' catatan stok · '+n.bt+' batch · '+n.sh+' item kiriman</div>'
+    +'<div class="pd-sec">Ke produk</div><input class="kor-input" id="mv-search" placeholder="Cari produk tujuan..." oninput="moveFilter(this.value)" style="margin-bottom:8px">'
+    +'<select class="kor-input" id="mv-target"><option value="">— pilih produk tujuan —</option>'+moveOptionsHtml('')+'</select>'
+    +'<div class="pd-sec">Setelah dipindah, produk asal</div>'
+    +'<label class="bp-toggle" style="margin-top:2px"><input type="radio" name="mv-after" value="off" checked> Nonaktifkan (disarankan)</label>'
+    +'<label class="bp-toggle"><input type="radio" name="mv-after" value="hapus"> Hapus permanen</label>'
+    +'<label class="bp-toggle"><input type="radio" name="mv-after" value="biar"> Biarkan apa adanya</label>'
+    +'<div class="fin-note" style="margin-top:10px">Riwayat stok dan batch produk asal digabung ke produk tujuan. Pastikan keduanya memang produk yang sama. Harga dan pengaturan produk tujuan tidak berubah. Pemindahan tercatat di log database.</div>'
+    +'<div id="mv-status" class="price-save-status" style="display:block;margin:8px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeMoveData()">Batal</button><button class="save-btn save-in" id="mv-go" style="flex:2" onclick="runMoveData()">Pindahkan</button></div>';
+  body.dataset.counts = JSON.stringify(n);
+}
+async function runMoveData(){
+  const src = products.find(p=>p.id===moveSrc), tgt = products.find(p=>p.id===parseInt(document.getElementById('mv-target').value));
+  const st = document.getElementById('mv-status'), bad = m=>{ st.textContent=m; st.className='price-save-status err'; };
+  if (!src) return;
+  if (!tgt) return bad('Pilih produk tujuan dulu');
+  const n = JSON.parse(document.getElementById('move-data-body').dataset.counts||'{"mv":0,"bt":0,"sh":0}');
+  const after = (document.querySelector('input[name="mv-after"]:checked')||{}).value || 'off';
+  if (!confirm('Pindahkan semua data "'+dn(src.name)+'" ke "'+dn(tgt.name)+'"?\n\n'+n.mv+' catatan stok, '+n.bt+' batch, '+n.sh+' item kiriman.\n\nTidak bisa dibatalkan dari app.')) return;
+  const go = document.getElementById('mv-go'); if (go) go.disabled = true;
+  st.textContent = 'Memproses...'; st.className = 'price-save-status';
+  const { data, error } = await sb.rpc('move_product_data',{p_source:src.id,p_target:tgt.id});
+  if (error) { if (go) go.disabled=false; return bad('Gagal: '+error.message+(/Super Admin|permission|authenticated|JWT/i.test(error.message)?' (pastikan login dengan Google)':'')); }
+  if (after==='off') await sb.from('products').update({is_active:false}).eq('id',src.id);
+  await loadProducts(); await loadStockNow(); await checkShelfLifeAlert();
+  if (after==='hapus') { await deleteProduct(src.id, src.name); await loadProducts(); }
+  renderProdManageList();
+  const r = data || {};
+  document.getElementById('move-data-body').innerHTML = '<div class="modal-title">✓ Selesai</div><div class="modal-sub">'+(r.movements||0)+' catatan stok, '+(r.batches||0)+' batch, dan '+(r.shipment_items||0)+' item kiriman dipindahkan dari <b>'+finEsc(dn(src.name))+'</b> ke <b>'+finEsc(dn(tgt.name))+'</b>.'+(after==='off'?'<br>Produk asal dinonaktifkan.':after==='hapus'?'<br>Produk asal dihapus.':'')+'</div><button class="pp-close" onclick="closeMoveData()">Tutup</button>';
+}
+// MOVE-END
 // ===== KELOLA PRODUK: baris ringkas, varian, panel detail =====
 let pmOpenGroups = new Set(), pmDetailId = null, pmParentKey = null;
 function pmGroupKey(cid,parent){ return (cid==null?'':cid)+'|'+parent; }
@@ -3648,6 +3710,7 @@ function renderProdDetail(){
     +'<label class="bp-toggle"><input type="checkbox" '+(bpOn?'checked ':'')+'onchange="toggleBranchPrice('+p.id+',this.checked).then(refreshPmDetail)"> Harga beda per cabang</label>'+(bpOn?branchPriceBox(p):'')
     +'<div class="pd-sec">Lama simpan</div><div class="pd-row"><input class="kor-input mono" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:90px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
     +'<div class="pd-sec">Status</div><div class="pd-row"><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="pdToggle()">'+(p.is_active===false?'Aktifkan':'Nonaktifkan')+'</button><button class="del-btn" onclick="pdDelete()">🗑️ Hapus</button></div>'
+    +(typeof moveDataButtonHtml==='function'?moveDataButtonHtml():'')
     +'<button class="pp-close" onclick="closeProdDetail()">Selesai</button>';
   document.getElementById('pm-detail-body').innerHTML = h;
 }
