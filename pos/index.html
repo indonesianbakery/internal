@@ -300,6 +300,10 @@ html[data-fs="3"]{--fs:1.5;}
     <button class="out-btn" onclick="refreshPos()">↻</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
   </div>
+  <div id="tx-mode-banner" class="hidden" style="position:sticky;top:49px;z-index:19;background:#FEF3C7;color:#B45309;font-size:13px;font-weight:700;padding:9px 14px;display:flex;align-items:center;gap:8px;border-bottom:1.5px solid #F5D68A;">
+    <span id="tx-mode-text" style="flex:1;"></span>
+    <button onclick="cancelTxMode()" style="border:1.5px solid #B45309;background:#fff;color:#B45309;border-radius:8px;padding:5px 12px;font-weight:700;cursor:pointer;">Batal</button>
+  </div>
   <div id="pos-main">
     <div id="prod-search-wrap" style="display:flex;gap:8px;">
       <div style="position:relative;flex:1;display:flex;">
@@ -441,6 +445,7 @@ html[data-fs="3"]{--fs:1.5;}
     <button class="sheet-btn primary" id="btn-ble" onclick="printBLE()" style="display:none;">🖨️ Print Bluetooth</button>
     <button class="sheet-btn primary" id="btn-thermal" onclick="printThermal()" style="display:none;">🖨️ Print Thermal (RawBT)</button>
     <button class="sheet-btn ghost" onclick="window.print()">🖨️ Print Struk</button>
+    <button class="sheet-btn ghost" id="btn-edit-tx" onclick="startEditTx()" style="display:none;">✏️ Edit Transaksi</button>
     <button class="sheet-btn primary" id="rc-next" onclick="closeReceiptSheet()">Transaksi Baru</button>
   </div>
 </div>
@@ -479,12 +484,27 @@ html[data-fs="3"]{--fs:1.5;}
   </div>
 </div>
 
+<!-- ===== TRANSAKSI MANUAL ===== -->
+<div class="sheet-overlay" id="sheet-manual">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-manual')">✕</button>
+    <div class="sheet-title">➕ Transaksi Manual</div>
+    <div class="sheet-sub">Untuk transaksi yang lupa diinput. Stok & shift ikut jam yang dipilih.</div>
+    <div class="form-row">
+      <label class="form-lbl">Tanggal & jam transaksi</label>
+      <input class="form-inp" type="datetime-local" id="manual-ts">
+    </div>
+    <button class="sheet-btn primary" onclick="startManualTx()">Lanjut pilih produk</button>
+  </div>
+</div>
+
 <!-- ===== RIWAYAT SHEET ===== -->
 <div class="sheet-overlay" id="sheet-riwayat">
   <div class="sheet">
     <button class="sheet-close" onclick="closeSheet('sheet-riwayat')">✕</button>
     <div class="sheet-title">📜 Riwayat Transaksi</div>
     <input type="date" id="riwayat-date" onchange="openRiwayat()" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;margin-bottom:8px;">
+    <button class="sheet-btn ghost" id="btn-manual-tx" onclick="openManualSheet()" style="display:none;margin:0 0 8px;">➕ Tambah Transaksi Manual</button>
     <div class="sheet-sub" id="riwayat-sub"></div>
     <div id="riwayat-list"></div>
   </div>
@@ -723,6 +743,7 @@ function showShiftReceipt(d){
   document.getElementById('receipt-body').innerHTML = html;
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
+  document.getElementById('btn-edit-tx').style.display = 'none';
   document.getElementById('rc-title').textContent = '✅ Shift Ditutup';
   document.getElementById('rc-sub').textContent = 'Ringkasan shift';
   document.getElementById('rc-next').textContent = 'Buka Shift Baru';
@@ -741,7 +762,7 @@ setInterval(tickClock,1000); tickClock();
 
 function logoutPos(){
   const wasGoogle = currentUser && currentUser.mode==='google';
-  cart = []; discountTotal = 0; currentUser = null; currentBranch = null; currentShift = null;
+  cart = []; discountTotal = 0; currentUser = null; currentBranch = null; currentShift = null; txMode = null; renderTxBanner();
   document.getElementById('pin-nama').value='';
   ['p0','p1','p2','p3'].forEach(id=>document.getElementById(id).value='');
   if(wasGoogle) sb.auth.signOut();
@@ -860,12 +881,56 @@ function azJump(l){
 })();
 
 // ===== CART =====
+// ===== EDIT / TRANSAKSI MANUAL (master & manager) =====
+let txMode = null;
+function canManageTx(){ return !!currentUser && (currentUser.role==='master' || currentUser.role==='manager'); }
+function maxStok(p){ return (p.stok||0) + (txMode && txMode.type==='edit' ? (txMode.orig[p.id]||0) : 0); }
+function renderTxBanner(){
+  const b = document.getElementById('tx-mode-banner');
+  if(!txMode){ b.classList.add('hidden'); return; }
+  b.classList.remove('hidden');
+  document.getElementById('tx-mode-text').textContent = txMode.type==='edit'
+    ? '✏️ Mode edit transaksi #'+txMode.id
+    : '➕ Transaksi manual · '+txMode.ts.toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+}
+function cancelTxMode(){ txMode=null; cart=[]; discountTotal=0; updateCartBar(); renderTxBanner(); renderProducts(); }
+function startEditTx(){
+  if(!canManageTx()) return;
+  const r = (window._rwRows||[]).find(x=>x.id===(lastReceiptData&&lastReceiptData.txId));
+  if(!r){ toast('Buka lagi dari Riwayat'); return; }
+  const orig = {};
+  (r.pos_transaction_items||[]).forEach(i=>{ orig[i.product_id]=(orig[i.product_id]||0)+i.qty; });
+  txMode = { type:'edit', id:r.id, orig, pay:r.payment_method, cash:r.cash_received!=null?Number(r.cash_received):null, ts:new Date(r.created_at), cashier:r.cashier_name };
+  cart = (r.pos_transaction_items||[]).map(i=>({ product_id:i.product_id, name:i.product_name, price:Number(i.unit_price), qty:i.qty, item_discount:Number(i.item_discount)||0, is_gift:!!i.is_gift, gift_reason:i.gift_reason }));
+  discountTotal = Number(r.discount_total)||0;
+  closeSheet('sheet-receipt');
+  renderTxBanner(); updateCartBar(); renderProducts(); openCart();
+}
+function openManualSheet(){
+  if(!canManageTx()) return;
+  const now = new Date(Date.now()+7*3600000).toISOString().slice(0,16);
+  const tgl = document.getElementById('riwayat-date').value;
+  document.getElementById('manual-ts').value = (tgl && tgl!==now.slice(0,10)) ? tgl+'T12:00' : now;
+  closeSheet('sheet-riwayat');
+  openSheet('sheet-manual');
+}
+function startManualTx(){
+  const v = document.getElementById('manual-ts').value;
+  if(!v){ toast('Pilih tanggal & jam dulu'); return; }
+  const ts = new Date(v+':00+07:00');
+  if(ts > new Date()){ toast('Jam-nya gak boleh di masa depan'); return; }
+  txMode = { type:'manual', ts };
+  cart = []; discountTotal = 0;
+  closeSheet('sheet-manual');
+  renderTxBanner(); updateCartBar(); renderProducts();
+  toast('Pilih produk untuk transaksi manual');
+}
 function addToCart(productId){
   const p = products.find(x=>x.id===productId);
   if(!p) return;
-  if(p.stok<=0){ toast(p.name+' habis'); return; }
+  if(maxStok(p)<=0){ toast(p.name+' habis'); return; }
   const inCart = cart.filter(c=>c.product_id===productId).reduce((s,c)=>s+c.qty,0);
-  if(inCart >= p.stok){ toast('Max '+p.stok+' (sisa di rak)'); return; }
+  if(inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
   const existing = cart.find(c=>c.product_id===productId && !c.is_gift);
   if(existing) existing.qty += 1;
   else cart.push({ product_id:p.id, name:p.name, price:p.cost_price, qty:1, item_discount:0, is_gift:false, gift_reason:null });
@@ -923,7 +988,7 @@ function changeQty(i,delta){
   if(delta>0){
     const p = products.find(x=>x.id===cart[i].product_id);
     const inCart = cart.filter(c=>c.product_id===cart[i].product_id).reduce((s,c)=>s+c.qty,0);
-    if(p && inCart >= p.stok){ toast('Max '+p.stok+' (sisa di rak)'); return; }
+    if(p && inCart >= maxStok(p)){ toast('Max '+maxStok(p)+' (sisa di rak)'); return; }
   }
   cart[i].qty += delta;
   if(cart[i].qty<=0) cart.splice(i,1);
@@ -977,6 +1042,10 @@ function openPayment(){
   document.getElementById('customer-email-inp').value = '';
   document.getElementById('pay-total-sub').textContent = 'Total: ' + rp(calcGrandTotal());
   calcChange();
+  if(txMode && txMode.type==='edit'){
+    selectPayMethod(txMode.pay||'cash');
+    if(txMode.pay==='cash' && txMode.cash!=null){ cashInputStr=String(Math.round(txMode.cash)); document.getElementById('cash-display').textContent=Number(cashInputStr).toLocaleString('id-ID'); calcChange(); }
+  }
   openSheet('sheet-payment');
 }
 function selectPayMethod(m){
@@ -1026,11 +1095,11 @@ function calcChange(){
 
 async function confirmPayment(){
   const btn = document.getElementById('btn-confirm-pay');
-  if(currentShift){
+  if(!txMode && currentShift){
     const { data: chk } = await sb.from('pos_shifts').select('status').eq('id', currentShift.id).maybeSingle();
     if(!chk || chk.status!=='open') currentShift = null;
   }
-  if(!currentShift){ closeSheet('sheet-payment'); toast('Shift belum dibuka'); await loadShift(); return; }
+  if(!txMode && !currentShift){ closeSheet('sheet-payment'); toast('Shift belum dibuka'); await loadShift(); return; }
   const total = calcGrandTotal();
   let cashReceived = null;
   if(payMethod==='cash'){
@@ -1043,15 +1112,25 @@ async function confirmPayment(){
       product_id: c.product_id, product_name: c.name, qty: c.qty,
       unit_price: c.price, item_discount: c.item_discount, is_gift: c.is_gift, gift_reason: c.gift_reason
     }));
-    const { data, error } = await sb.rpc('create_pos_transaction', {
-      p_branch_id: currentBranch, p_cashier_name: currentUser.nama, p_payment_method: payMethod,
-      p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived, p_shift_id: currentShift.id
-    });
+    let rpcName = 'create_pos_transaction', args;
+    if(txMode && txMode.type==='edit'){
+      rpcName = 'update_pos_transaction';
+      args = { p_tx_id: txMode.id, p_editor: currentUser.nama, p_payment_method: payMethod, p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived };
+    } else {
+      args = { p_branch_id: currentBranch, p_cashier_name: currentUser.nama, p_payment_method: payMethod,
+        p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived,
+        p_shift_id: (txMode && txMode.type==='manual') ? null : currentShift.id };
+      if(txMode && txMode.type==='manual') args.p_created_at = txMode.ts.toISOString();
+    }
+    const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
-    lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data, ts:new Date() };
+    const wasMode = txMode;
+    lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
+      ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined };
     closeSheet('sheet-payment');
     showReceipt();
     cart = []; discountTotal = 0; updateCartBar();
+    if(wasMode){ txMode = null; renderTxBanner(); toast(wasMode.type==='edit' ? 'Transaksi #'+data+' diperbarui' : 'Transaksi manual #'+data+' tersimpan'); loadProducts(); }
   }catch(e){ toast('Koneksi gagal, coba lagi'); }
   btn.disabled = false; btn.textContent = 'Konfirmasi Bayar';
 }
@@ -1073,14 +1152,15 @@ async function openRiwayat(){
   const total = rows.reduce((s,r)=>s+Number(r.grand_total),0);
   document.getElementById('riwayat-sub').textContent = rows.length+' transaksi · Total '+rp(total);
   window._rwRows = rows;
+  document.getElementById('btn-manual-tx').style.display = canManageTx() ? '' : 'none';
   document.getElementById('riwayat-list').innerHTML = rows.map(r=>{
     const jam = new Date(r.created_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
     return `<div class="cart-item">
       <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
-        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦'}[r.payment_method]||''} ${r.payment_method}</div>
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
         <div class="ci-price">${items}</div>
-        <div class="ci-price">Kasir: ${r.cashier_name}</div>
+        <div class="ci-price">Kasir: ${r.cashier_name}${r.edited_by?' · diedit '+r.edited_by+' '+new Date(r.edited_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):''}</div>
       </div>
       <div class="mono" style="font-weight:800;color:var(--g);font-size:13px;">${rp(r.grand_total)}</div>
       <button class="ci-del" onclick="hapusTransaksi(${r.id})">✕</button>
@@ -1106,7 +1186,7 @@ function lihatStruk(id){
     subtotal: Number(r.subtotal), discountTotal: Number(r.discount_total), grand: Number(r.grand_total),
     payMethod: r.payment_method, cashReceived: r.cash_received!=null?Number(r.cash_received):null,
     change: r.cash_change!=null?Number(r.cash_change):null,
-    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name
+    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true
   };
   closeSheet('sheet-riwayat');
   showReceipt();
@@ -1117,6 +1197,7 @@ function showReceipt(){
   document.getElementById('rc-title').textContent = '✅ Transaksi Berhasil';
   document.getElementById('rc-sub').textContent = 'Struk transaksi';
   document.getElementById('rc-next').textContent = 'Transaksi Baru';
+  document.getElementById('btn-edit-tx').style.display = (canManageTx() && r.fromHistory) ? '' : 'none';
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer'}[r.payMethod];
