@@ -1103,6 +1103,7 @@ body{ max-width:none; }
         <button class="add-btn" style="flex:1;background:var(--b)" onclick="document.getElementById('xlsx-file-input').click()">⬆️ Update via Excel</button>
         <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this)">
       </div>
+      <div style="text-align:right;margin:-4px 0 10px"><button class="mini-btn" onclick="openImportHistory()">🕘 Riwayat import & batalkan</button></div>
       <div class="section-label">Tambah Produk</div>
       <div class="add-card">
         <input class="form-input" id="new-prod-name" placeholder="Nama produk...">
@@ -1558,6 +1559,10 @@ body{ max-width:none; }
       <button class="modal-save" id="xlsx-apply-btn" onclick="applyExcelUpdate()">Simpan Perubahan</button>
     </div>
   </div>
+</div>
+
+<div class="modal-overlay" id="imp-hist-modal" onclick="if(event.target===this)closeImportHistory()">
+  <div class="modal-sheet pp-sheet"><div id="imp-hist-body"></div></div>
 </div>
 
 <!-- RENAME MODAL -->
@@ -3293,19 +3298,34 @@ let pmDragMode = false;
 
 // ===== EXPORT / IMPORT EXCEL =====
 function exportProductsExcel(){
-  // "Harga (Rp)" = harga dasar. Kolom "Harga <cabang>" = harga yang berlaku di cabang itu (harga cabang kalau ada, kalau tidak harga dasar).
+  // Kolom nama dipecah: Induk + Pilihan 1 + Pilihan 2 (tanpa tanda |). Aplikasi menyusun "Induk | Pilihan 1 | Pilihan 2" saat import.
+  const bn = Object.keys(BRANCHES);
   const rows = products.map(p=>{
-    const cat = categories.find(c=>c.id===p.category_id);
-    const o = { ID: p.id, Nama: p.name, Kategori: cat ? cat.name : '', 'Harga (Rp)': p.cost_price||0 };
-    Object.keys(BRANCHES).forEach(b=>{ o['Harga '+BRANCHES[b]] = priceFor(p,b); });
+    const cat = categories.find(c=>c.id===p.category_id), np = nameParts(p.name);
+    const o = { ID:p.id, Induk:np.parent, 'Pilihan 1':np.opts[0]||'', 'Pilihan 2':np.opts[1]||'', 'Nama lengkap (info)':p.name, Kategori:cat?cat.name:'', 'Harga (Rp)':p.cost_price||0 };
+    bn.forEach(b=>{ o['Harga '+BRANCHES[b]] = priceFor(p,b); });
     o['Shelf Life (hari)'] = p.shelf_life_days||2;
     o.Status = p.is_active===false ? 'nonaktif' : 'aktif';
     return o;
   });
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [{wch:6},{wch:24},{wch:16},{wch:12}].concat(Object.keys(BRANCHES).map(()=>({wch:16}))).concat([{wch:16},{wch:10}]);
+  ws['!cols'] = [{wch:6},{wch:26},{wch:14},{wch:14},{wch:36},{wch:16},{wch:12}].concat(bn.map(()=>({wch:16}))).concat([{wch:16},{wch:10}]);
+  const guide = [
+    ['PETUNJUK PENGISIAN (sheet ini tidak ikut diimpor)'],[''],
+    ['1. JANGAN ubah atau hapus kolom ID. ID menjaga riwayat stok dan penjualan produk tetap menempel.'],
+    ['2. Nama produk = Induk + Pilihan 1 + Pilihan 2. Jangan mengetik tanda | sendiri; aplikasi menyusunnya.'],
+    ['3. Produk BARU: kosongkan ID, isi Induk (dan Pilihan bila varian), Kategori, dan Harga.'],
+    ['4. Kolom "Nama lengkap (info)" hanya petunjuk dan tidak dibaca.'],
+    ['5. Harga Jl. Melur / Jl. Delima: samakan dengan Harga (Rp) kalau tidak beda.'],
+    ['6. Status: aktif atau nonaktif.'],
+    ['7. Menghapus baris di file ini TIDAK menghapus produk. Untuk menghapus, pakai menu Kelola Produk.'],
+    ['8. Selesai mengedit: File > Unduh > Microsoft Excel (.xlsx), lalu Kelola Produk > Update via Excel.'],
+    ['9. Kalau ada masalah di file (nama kembar, kategori salah, dll), TIDAK ADA yang diterapkan sampai file diperbaiki.']
+  ];
+  const wg = XLSX.utils.aoa_to_sheet(guide); wg['!cols'] = [{wch:110}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Produk');
+  XLSX.utils.book_append_sheet(wb, wg, 'Petunjuk');
   const today = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, 'produk-indonesianbakery-'+today+'.xlsx');
 }
@@ -3349,41 +3369,73 @@ function handleExcelUpload(input){
   reader.readAsBinaryString(file);
 }
 
+let _xlsxNew = [];
+function xlStr(v){ return v==null ? '' : String(v).trim(); }
+function xlStatus(v){ const s=xlStr(v).toLowerCase(); if(s==='') return null; if(['aktif','ya','1','true'].includes(s)) return true; if(['nonaktif','non-aktif','non aktif','tidak aktif','tidak','0','false'].includes(s)) return false; return undefined; }
 function processExcelRows(rows){
-  _xlsxChanges = [];
+  _xlsxChanges = []; _xlsxNew = [];
   const errors = [];
+  const hasParts = rows.some(r=>r.Induk!=null || r['Pilihan 1']!=null || r['Pilihan 2']!=null);
+  const seenId = {};
+  const finalName = {}; products.forEach(p=>{ finalName[p.id] = {name:p.name, label:'ID '+p.id}; });
+  const newRows = [];
   rows.forEach((row,i)=>{
-    const id = parseInt(row.ID||row.id);
-    if(!id){ errors.push('Baris '+(i+2)+': ID kosong/invalid'); return; }
-    const p = products.find(x=>x.id===id);
-    if(!p){ errors.push('Baris '+(i+2)+': produk ID '+id+' tidak ditemukan'); return; }
-    const changes = {};
-    // Nama
-    const newName = (row.Nama||row.nama||'').toString().trim();
-    if(newName && newName!==p.name) changes.name = newName;
-    // Harga
-    const newHarga = row['Harga (Rp)']!=null ? parseFloat(row['Harga (Rp)']) : (row.Harga!=null?parseFloat(row.Harga):null);
-    if(newHarga!=null && !isNaN(newHarga) && newHarga!==p.cost_price) changes.cost_price = Math.max(0,newHarga);
-    // Harga per cabang (kolom "Harga <nama cabang>"; kosong = tidak diubah)
-    Object.keys(BRANCHES).forEach(b=>{
-      const raw = row['Harga '+BRANCHES[b]];
-      if(raw==null || String(raw).trim()==='') return;
-      const v = parseFloat(raw); if(isNaN(v)) return;
-      const nv = Math.max(0,v);
-      if(nv!==priceFor(p,b)){ if(!changes.branch_price) changes.branch_price = {}; changes.branch_price[b] = nv; }
-    });
-    // Shelf life
-    const newShelf = row['Shelf Life (hari)']!=null ? parseInt(row['Shelf Life (hari)']) : null;
-    if(newShelf!=null && !isNaN(newShelf) && newShelf!==p.shelf_life_days) changes.shelf_life_days = Math.max(1,newShelf);
-    // Kategori (by name)
-    const newCatName = (row.Kategori||row.kategori||'').toString().trim();
-    if(newCatName){
-      const cat = categories.find(c=>c.name.toLowerCase()===newCatName.toLowerCase());
-      if(!cat) errors.push('Baris '+(i+2)+': kategori "'+newCatName+'" tidak ada');
-      else if(cat.id!==p.category_id) changes.category_id = cat.id;
+    const line = 'Baris '+(i+2);
+    const idRaw = xlStr(row.ID!=null ? row.ID : row.id);
+    const induk = xlStr(row.Induk), p1 = xlStr(row['Pilihan 1']), p2 = xlStr(row['Pilihan 2']), legacy = xlStr(row.Nama!=null ? row.Nama : row.nama);
+    const anyContent = idRaw!=='' || induk || p1 || p2 || legacy || xlStr(row.Kategori) || xlStr(row['Harga (Rp)']);
+    if (!anyContent) return; // baris kosong
+    const isNew = idRaw==='';
+    // nama hasil susunan
+    let newName = null;
+    if (hasParts && induk) newName = joinName(induk,[p1,p2]);
+    else if (!hasParts && legacy) newName = legacy.replace(/\s+/g,' ');
+    // harga & turunannya
+    const parsePrice = (raw)=>{ const s=xlStr(raw); if(s==='') return null; const v=parseFloat(s); return isNaN(v) ? NaN : Math.max(0,v); };
+    const harga = parsePrice(row['Harga (Rp)']!=null ? row['Harga (Rp)'] : row.Harga);
+    if (Number.isNaN(harga)) { errors.push(line+': Harga (Rp) bukan angka'); return; }
+    const bprice = {};
+    let bad = false;
+    Object.keys(BRANCHES).forEach(b=>{ const v=parsePrice(row['Harga '+BRANCHES[b]]); if(Number.isNaN(v)){ errors.push(line+': Harga '+BRANCHES[b]+' bukan angka'); bad=true; } else if(v!=null) bprice[b]=v; });
+    if (bad) return;
+    const shelfRaw = xlStr(row['Shelf Life (hari)']); let shelf = null;
+    if (shelfRaw!=='') { shelf = parseInt(shelfRaw); if (isNaN(shelf)) { errors.push(line+': Shelf Life bukan angka'); return; } shelf = Math.max(1,shelf); }
+    const stat = xlStatus(row.Status);
+    if (stat===undefined) { errors.push(line+': Status "'+xlStr(row.Status)+'" tidak dikenal (pakai aktif atau nonaktif)'); return; }
+    const catName = xlStr(row.Kategori); let cat = null;
+    if (catName) { cat = categories.find(c=>c.name.toLowerCase()===catName.toLowerCase()); if (!cat) { errors.push(line+': kategori "'+catName+'" tidak ada'); return; } }
+
+    if (isNew) {
+      if (!newName) { errors.push(line+': produk baru butuh '+(hasParts?'Induk':'Nama')); return; }
+      if (!cat) { errors.push(line+': produk baru "'+newName+'" butuh Kategori'); return; }
+      const entry = {line, name:newName, category_id:cat.id, cost_price: harga==null?0:harga, shelf_life_days: shelf==null?2:shelf, is_active: stat===false?false:true, branch_price:{}};
+      Object.keys(bprice).forEach(b=>{ if(bprice[b]!==entry.cost_price) entry.branch_price[b]=bprice[b]; });
+      newRows.push(entry);
+      return;
     }
-    if(Object.keys(changes).length) _xlsxChanges.push({id, name:p.name, prod:p, changes});
+    const id = parseInt(idRaw);
+    if (!id) { errors.push(line+': ID "'+idRaw+'" tidak valid'); return; }
+    if (seenId[id]) { errors.push(line+': ID '+id+' muncul dua kali (juga di baris '+seenId[id]+')'); return; }
+    seenId[id] = i+2;
+    const p = products.find(x=>x.id===id);
+    if (!p) { errors.push(line+': produk ID '+id+' tidak ditemukan'); return; }
+    const changes = {};
+    if (newName && newName!==p.name) changes.name = newName;
+    if (harga!=null && harga!==p.cost_price) changes.cost_price = harga;
+    const baseNow = harga!=null ? harga : (p.cost_price||0);
+    Object.keys(bprice).forEach(b=>{ if (bprice[b]!==priceFor(p,b)) { if(!changes.branch_price) changes.branch_price={}; changes.branch_price[b]=bprice[b]; } });
+    if (shelf!=null && shelf!==p.shelf_life_days) changes.shelf_life_days = shelf;
+    if (cat && cat.id!==p.category_id) changes.category_id = cat.id;
+    if (stat!=null && stat!==(p.is_active!==false)) changes.is_active = stat;
+    finalName[id] = {name: changes.name||p.name, label:'ID '+id+' ('+line+')'};
+    if (Object.keys(changes).length) _xlsxChanges.push({id, name:p.name, prod:p, changes});
   });
+  // nama kembar (di dalam file maupun bentrok dengan produk lain)
+  const byLower = {};
+  Object.keys(finalName).forEach(id=>{ const k=finalName[id].name.toLowerCase(); (byLower[k]=byLower[k]||[]).push(finalName[id].label); });
+  newRows.forEach(n=>{ const k=n.name.toLowerCase(); (byLower[k]=byLower[k]||[]).push(n.line+' (baru)'); });
+  Object.keys(byLower).forEach(k=>{ if (byLower[k].length>1) errors.push('Nama kembar "'+dn(k)+'": '+byLower[k].join(', ')); });
+  _xlsxNew = newRows;
   renderXlsxPreview(errors);
 }
 
@@ -3391,60 +3443,83 @@ function renderXlsxPreview(errors){
   const wrap = document.getElementById('xlsx-preview');
   const sub = document.getElementById('xlsx-modal-sub');
   const applyBtn = document.getElementById('xlsx-apply-btn');
+  const cancelBtn = document.querySelector('#xlsx-modal .modal-cancel'); if (cancelBtn) cancelBtn.textContent = 'Batal';
   let html = '';
-  if(errors.length){
-    html += '<div style="background:var(--r-bg);color:var(--r);font-size:12px;padding:10px;border-radius:8px;margin:0 8px 10px"><b>⚠️ '+errors.length+' masalah:</b><br>'+errors.slice(0,8).join('<br>')+(errors.length>8?'<br>...':'')+'</div>';
+  if (errors.length) {
+    html += '<div style="background:var(--r-bg);color:var(--r);font-size:12px;padding:10px;border-radius:8px;margin:0 8px 10px"><b>⚠️ '+errors.length+' masalah, belum ada yang diterapkan:</b><br>'+errors.slice(0,10).map(finEsc).join('<br>')+(errors.length>10?'<br>...':'')+'<br><br>Perbaiki file lalu impor ulang.</div>';
   }
-  if(!_xlsxChanges.length){
-    html += '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px">Tidak ada perubahan terdeteksi'+(errors.length?' (atau semua baris bermasalah)':'')+'.</div>';
-    sub.textContent = 'Tidak ada yang diubah';
+  const nChg = _xlsxChanges.length, nNew = _xlsxNew.length;
+  if (!nChg && !nNew) {
+    if (!errors.length) html += '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px">Tidak ada perubahan terdeteksi.</div>';
+    sub.textContent = errors.length ? 'Ada masalah di file' : 'Tidak ada yang diubah';
     applyBtn.style.display = 'none';
   } else {
-    sub.textContent = _xlsxChanges.length+' produk akan diupdate';
-    applyBtn.style.display = '';
-    const labelMap = {name:'Nama', cost_price:'Harga', shelf_life_days:'Shelf life', category_id:'Kategori', branch_price:'Harga cabang'};
-    html += _xlsxChanges.map(ch=>{
-      const detail = Object.keys(ch.changes).map(k=>{
-        if(k==='branch_price') return Object.keys(ch.changes[k]).map(b=>'<div style="font-size:11px;color:var(--text2);margin-top:2px">Harga '+BRANCHES[b]+': <span style="color:var(--text3)">'+fmtRp(priceFor(ch.prod,b))+'</span> → <b style="color:var(--g)">'+fmtRp(ch.changes[k][b])+'</b></div>').join('');
-        let oldV, newV;
-        if(k==='category_id'){ oldV=(categories.find(c=>c.id===ch.prod.category_id)||{}).name||'-'; newV=(categories.find(c=>c.id===ch.changes[k])||{}).name; }
-        else if(k==='cost_price'){ oldV=fmtRp(ch.prod.cost_price||0); newV=fmtRp(ch.changes[k]); }
-        else { oldV=ch.prod[k]; newV=ch.changes[k]; }
-        return '<div style="font-size:11px;color:var(--text2);margin-top:2px">'+labelMap[k]+': <span style="color:var(--text3)">'+oldV+'</span> → <b style="color:var(--g)">'+newV+'</b></div>';
-      }).join('');
-      return '<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;margin:0 8px 6px"><div style="font-size:13px;font-weight:600">'+ch.name+'</div>'+detail+'</div>';
-    }).join('');
+    sub.textContent = [nChg?nChg+' produk diubah':'', nNew?nNew+' produk baru':''].filter(Boolean).join(' · ');
+    applyBtn.style.display = errors.length ? 'none' : '';
+    const labelMap = {name:'Nama', cost_price:'Harga', shelf_life_days:'Shelf life', category_id:'Kategori', branch_price:'Harga cabang', is_active:'Status'};
+    const card = (title, detail)=>'<div style="background:var(--surface);border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;margin:0 8px 6px"><div style="font-size:13px;font-weight:600">'+title+'</div>'+detail+'</div>';
+    const line = (t)=>'<div style="font-size:11px;color:var(--text2);margin-top:2px">'+t+'</div>';
+    html += _xlsxNew.map(n=>card('➕ '+finEsc(dn(n.name)),
+      line('Kategori: '+finEsc((categories.find(c=>c.id===n.category_id)||{}).name||'-')+' · Harga: '+fmtRp(n.cost_price)+' · '+n.shelf_life_days+' hari · '+(n.is_active?'aktif':'nonaktif'))
+      +Object.keys(n.branch_price).map(b=>line('Harga '+BRANCHES[b]+': '+fmtRp(n.branch_price[b]))).join(''))).join('');
+    html += _xlsxChanges.map(ch=>card(finEsc(dn(ch.name)), Object.keys(ch.changes).map(k=>{
+      if (k==='branch_price') return Object.keys(ch.changes[k]).map(b=>line('Harga '+BRANCHES[b]+': <span style="color:var(--text3)">'+fmtRp(priceFor(ch.prod,b))+'</span> → <b style="color:var(--g)">'+fmtRp(ch.changes[k][b])+'</b>')).join('');
+      let oldV, newV;
+      if (k==='category_id') { oldV=(categories.find(c=>c.id===ch.prod.category_id)||{}).name||'-'; newV=(categories.find(c=>c.id===ch.changes[k])||{}).name; }
+      else if (k==='cost_price') { oldV=fmtRp(ch.prod.cost_price||0); newV=fmtRp(ch.changes[k]); }
+      else if (k==='name') { oldV=dn(ch.prod.name); newV=dn(ch.changes[k]); }
+      else if (k==='is_active') { oldV=ch.prod.is_active===false?'nonaktif':'aktif'; newV=ch.changes[k]?'aktif':'nonaktif'; }
+      else { oldV=ch.prod[k]; newV=ch.changes[k]; }
+      return line(labelMap[k]+': <span style="color:var(--text3)">'+finEsc(String(oldV))+'</span> → <b style="color:var(--g)">'+finEsc(String(newV))+'</b>');
+    }).join(''))).join('');
   }
   wrap.innerHTML = html;
   document.getElementById('xlsx-status').textContent = '';
   document.getElementById('xlsx-modal').classList.add('open');
 }
 
-function closeXlsxModal(){ document.getElementById('xlsx-modal').classList.remove('open'); _xlsxChanges=[]; }
+function closeXlsxModal(){ document.getElementById('xlsx-modal').classList.remove('open'); _xlsxChanges=[]; _xlsxNew=[]; }
 
 async function applyExcelUpdate(){
-  if(!_xlsxChanges.length){ closeXlsxModal(); return; }
-  const st = document.getElementById('xlsx-status');
-  st.textContent = 'Menyimpan...'; st.className='modal-status';
-  let bpErr = 0;
-  for(const ch of _xlsxChanges){
-    const prodChanges = Object.assign({}, ch.changes); delete prodChanges.branch_price;
-    if(Object.keys(prodChanges).length) await sb.from('products').update(prodChanges).eq('id', ch.id);
-    if(ch.changes.branch_price){
-      const base = prodChanges.cost_price!=null ? prodChanges.cost_price : (ch.prod.cost_price||0);
-      for(const b of Object.keys(ch.changes.branch_price)){
-        const nv = ch.changes.branch_price[b];
-        const d = await sb.from('product_branch_prices').delete().eq('product_id',ch.id).eq('branch_id',b);
-        if(d && d.error){ bpErr++; continue; }
-        if(nv!==base){ const ins = await sb.from('product_branch_prices').insert({product_id:ch.id,branch_id:b,price:nv}); if(ins && ins.error) bpErr++; } // sama dengan harga dasar = tidak perlu harga cabang
-      }
-    }
-  }
-  await loadProducts();
-  const nUpd = _xlsxChanges.length;
-  if(bpErr){ st.textContent = '⚠️ '+nUpd+' produk diupdate, tapi '+bpErr+' harga cabang gagal disimpan'; st.className='modal-status'; }
-  else { st.textContent = '✓ '+nUpd+' produk berhasil diupdate'; st.className='modal-status ok'; }
-  setTimeout(()=>{ closeXlsxModal(); renderProdManageList(); }, 1000);
+  if (!_xlsxChanges.length && !_xlsxNew.length) { closeXlsxModal(); return; }
+  const st = document.getElementById('xlsx-status'), applyBtn = document.getElementById('xlsx-apply-btn');
+  st.textContent = 'Menyimpan...'; st.className='modal-status'; applyBtn.disabled = true;
+  const upd = _xlsxChanges.map(ch=>Object.assign({id:ch.id}, ch.changes));
+  const nw = _xlsxNew.map(n=>({name:n.name,category_id:n.category_id,cost_price:n.cost_price,shelf_life_days:n.shelf_life_days,is_active:n.is_active,branch_price:n.branch_price}));
+  const ringkas = [upd.length?upd.length+' produk diubah':'', nw.length?nw.length+' produk baru':''].filter(Boolean).join(', ');
+  // satu langkah atomik di database + foto kondisi sebelumnya (bisa dibatalkan)
+  const { data, error } = await sb.rpc('apply_product_import',{p_updates:upd,p_new:nw});
+  applyBtn.disabled = false;
+  if (error) { st.textContent = 'Gagal, TIDAK ADA yang diubah: '+error.message+(/Super Admin|permission|authenticated|JWT/i.test(error.message)?' (pastikan login dengan Google)':''); st.className='modal-status'; return; }
+  await loadProducts(); await loadStockNow(); await checkShelfLifeAlert(); renderProdManageList();
+  _xlsxChanges = []; _xlsxNew = [];
+  applyBtn.style.display = 'none';
+  const cancelBtn = document.querySelector('#xlsx-modal .modal-cancel'); if (cancelBtn) cancelBtn.textContent = 'Tutup';
+  document.getElementById('xlsx-modal-sub').textContent = 'Selesai';
+  st.textContent = ''; st.className = 'modal-status';
+  document.getElementById('xlsx-preview').innerHTML = '<div style="text-align:center;padding:18px 8px"><div style="font-size:14px;font-weight:700;color:var(--g)">✓ '+finEsc(ringkas)+' berhasil disimpan</div><div style="font-size:12px;color:var(--text2);margin:8px 0 14px">Kalau hasilnya tidak sesuai, import ini bisa dibatalkan dan semua kembali seperti semula.</div><button class="del-btn" onclick="undoImport('+(data&&data.snapshot_id)+')">↩️ Batalkan import ini</button></div>';
+}
+async function undoImport(id){
+  if (!confirm('Batalkan import ini?\n\nSemua perubahan produk dari import itu dikembalikan ke kondisi sebelumnya. Produk baru hasil import dihapus (atau dinonaktifkan kalau sudah terpakai).')) return;
+  const { data, error } = await sb.rpc('undo_product_import',{p_snapshot:id});
+  if (error) { alert('Gagal membatalkan: '+error.message+(/Super Admin|permission|authenticated|JWT/i.test(error.message)?' (pastikan login dengan Google)':'')); return; }
+  await loadProducts(); await loadStockNow(); await checkShelfLifeAlert(); renderProdManageList();
+  const r = data || {};
+  alert('✓ Import dibatalkan: '+(r.restored||0)+' produk dikembalikan'+(r.deleted_new?', '+r.deleted_new+' produk baru dihapus':'')+(r.deactivated_new?', '+r.deactivated_new+' produk baru dinonaktifkan (sudah terpakai)':'')+'.');
+  closeXlsxModal(); closeImportHistory();
+}
+function closeImportHistory(){ document.getElementById('imp-hist-modal').classList.remove('open'); }
+async function openImportHistory(){
+  const body = document.getElementById('imp-hist-body');
+  document.getElementById('imp-hist-modal').classList.add('open');
+  body.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  const { data, error } = await sb.rpc('list_product_imports');
+  if (error) { body.innerHTML = '<div class="modal-sub" style="color:var(--r)">Gagal memuat: '+finEsc(error.message)+(/Super Admin|permission|authenticated|JWT/i.test(error.message)?' (pastikan login dengan Google)':'')+'</div><button class="pp-close" onclick="closeImportHistory()">Tutup</button>'; return; }
+  const rows = data || [];
+  const fmt = ts=>new Date(ts).toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  body.innerHTML = '<div class="modal-title">🕘 Riwayat import</div><div class="modal-sub">Hanya import terbaru yang bisa dibatalkan (urut dari yang terakhir).</div>'
+    + (rows.length ? rows.map(r=>'<div class="pd-row" style="margin-bottom:8px;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px"><div style="flex:1"><div style="font-size:13px;font-weight:600">'+fmt(r.created_at)+'</div><div class="pm2-sub">'+finEsc(r.summary||'')+(r.undone?' · <b>sudah dibatalkan</b>':'')+'</div></div>'+(r.can_undo?'<button class="del-btn" onclick="undoImport('+r.id+')">↩️ Batalkan</button>':'')+'</div>').join('') : '<div style="text-align:center;color:var(--text3);padding:20px;font-size:13px">Belum ada import.</div>')
+    + '<button class="pp-close" onclick="closeImportHistory()">Tutup</button>';
 }
 
 function pmToggleDrag(){
