@@ -3607,8 +3607,8 @@ function moveDataButtonHtml(){ return '<div class="pd-sec">🔀 Pindahkan data <
 function closeMoveData(){ document.getElementById('move-data-modal').classList.remove('open'); if (moveSrc!==null && !products.find(p=>p.id===moveSrc)) closeProdDetail(); moveSrc=null; }
 async function countProdData(id){
   const q = t => sb.from(t).select('id',{count:'exact',head:true}).eq('product_id',id);
-  const r = await Promise.all([q('stock_movements'),q('product_batches'),q('shipment_items')]);
-  return { mv:r[0].count||0, bt:r[1].count||0, sh:r[2].count||0 };
+  const r = await Promise.all([q('stock_movements'),q('product_batches'),q('shipment_items'),q('pos_transaction_items'),q('stock_log')]);
+  return { mv:r[0].count||0, bt:r[1].count||0, sh:r[2].count||0, pi:r[3].count||0, sl:r[4].count||0 };
 }
 function moveOptionsHtml(q){
   q = (q||'').toLowerCase();
@@ -3624,7 +3624,7 @@ async function openMoveData(){
   const body = document.getElementById('move-data-body');
   body.innerHTML = '<div class="loading"><div class="spinner"></div>Menghitung data...</div>';
   const n = await countProdData(src.id);
-  body.innerHTML = '<div class="modal-title">🔀 Pindahkan data</div><div class="modal-sub">Dari: <b>'+finEsc(dn(src.name))+'</b><br>Yang ikut pindah: '+n.mv+' catatan stok · '+n.bt+' batch · '+n.sh+' item kiriman</div>'
+  body.innerHTML = '<div class="modal-title">🔀 Pindahkan data</div><div class="modal-sub">Dari: <b>'+finEsc(dn(src.name))+'</b><br>Yang ikut pindah: '+n.mv+' catatan stok · '+n.bt+' batch · '+n.sh+' item kiriman · '+n.pi+' item penjualan POS · '+n.sl+' log lama</div>'
     +'<div class="pd-sec">Ke produk</div><input class="kor-input" id="mv-search" placeholder="Cari produk tujuan..." oninput="moveFilter(this.value)" style="margin-bottom:8px">'
     +'<select class="kor-input" id="mv-target"><option value="">— pilih produk tujuan —</option>'+moveOptionsHtml('')+'</select>'
     +'<div class="pd-sec">Setelah dipindah, produk asal</div>'
@@ -3641,9 +3641,9 @@ async function runMoveData(){
   const st = document.getElementById('mv-status'), bad = m=>{ st.textContent=m; st.className='price-save-status err'; };
   if (!src) return;
   if (!tgt) return bad('Pilih produk tujuan dulu');
-  const n = JSON.parse(document.getElementById('move-data-body').dataset.counts||'{"mv":0,"bt":0,"sh":0}');
+  const n = JSON.parse(document.getElementById('move-data-body').dataset.counts||'{"mv":0,"bt":0,"sh":0,"pi":0,"sl":0}');
   const after = (document.querySelector('input[name="mv-after"]:checked')||{}).value || 'off';
-  if (!confirm('Pindahkan semua data "'+dn(src.name)+'" ke "'+dn(tgt.name)+'"?\n\n'+n.mv+' catatan stok, '+n.bt+' batch, '+n.sh+' item kiriman.\n\nTidak bisa dibatalkan dari app.')) return;
+  if (!confirm('Pindahkan semua data "'+dn(src.name)+'" ke "'+dn(tgt.name)+'"?\n\n'+n.mv+' catatan stok, '+n.bt+' batch, '+n.sh+' item kiriman, '+n.pi+' item penjualan POS, '+n.sl+' log lama.\n\nTidak bisa dibatalkan dari app.')) return;
   const go = document.getElementById('mv-go'); if (go) go.disabled = true;
   st.textContent = 'Memproses...'; st.className = 'price-save-status';
   const { data, error } = await sb.rpc('move_product_data',{p_source:src.id,p_target:tgt.id});
@@ -3653,7 +3653,7 @@ async function runMoveData(){
   if (after==='hapus') { await deleteProduct(src.id, src.name); await loadProducts(); }
   renderProdManageList();
   const r = data || {};
-  document.getElementById('move-data-body').innerHTML = '<div class="modal-title">✓ Selesai</div><div class="modal-sub">'+(r.movements||0)+' catatan stok, '+(r.batches||0)+' batch, dan '+(r.shipment_items||0)+' item kiriman dipindahkan dari <b>'+finEsc(dn(src.name))+'</b> ke <b>'+finEsc(dn(tgt.name))+'</b>.'+(after==='off'?'<br>Produk asal dinonaktifkan.':after==='hapus'?'<br>Produk asal dihapus.':'')+'</div><button class="pp-close" onclick="closeMoveData()">Tutup</button>';
+  document.getElementById('move-data-body').innerHTML = '<div class="modal-title">✓ Selesai</div><div class="modal-sub">'+(r.movements||0)+' catatan stok, '+(r.batches||0)+' batch, dan '+(r.shipment_items||0)+' item kiriman dipindahkan (plus '+(r.pos_items||0)+' item penjualan POS dan '+(r.stock_log||0)+' log lama) dari <b>'+finEsc(dn(src.name))+'</b> ke <b>'+finEsc(dn(tgt.name))+'</b>.'+(after==='off'?'<br>Produk asal dinonaktifkan.':after==='hapus'?'<br>Produk asal dihapus.':'')+'</div><button class="pp-close" onclick="closeMoveData()">Tutup</button>';
 }
 // MOVE-END
 // ===== KELOLA PRODUK: baris ringkas, varian, panel detail =====
@@ -3846,21 +3846,25 @@ async function addProduct(){
 async function moveProductCategory(id,cid){ const {error}=await sb.from('products').update({category_id:cid?parseInt(cid):null}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
 async function toggleProduct(id,active){ const {error}=await sb.from('products').update({is_active:!active}).eq('id',id); if(error)alert('Gagal: '+error.message); else { await loadProducts(); renderProdManageList(); } }
 async function deleteProduct(id, nama){
-  const { count } = await sb.from('stock_movements').select('id',{count:'exact',head:true}).eq('product_id', id);
-  if (count && count > 0) {
-    const lanjut = confirm('⚠️ "'+nama+'" punya '+count+' catatan riwayat.\n\nKalau dihapus permanen, riwayatnya ikut hilang dan bisa bikin dashboard tidak akurat.\n\nLEBIH AMAN pilih "Nonaktif" (produk disembunyikan tapi riwayat aman).\n\nTetap mau hapus permanen?');
+  const cnt = async t => ((await sb.from(t).select('id',{count:'exact',head:true}).eq('product_id',id)).count)||0;
+  // 1) periksa penghalang SEBELUM bertanya apa pun
+  const pos = await cnt('pos_transaction_items'), slog = await cnt('stock_log');
+  if (pos>0 || slog>0) {
+    alert('"'+dn(nama)+'" tidak bisa dihapus permanen: masih ada '+[pos?pos+' item riwayat penjualan POS':'', slog?slog+' catatan log stok lama':''].filter(Boolean).join(' dan ')+'.\n\nPilih "Nonaktifkan" (riwayat aman), atau pindahkan datanya ke produk lain dulu lewat "Pindahkan data ke produk lain", baru hapus.');
+    return;
+  }
+  const count = await cnt('stock_movements');
+  if (count > 0) {
+    const lanjut = confirm('⚠️ "'+dn(nama)+'" punya '+count+' catatan riwayat.\n\nKalau dihapus permanen, riwayatnya ikut hilang dan bisa bikin dashboard tidak akurat.\n\nLEBIH AMAN pilih "Nonaktif" (produk disembunyikan tapi riwayat aman).\n\nTetap mau hapus permanen?');
     if (!lanjut) return;
     const ketik = prompt('Untuk konfirmasi hapus permanen, ketik ulang nama produk:\n'+nama);
     if (ketik !== nama) { if(ketik!==null) alert('Nama tidak cocok, dibatalkan.'); return; }
-    await sb.from('stock_movements').delete().eq('product_id', id);
   } else {
-    if (!confirm('Hapus permanen "'+nama+'"? Produk ini belum punya riwayat, jadi aman dihapus.')) return;
+    if (!confirm('Hapus permanen "'+dn(nama)+'"? Produk ini belum punya riwayat, jadi aman dihapus.')) return;
   }
-  // hapus juga referensi shipment_items kalau ada, lalu stock & produk
-  await sb.from('shipment_items').delete().eq('product_id', id);
-  await sb.from('stock').delete().eq('product_id', id);
-  const { error } = await sb.from('products').delete().eq('id', id);
-  if (error) { alert('Gagal hapus: '+error.message); return; }
+  // 2) hapus secara atomik di database: semua terhapus, atau tidak ada yang terhapus
+  const { error } = await sb.rpc('delete_product_safe',{p_id:id});
+  if (error) { alert(/BLOKIR/.test(error.message) ? error.message.replace(/^BLOKIR:\s*/,'') : 'Gagal hapus: '+error.message+(/Super Admin|permission|authenticated|JWT/i.test(error.message)?' (pastikan login dengan Google)':'')+'\n\nTidak ada data yang dihapus.'); return; }
   await loadProducts(); renderProdManageList();
 }
 
