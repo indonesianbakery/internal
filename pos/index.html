@@ -253,6 +253,18 @@ body.gofood-mode .prod-card .pr{color:#00880F;}
 .v-opt .vs{font-size:11px;color:var(--text3);margin-top:2px;}
 .v-opt .vp{font-size:12px;font-weight:800;color:var(--g);font-family:'DM Mono',monospace;margin-top:4px;}
 .prod-card .vtag{font-size:10px;font-weight:700;color:var(--g);background:var(--g-bg);border-radius:5px;padding:1px 6px;align-self:flex-start;}
+#receipt-body .rc-sub span:first-child{padding-left:12px;color:#555;}
+#receipt-body .rc-item{margin-top:4px;}
+.v-tabs{display:flex;gap:8px;flex-wrap:wrap;}
+.v-tab{border:1.5px solid var(--border);border-radius:20px;background:#fff;padding:8px 16px;font-family:inherit;font-size:14px;font-weight:800;color:var(--text2);cursor:pointer;}
+.v-tab.sel{background:var(--g);border-color:var(--g);color:#fff;}
+.v-qty{display:flex;align-items:center;justify-content:space-between;margin-top:8px;gap:6px;}
+.v-qty button{width:32px;height:32px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-size:18px;font-weight:700;cursor:pointer;}
+.v-qty span{font-family:'DM Mono',monospace;font-weight:800;font-size:15px;}
+#sheet-riwayat .sheet{overflow-x:hidden;}
+#riwayat-list{overflow-x:hidden;}
+#riwayat-list .cart-item{min-width:0;max-width:100%;}
+#riwayat-list .ci-main{min-width:0;overflow-wrap:anywhere;}
 </style>
 </head>
 <body>
@@ -1019,7 +1031,7 @@ function dispName(p){ const a=vParts(p); return a ? a.join(' ') : p.name; }
 let _vGroups = [], vSel = null;
 function openVariant(gi){
   const g = _vGroups[gi]; if(!g) return;
-  vSel = { g, opt1:null };
+  vSel = { g, opt1:null, qty:{} };
   document.getElementById('v-title').textContent = g;
   renderVariant(); openSheet('sheet-variant');
 }
@@ -1031,21 +1043,46 @@ function vOptHtml(label, items, onclickFn, sel){
 }
 function renderVariant(){
   const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g; });
-  const opt1 = [...new Set(vars.map(p=>vParts(p)[1]))];
-  let html = '<div class="v-step">1. Pilih</div><div class="v-opts">';
-  opt1.forEach((o,i)=>{
-    const items = vars.filter(p=>vParts(p)[1]===o);
-    const direct = items.length===1 && !vParts(items[0])[2];
-    html += vOptHtml(o, items, direct ? `pickVariant(${items[0].id})` : `vSel.opt1=${JSON.stringify(o).replace(/"/g,'&quot;')};renderVariant()`, vSel.opt1===o);
+  const twoLevel = vars.some(p=>vParts(p).length>=3);
+  if(!vSel.qty) vSel.qty = {};
+  let html = '';
+  let leaf = vars;
+  if(twoLevel){
+    const opt1 = [...new Set(vars.map(p=>vParts(p)[1]))];
+    if(!vSel.opt1) vSel.opt1 = opt1[0];
+    html += '<div class="v-step">1. Pilih</div><div class="v-tabs">';
+    opt1.forEach(o=>{
+      const n = vars.filter(p=>vParts(p)[1]===o).reduce((t,p)=>t+(vSel.qty[p.id]||0),0);
+      html += `<button class="v-tab${vSel.opt1===o?' sel':''}" onclick="vSel.opt1=${JSON.stringify(o).replace(/"/g,'&quot;')};renderVariant()">${o}${n?` <b>(${n})</b>`:''}</button>`;
+    });
+    html += '</div>';
+    leaf = vars.filter(p=>vParts(p)[1]===vSel.opt1);
+  }
+  html += `<div class="v-step">${twoLevel?'2. Pilih & atur jumlah':'Pilih & atur jumlah'}</div><div class="v-opts">`;
+  leaf.forEach(p=>{
+    const a = vParts(p), label = twoLevel ? (a.slice(2).join(' ')||a[1]) : a.slice(1).join(' ');
+    const q = vSel.qty[p.id]||0, pr = priceOf(p);
+    html += `<div class="v-opt${q?' sel':''}" onclick="vAdj(${p.id},1)">
+      <div class="vn">${label}</div><div class="vs">Di rak: ${Math.max(0,p.stok||0)}</div><div class="vp">${pr==null?'-':rp(pr)}</div>
+      <div class="v-qty" onclick="event.stopPropagation()"><button onclick="vAdj(${p.id},-1)">−</button><span>${q}</span><button onclick="vAdj(${p.id},1)">+</button></div>
+    </div>`;
   });
   html += '</div>';
-  if(vSel.opt1){
-    const items = vars.filter(p=>vParts(p)[1]===vSel.opt1);
-    html += '<div class="v-step">2. Pilih</div><div class="v-opts">';
-    items.forEach(p=>{ html += vOptHtml(vParts(p).slice(2).join(' ')||vSel.opt1, [p], `pickVariant(${p.id})`, false); });
-    html += '</div>';
-  }
+  const ids = Object.keys(vSel.qty).filter(id=>vSel.qty[id]>0);
+  const tot = ids.reduce((t,id)=>{ const p=products.find(x=>x.id==id); return t+(p&&priceOf(p)!=null?priceOf(p)*vSel.qty[id]:0); },0);
+  const cnt = ids.reduce((t,id)=>t+vSel.qty[id],0);
+  html += `<button class="sheet-btn primary" style="margin-top:14px;" ${cnt?'':'disabled'} onclick="vCommit()">Tambah ${cnt?cnt+' item · '+rp(tot):''}</button>`;
   document.getElementById('v-body').innerHTML = html;
+}
+function vAdj(id, d){
+  const p = products.find(x=>x.id===id); if(!p) return;
+  if(d>0 && priceOf(p)==null){ if(canManageTx()) setGofoodPrice(p.id); else toast('Harga GoFood belum diisi, minta manager'); return; }
+  vSel.qty[id] = Math.max(0,(vSel.qty[id]||0)+d);
+  renderVariant();
+}
+function vCommit(){
+  Object.keys(vSel.qty).forEach(id=>{ for(let i=0;i<vSel.qty[id];i++) addToCart(Number(id)); });
+  closeSheet('sheet-variant');
 }
 function pickVariant(id){ addToCart(id); closeSheet('sheet-variant'); }
 function addToCart(productId){
@@ -1159,6 +1196,7 @@ function saveDiscountTotal(){
 // ===== PAYMENT =====
 let cashInputStr = '';
 function openPayment(){
+  payRef = newPayRef();
   closeSheet('sheet-cart');
   payMethod = 'cash';
   cashInputStr = '';
@@ -1222,8 +1260,16 @@ function calcChange(){
   document.getElementById('btn-confirm-pay').disabled = (payMethod==='cash' && change<0);
 }
 
+let _paying = false, payRef = null;
+function newPayRef(){ return (crypto.randomUUID ? crypto.randomUUID() : Date.now()+'-'+Math.random().toString(36).slice(2)); }
 async function confirmPayment(){
+  if(_paying) return;
+  _paying = true;
+  try { await _confirmPayment(); } finally { _paying = false; }
+}
+async function _confirmPayment(){
   const btn = document.getElementById('btn-confirm-pay');
+  if(!cart.length){ toast('Keranjang kosong'); return; }
   if(!txMode && currentShift){
     const { data: chk } = await sb.from('pos_shifts').select('status').eq('id', currentShift.id).maybeSingle();
     if(!chk || chk.status!=='open') currentShift = null;
@@ -1250,6 +1296,8 @@ async function confirmPayment(){
         p_items: items, p_discount_total: discountTotal, p_cash_received: cashReceived,
         p_shift_id: (txMode && txMode.type==='manual') ? null : currentShift.id };
       if(txMode && txMode.type==='manual') args.p_created_at = txMode.ts.toISOString();
+      if(!payRef) payRef = newPayRef();
+      args.p_client_ref = payRef;
     }
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
@@ -1333,7 +1381,9 @@ function showReceipt(){
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', gofood:'GoFood'}[r.payMethod];
   let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}</div><hr>`;
   r.items.forEach(c=>{
-    html += `<div class="rc-row"><span>${c.qty}x ${c.name}${c.is_gift?' (GRATIS)':''}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty-c.item_discount)}</span></div>`;
+    html += `<div class="rc-item">${c.name}${c.is_gift?' (GRATIS)':''}</div>`;
+    html += `<div class="rc-row rc-sub"><span>${c.qty} x @${rp(c.price)}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty)}</span></div>`;
+    if(!c.is_gift && c.item_discount>0) html += `<div class="rc-row rc-sub"><span>Diskon</span><span>-${rp(c.item_discount)}</span></div>`;
   });
   html += `<hr><div class="rc-row"><span>Subtotal</span><span>${rp(r.subtotal)}</span></div>`;
   if(r.discountTotal>0) html += `<div class="rc-row"><span>Diskon</span><span>-${rp(r.discountTotal)}</span></div>`;
@@ -1370,7 +1420,8 @@ function buildReceiptText(){
   [...body.children].forEach(el=>{
     if(el.tagName==='HR'){ lines.push('-'.repeat(RC_W)); return; }
     if(el.classList.contains('rc-hd')){ el.innerHTML.split(/<br\s*\/?>|<\/b>/i).forEach(part=>{ const d=document.createElement('div'); d.innerHTML=part; const t=d.textContent; if(rcClean(t) && rcClean(t).toLowerCase()!=='indonesian bakery') lines.push(rcCenter(t)); }); return; }
-    if(el.classList.contains('rc-row')){ const sp=el.querySelectorAll('span'); lines.push(rcLR(sp[0]?sp[0].textContent:'', sp[1]?sp[1].textContent:'')); return; }
+    if(el.classList.contains('rc-row')){ const sp=el.querySelectorAll('span'); const sub=el.classList.contains('rc-sub'); const L=(sub?'  ':'')+rcClean(sp[0]?sp[0].textContent:''); const R=rcClean(sp[1]?sp[1].textContent:''); const gap=RC_W-L.length-R.length; lines.push(gap>=1 ? L+' '.repeat(gap)+R : rcLR(L,R)); return; }
+    if(el.classList.contains('rc-item')){ lines.push(rcWrap(el.textContent)); return; }
     const t = el.textContent; if(rcClean(t)) lines.push(el.style.textAlign==='center'?rcCenter(t):rcWrap(t));
   });
   return lines.join('\n') + '\n\n\n\n';
