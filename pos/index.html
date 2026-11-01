@@ -265,6 +265,11 @@ body.gofood-mode .prod-card .pr{color:#00880F;}
 #riwayat-list{overflow-x:hidden;}
 #riwayat-list .cart-item{min-width:0;max-width:100%;}
 #riwayat-list .ci-main{min-width:0;overflow-wrap:anywhere;}
+#sheet-channel.open{align-items:center;padding:16px;}
+#sheet-channel .sheet{border-radius:20px;max-width:640px;}
+body.pl-mode #ch-toggle{background:#1565C0;border-color:#1565C0;color:#fff;}
+body.pl-mode #cart-bar{background:#1565C0;}
+.pl-tag{font-size:9px;font-weight:800;background:#E3F2FD;color:#1565C0;border-radius:5px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -534,6 +539,17 @@ body.gofood-mode .prod-card .pr{color:#00880F;}
     <div class="sheet-title" id="v-title"></div>
     <div class="sheet-sub">Pilih varian</div>
     <div id="v-body"></div>
+  </div>
+</div>
+
+<!-- ===== PILIH HARGA / PELANGGAN ===== -->
+<div class="sheet-overlay" id="sheet-channel">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-channel')">✕</button>
+    <div class="sheet-title">Pakai harga</div>
+    <div class="sheet-sub">Pilih harga sebelum masukin produk</div>
+    <div class="v-opts" id="ch-list"></div>
+    <button class="sheet-btn ghost" id="ch-add" onclick="addPriceList()" style="margin-top:12px;">➕ Tambah pelanggan harga khusus</button>
   </div>
 </div>
 
@@ -824,6 +840,7 @@ async function loadProducts(){
   (prices||[]).forEach(pr=>{ const p=products.find(x=>x.id===pr.id); if(p){ p.cost_price=pr.cost_price; p.sort_order=pr.sort_order; } });
   const { data: bp } = await sb.from('product_branch_prices').select('product_id, price').eq('branch_id', currentBranch);
   (bp||[]).forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if(p) p.cost_price=Number(r.price); });
+  await loadPriceLists();
   const { data: gp } = await sb.from('product_gofood_prices').select('product_id, price').eq('branch_id', currentBranch);
   products.forEach(p=>{ p.gofood_price = null; });
   (gp||[]).forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if(p) p.gofood_price=Number(r.price); });
@@ -924,7 +941,7 @@ function renderProducts(){
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
       <div class="nm">${dispName(p)}</div>
       <div class="stk">${p.stok<=0?'Di rak: 0 (tetap bisa dijual)':'Di rak: '+p.stok}</div>
-      <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel==='gofood'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setGofoodPrice(${p.id})">✏️</button>`:''}</div>
+      <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel!=='toko'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setChannelPrice(${p.id})">✏️</button>`:''}${(plId()&&plPriceOf(p)!=null)?'<span class="pl-tag">khusus</span>':''}</div>
     </div>`).join('');
   renderAZ(sort==='name', list);
 }
@@ -970,7 +987,8 @@ function startEditTx(){
   txMode = { type:'edit', id:r.id, orig, pay:r.payment_method, cash:r.cash_received!=null?Number(r.cash_received):null, ts:new Date(r.created_at), cashier:r.cashier_name };
   cart = (r.pos_transaction_items||[]).map(i=>({ product_id:i.product_id, name:i.product_name, price:Number(i.unit_price), qty:i.qty, item_discount:Number(i.item_discount)||0, is_gift:!!i.is_gift, gift_reason:i.gift_reason }));
   discountTotal = Number(r.discount_total)||0;
-  channel = r.payment_method==='gofood' ? 'gofood' : 'toko'; renderChannel();
+  channel = r.payment_method==='gofood' ? 'gofood' : (r.price_list_id && priceLists.find(x=>x.id===r.price_list_id) ? 'pl:'+r.price_list_id : 'toko'); renderChannel();
+  txMode.customer = r.customer_name || null;
   closeSheet('sheet-receipt');
   renderTxBanner(); updateCartBar(); renderProducts(); openCart();
 }
@@ -995,18 +1013,70 @@ function startManualTx(){
 }
 // ===== CHANNEL: TOKO / GOFOOD =====
 let channel = 'toko';
-function priceOf(p){ return channel==='gofood' ? (p.gofood_price!=null ? Number(p.gofood_price) : null) : p.cost_price; }
+let priceLists = [], plPrices = {};
+function plId(){ return channel.startsWith('pl:') ? Number(channel.slice(3)) : null; }
+function plName(id){ const l = priceLists.find(x=>x.id===id); return l ? l.name : 'Pelanggan'; }
+function plPriceOf(p){ const id=plId(); const m=id&&plPrices[id]; return (m && m[p.id]!=null) ? Number(m[p.id]) : null; }
+function priceOf(p){
+  if(channel==='gofood') return p.gofood_price!=null ? Number(p.gofood_price) : null;
+  if(plId()){ const v = plPriceOf(p); return v!=null ? v : p.cost_price; }
+  return p.cost_price;
+}
+function channelLabel(){ return channel==='gofood' ? '🟢 GoFood' : (plId() ? '☕ '+plName(plId()) : '🏪 Toko'); }
+async function loadPriceLists(){
+  const [{ data: pl }, { data: pi }] = await Promise.all([
+    sb.from('price_lists').select('*').eq('is_active', true).order('name'),
+    sb.from('price_list_items').select('price_list_id, product_id, price')
+  ]);
+  priceLists = pl || []; plPrices = {};
+  (pi||[]).forEach(r=>{ (plPrices[r.price_list_id] ||= {})[r.product_id] = Number(r.price); });
+  if(plId() && !priceLists.find(x=>x.id===plId())) channel = 'toko';
+}
 function renderChannel(){
   document.body.classList.toggle('gofood-mode', channel==='gofood');
-  const b = document.getElementById('ch-toggle'); if(b) b.textContent = channel==='gofood' ? '🟢 GoFood' : '🏪 Toko';
+  document.body.classList.toggle('pl-mode', !!plId());
+  const b = document.getElementById('ch-toggle'); if(b) b.textContent = channelLabel();
 }
 function toggleChannel(){
   if(txMode){ toast('Selesaikan / batalkan mode edit dulu'); return; }
-  const next = channel==='gofood' ? 'toko' : 'gofood';
-  if(cart.length && !confirm('Ganti ke '+(next==='gofood'?'GoFood':'Toko')+'? Keranjang akan dikosongkan (harganya beda).')) return;
-  channel = next; cart = []; discountTotal = 0;
+  const opts = [['toko','🏪 Toko','Harga normal'],['gofood','🟢 GoFood','Harga GoFood']]
+    .concat(priceLists.map(l=>['pl:'+l.id,'☕ '+l.name,'Harga khusus pelanggan']));
+  let html = opts.map(o=>`<button class="v-opt${channel===o[0]?' sel':''}" onclick="selectChannel('${o[0]}')"><div class="vn">${o[1]}</div><div class="vs">${o[2]}</div></button>`).join('');
+  document.getElementById('ch-list').innerHTML = html;
+  document.getElementById('ch-add').style.display = canManageTx() ? '' : 'none';
+  openSheet('sheet-channel');
+}
+function selectChannel(ch){
+  if(ch===channel){ closeSheet('sheet-channel'); return; }
+  if(cart.length && !confirm('Ganti harga? Keranjang akan dikosongkan (harganya beda).')) return;
+  channel = ch; cart = []; discountTotal = 0;
+  closeSheet('sheet-channel');
   updateCartBar(); renderChannel(); renderProducts();
-  toast(channel==='gofood' ? 'Mode GoFood · harga GoFood' : 'Mode Toko · harga toko');
+  toast('Mode '+channelLabel());
+}
+async function addPriceList(){
+  if(!canManageTx()) return;
+  const name = (prompt('Nama pelanggan (misal: Recaffe)')||'').trim();
+  if(!name) return;
+  const { data, error } = await sb.from('price_lists').insert({ name, created_by: currentUser.nama }).select().single();
+  if(error){ toast('Gagal: '+error.message); return; }
+  await loadPriceLists();
+  selectChannel('pl:'+data.id);
+  toast('Pelanggan '+name+' dibuat. Tap ✏️ di produk buat isi harga khususnya');
+}
+async function setChannelPrice(id){ if(channel==='gofood') return setGofoodPrice(id); if(plId()) return setPlPrice(id); }
+async function setPlPrice(id){
+  if(!canManageTx()) return;
+  const p = products.find(x=>x.id===id); if(!p) return;
+  const lid = plId(), cur = plPriceOf(p);
+  const v = prompt('Harga '+plName(lid)+' untuk '+dispName(p)+'\nHarga toko: '+rp(p.cost_price)+'\n\nKosongkan = pakai harga toko.', cur!=null?cur:'');
+  if(v===null) return;
+  let res;
+  if(String(v).trim()==='') res = await sb.from('price_list_items').delete().eq('price_list_id',lid).eq('product_id',id);
+  else res = await sb.from('price_list_items').upsert({ price_list_id:lid, product_id:id, price:parseMoney(v), updated_by:currentUser.nama, updated_at:new Date().toISOString() });
+  if(res.error){ toast('Gagal simpan: '+res.error.message); return; }
+  if(String(v).trim()===''){ if(plPrices[lid]) delete plPrices[lid][id]; } else (plPrices[lid] ||= {})[id] = parseMoney(v);
+  renderProducts(); toast('Harga '+plName(lid)+' disimpan');
 }
 async function setGofoodPrice(id){
   if(!canManageTx()) return;
@@ -1063,7 +1133,7 @@ function renderVariant(){
     const a = vParts(p), label = twoLevel ? (a.slice(2).join(' ')||a[1]) : a.slice(1).join(' ');
     const q = vSel.qty[p.id]||0, pr = priceOf(p);
     html += `<div class="v-opt${q?' sel':''}" onclick="vAdj(${p.id},1)">
-      <div class="vn">${label}</div><div class="vs">Di rak: ${Math.max(0,p.stok||0)}</div><div class="vp">${pr==null?'-':rp(pr)}</div>
+      <div class="vn">${label}</div><div class="vs">Di rak: ${Math.max(0,p.stok||0)}</div><div class="vp">${pr==null?'-':rp(pr)}</div>${(channel!=='toko'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setChannelPrice(${p.id}).then(()=>renderVariant())">✏️ harga</button>`:''}
       <div class="v-qty" onclick="event.stopPropagation()"><button onclick="vAdj(${p.id},-1)">−</button><span>${q}</span><button onclick="vAdj(${p.id},1)">+</button></div>
     </div>`;
   });
@@ -1120,7 +1190,7 @@ function openCart(){
 }
 
 function renderCartSheet(){
-  document.getElementById('cart-sub').textContent = `${cart.length} jenis item`;
+  document.getElementById('cart-sub').textContent = `${new Set(cart.map(c=>c.product_id)).size} jenis • ${cart.reduce((t,c)=>t+c.qty,0)} item`;
   document.getElementById('cart-items').innerHTML = cart.map((c,i)=>`
     <div class="cart-item">
       <div class="ci-main">
@@ -1298,16 +1368,17 @@ async function _confirmPayment(){
       if(txMode && txMode.type==='manual') args.p_created_at = txMode.ts.toISOString();
       if(!payRef) payRef = newPayRef();
       args.p_client_ref = payRef;
+      if(plId()){ args.p_price_list_id = plId(); args.p_customer_name = plName(plId()); }
     }
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     const wasMode = txMode;
     lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
-      ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined };
+      ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: plId() ? plName(plId()) : (wasMode && wasMode.customer) || null };
     closeSheet('sheet-payment');
     showReceipt();
     cart = []; discountTotal = 0; updateCartBar();
-    if(channel==='gofood'){ channel='toko'; renderChannel(); renderProducts(); }
+    if(channel!=='toko'){ channel='toko'; renderChannel(); renderProducts(); }
     if(wasMode){ txMode = null; renderTxBanner(); toast(wasMode.type==='edit' ? 'Transaksi #'+data+' diperbarui' : 'Transaksi manual #'+data+' tersimpan'); loadProducts(); }
   }catch(e){ toast('Koneksi gagal, coba lagi'); }
   btn.disabled = false; btn.textContent = 'Konfirmasi Bayar';
@@ -1336,7 +1407,7 @@ async function openRiwayat(){
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
     return `<div class="cart-item">
       <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
-        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.customer_name?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">☕ '+r.customer_name+'</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
         <div class="ci-price">${items}</div>
         <div class="ci-price">Kasir: ${r.cashier_name}${r.edited_by?' · diedit '+r.edited_by+' '+new Date(r.edited_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):''}</div>
       </div>
@@ -1364,7 +1435,7 @@ function lihatStruk(id){
     subtotal: Number(r.subtotal), discountTotal: Number(r.discount_total), grand: Number(r.grand_total),
     payMethod: r.payment_method, cashReceived: r.cash_received!=null?Number(r.cash_received):null,
     change: r.cash_change!=null?Number(r.cash_change):null,
-    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true
+    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true, customer: r.customer_name || null
   };
   closeSheet('sheet-riwayat');
   showReceipt();
@@ -1379,7 +1450,7 @@ function showReceipt(){
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', gofood:'GoFood'}[r.payMethod];
-  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}</div><hr>`;
+  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}${r.customer?'<br>Pelanggan: '+r.customer:''}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-item">${c.name}${c.is_gift?' (GRATIS)':''}</div>`;
     html += `<div class="rc-row rc-sub"><span>${c.qty} x @${rp(c.price)}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty)}</span></div>`;
