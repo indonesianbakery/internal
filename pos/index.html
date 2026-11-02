@@ -328,6 +328,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <span class="mono" id="pos-clock" style="font-size:11px;color:var(--text2);font-weight:700;"></span>
     <button class="out-btn" id="fs-btn" onclick="cycleFs()" title="Ukuran tulisan">Aa</button>
     <button class="out-btn closed" id="shift-badge" onclick="openCloseShift()">Shift</button>
+    <button class="out-btn" id="held-btn" onclick="openHeld()" style="display:none;background:#FEF3C7;color:#B45309;border-color:#F5D68A;">⏸️ 0</button>
     <button class="out-btn" onclick="openRiwayat()">📜</button>
     <button class="out-btn" onclick="refreshPos()">↻</button>
     <button class="out-btn" onclick="logoutPos()">Keluar</button>
@@ -371,6 +372,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <div class="sheet-sub" id="cart-sub"></div>
     <div id="cart-items"></div>
     <div class="cart-summary" id="cart-summary"></div>
+    <button class="sheet-btn ghost" id="btn-hold" onclick="holdCart()">⏸️ Tahan & bikin keranjang baru</button>
     <button class="sheet-btn ghost" onclick="openDiscountModal()">🏷️ Diskon Total</button>
     <button class="sheet-btn primary" id="btn-checkout" onclick="openPayment()">Bayar</button>
   </div>
@@ -553,6 +555,16 @@ body.pl-mode #cart-bar{background:#1565C0;}
   </div>
 </div>
 
+<!-- ===== KERANJANG DITAHAN ===== -->
+<div class="sheet-overlay" id="sheet-held">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-held')">✕</button>
+    <div class="sheet-title">⏸️ Keranjang ditahan</div>
+    <div class="sheet-sub">Tap buat lanjutin bayar</div>
+    <div id="held-list"></div>
+  </div>
+</div>
+
 <!-- ===== RIWAYAT SHEET ===== -->
 <div class="sheet-overlay" id="sheet-riwayat">
   <div class="sheet">
@@ -594,7 +606,7 @@ let lastReceiptData = null;
 function rp(n){ return 'Rp' + Math.round(n||0).toLocaleString('id-ID'); }
 // blokir double-tap & pinch zoom (iOS Safari ignore meta viewport)
 let _lastTouch=0;
-document.addEventListener('touchend',e=>{ if(e.target.closest('button,input,select,a')) return; const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
+document.addEventListener('touchend',e=>{ if(e.target.closest('button,input,select,a,textarea,[onclick],.prod-card,.v-opt,.cart-item,.az-l')) return; const t=Date.now(); if(t-_lastTouch<350) e.preventDefault(); _lastTouch=t; },{passive:false});
 document.addEventListener('gesturestart',e=>e.preventDefault());
 function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 
@@ -694,6 +706,61 @@ async function pickBranch(b){
   show('screen-pos');
   await loadProducts();
   await loadShift();
+  renderHeldBtn();
+}
+
+// ===== TAHAN KERANJANG (antrian) — disimpan di perangkat ini =====
+function heldKey(){ return 'pos_held_'+currentBranch; }
+function getHeld(){ try{ return JSON.parse(localStorage.getItem(heldKey())||'[]'); }catch(e){ return []; } }
+function setHeld(a){ try{ localStorage.setItem(heldKey(), JSON.stringify(a)); }catch(e){} renderHeldBtn(); }
+function renderHeldBtn(){
+  const b = document.getElementById('held-btn'); if(!b) return;
+  const n = currentBranch ? getHeld().length : 0;
+  b.style.display = n ? '' : 'none'; b.textContent = '⏸️ '+n;
+}
+function holdCart(silent){
+  if(txMode){ toast('Lagi mode edit, gak bisa ditahan'); return false; }
+  if(!cart.length){ toast('Keranjang kosong'); return false; }
+  const a = getHeld();
+  const name = silent ? '' : (prompt('Nama / ciri pembeli (opsional)', 'Pembeli '+(a.length+1)) || '');
+  a.push({ id: Date.now(), name: name.trim() || ('Pembeli '+(a.length+1)), cart: cart, discountTotal, channel, total: calcGrandTotal(), qty: cart.reduce((t,c)=>t+c.qty,0), at: new Date().toISOString() });
+  setHeld(a);
+  cart = []; discountTotal = 0;
+  if(channel!=='toko'){ channel='toko'; renderChannel(); }
+  updateCartBar(); renderProducts();
+  closeSheet('sheet-cart');
+  toast('Keranjang ditahan · keranjang baru siap');
+  return true;
+}
+function openHeld(){
+  const a = getHeld();
+  document.getElementById('held-list').innerHTML = a.map(h=>`
+    <div class="cart-item">
+      <div class="ci-main" style="cursor:pointer;" onclick="resumeHeld(${h.id})">
+        <div class="ci-nm">${h.name}</div>
+        <div class="ci-price">${h.qty} item · ${jamWIB(h.at)}${h.channel&&h.channel!=='toko'?' · '+(h.channel==='gofood'?'GoFood':'harga khusus'):''}</div>
+      </div>
+      <div class="mono" style="font-weight:800;color:var(--g);font-size:13px;">${rp(h.total)}</div>
+      <button class="ci-del" onclick="dropHeld(${h.id})">✕</button>
+    </div>`).join('') || '<div style="text-align:center;color:var(--text3);font-size:13px;padding:20px 0;">Gak ada keranjang ditahan</div>';
+  openSheet('sheet-held');
+}
+function resumeHeld(id){
+  if(txMode){ toast('Selesaikan / batalkan mode edit dulu'); return; }
+  const a = getHeld(); const h = a.find(x=>x.id===id); if(!h) return;
+  if(cart.length){ if(!confirm('Keranjang sekarang masih ada isinya. Tahan dulu yang sekarang?')) return; holdCart(true); }
+  const rest = getHeld().filter(x=>x.id!==id);
+  setHeld(rest);
+  cart = h.cart || []; discountTotal = h.discountTotal || 0; channel = h.channel || 'toko';
+  if(plId() && !priceLists.find(x=>x.id===plId())) channel = 'toko';
+  renderChannel(); updateCartBar(); renderProducts();
+  closeSheet('sheet-held');
+  openCart();
+}
+function dropHeld(id){
+  if(!confirm('Hapus keranjang yang ditahan ini?')) return;
+  setHeld(getHeld().filter(x=>x.id!==id));
+  openHeld();
 }
 
 // ===== SHIFT KASIR =====
