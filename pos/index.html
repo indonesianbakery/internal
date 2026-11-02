@@ -372,6 +372,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <div class="sheet-sub" id="cart-sub"></div>
     <div id="cart-items"></div>
     <div class="cart-summary" id="cart-summary"></div>
+    <button class="sheet-btn ghost" onclick="clearCart()" style="color:var(--r);">🗑️ Kosongkan keranjang</button>
     <button class="sheet-btn ghost" id="btn-hold" onclick="holdCart()">⏸️ Tahan & bikin keranjang baru</button>
     <button class="sheet-btn ghost" onclick="openDiscountModal()">🏷️ Diskon Total</button>
     <button class="sheet-btn primary" id="btn-checkout" onclick="openPayment()">Bayar</button>
@@ -717,6 +718,15 @@ function renderHeldBtn(){
   const b = document.getElementById('held-btn'); if(!b) return;
   const n = currentBranch ? getHeld().length : 0;
   b.style.display = n ? '' : 'none'; b.textContent = '⏸️ '+n;
+}
+function clearCart(){
+  if(!cart.length){ closeSheet('sheet-cart'); return; }
+  if(!confirm('Kosongkan semua isi keranjang?')) return;
+  if(txMode){ cancelTxMode(); closeSheet('sheet-cart'); return; }
+  cart = []; discountTotal = 0;
+  if(channel!=='toko'){ channel='toko'; renderChannel(); }
+  updateCartBar(); renderProducts(); closeSheet('sheet-cart');
+  toast('Keranjang dikosongkan');
 }
 function holdCart(silent){
   if(txMode){ toast('Lagi mode edit, gak bisa ditahan'); return false; }
