@@ -1628,7 +1628,7 @@ function renderReceiptCanvas(){
   const S = 2, W = 384*S, PAD = 14*S;
   const lines = buildReceiptText().replace(/\n+$/,'').split('\n');
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
-  ctx.font = (20*S)+'px "Courier New", monospace';
+  ctx.font = 'bold '+(20*S)+'px "Courier New", monospace';
   const cw = ctx.measureText('M').width;
   const fs = Math.floor(20*S*(W-PAD*2)/(cw*32));
   const lh = Math.round(fs*1.35);
@@ -1645,9 +1645,13 @@ function renderReceiptCanvas(){
   const tmp = document.createElement('canvas'); tmp.width=LOGO_W; tmp.height=LOGO_H; tmp.getContext('2d').putImageData(id,0,0);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(tmp, (W-logoW)/2, PAD, logoW, logoH);
-  ctx.fillStyle = '#000'; ctx.font = fs+'px "Courier New", monospace'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#000'; ctx.font = 'bold '+fs+'px "Courier New", monospace'; ctx.textBaseline = 'top';
   let y = PAD + logoH + 12*S;
   lines.forEach(l=>{ ctx.fillText(l, PAD, y); y += lh; });
+  // jadikan hitam-putih murni biar tajam di printer thermal (gak abu-abu/pudar)
+  const img = ctx.getImageData(0,0,c.width,c.height), d = img.data;
+  for(let i=0;i<d.length;i+=4){ const v = (d[i]*0.3+d[i+1]*0.59+d[i+2]*0.11) < 170 ? 0 : 255; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+  ctx.putImageData(img,0,0);
   return c;
 }
 async function shareReceiptPDF(){
