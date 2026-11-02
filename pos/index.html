@@ -270,6 +270,9 @@ body.gofood-mode .prod-card .pr{color:#00880F;}
 body.pl-mode #ch-toggle{background:#1565C0;border-color:#1565C0;color:#fff;}
 body.pl-mode #cart-bar{background:#1565C0;}
 .pl-tag{font-size:9px;font-weight:800;background:#E3F2FD;color:#1565C0;border-radius:5px;padding:1px 5px;margin-left:4px;vertical-align:middle;}
+#prod-search-wrap{position:sticky; top:var(--tb-h,49px); z-index:18; background:var(--bg); padding-bottom:8px !important;}
+#cat-tabs{top:calc(var(--tb-h,49px) + var(--sw-h,56px)) !important; max-height:calc(100vh - var(--tb-h,49px) - var(--sw-h,56px)) !important;}
+#tx-mode-banner{top:calc(var(--tb-h,49px) + var(--sw-h,56px)) !important;}
 </style>
 </head>
 <body>
@@ -1022,6 +1025,14 @@ function renderProducts(){
     </div>`).join('');
   renderAZ(sort==='name', list);
 }
+function stickyH(){ const a=document.getElementById('pos-topbar'), b=document.getElementById('prod-search-wrap'); return (a?a.offsetHeight:0)+(b?b.offsetHeight:0); }
+function syncSticky(){
+  const a=document.getElementById('pos-topbar'), b=document.getElementById('prod-search-wrap');
+  if(a) document.documentElement.style.setProperty('--tb-h', a.offsetHeight+'px');
+  if(b) document.documentElement.style.setProperty('--sw-h', b.offsetHeight+'px');
+}
+window.addEventListener('resize', syncSticky);
+if(window.ResizeObserver){ const ro=new ResizeObserver(syncSticky); setTimeout(()=>{ ['pos-topbar','prod-search-wrap'].forEach(id=>{ const el=document.getElementById(id); if(el) ro.observe(el); }); syncSticky(); },0); }
 function renderAZ(on, list){
   const el = document.getElementById('az-index');
   const grid = document.getElementById('prod-grid');
@@ -1033,7 +1044,7 @@ function renderAZ(on, list){
 }
 function azJump(l){
   const card = document.querySelector('#prod-grid .prod-card[data-l="'+l+'"]');
-  if(card) window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - 110 });
+  if(card) window.scrollTo({ top: card.getBoundingClientRect().top + window.scrollY - stickyH() - 8 });
 }
 (function(){
   const pick = (x,y)=>{ const t=document.elementFromPoint(x,y); if(t&&t.classList.contains('az-l')&&!t.classList.contains('off')) azJump(t.dataset.l); };
