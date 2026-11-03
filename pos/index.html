@@ -273,6 +273,16 @@ body.pl-mode #cart-bar{background:#1565C0;}
 #prod-search-wrap{position:sticky; top:var(--tb-h,49px); z-index:18; background:var(--bg); padding-bottom:8px !important;}
 #cat-tabs{top:calc(var(--tb-h,49px) + var(--sw-h,56px)) !important; max-height:calc(100vh - var(--tb-h,49px) - var(--sw-h,56px)) !important;}
 #tx-mode-banner{top:calc(var(--tb-h,49px) + var(--sw-h,56px)) !important;}
+.dn-grid{display:grid;grid-template-columns:1fr;column-gap:18px;}
+@media (min-width:640px){ .dn-grid{grid-template-columns:1fr 1fr;} }
+.dn-row{display:grid;grid-template-columns:78px 1fr 92px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);}
+.dn-row .dn-v{font-family:'DM Mono',monospace;font-weight:800;font-size:14px;}
+.dn-row .dn-q{display:flex;align-items:center;gap:6px;}
+.dn-row .dn-q button{width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-size:18px;font-weight:700;cursor:pointer;}
+.dn-row .dn-q input{width:48px;text-align:center;border:1.5px solid var(--border);border-radius:8px;padding:6px 2px;font-family:'DM Mono',monospace;font-weight:800;font-size:15px;}
+.dn-row .dn-s{text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);}
+.prev-float{background:var(--in-bg);border:1.5px solid var(--in);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
+.prev-float .pf-amt{font-size:22px;font-weight:800;color:var(--in);font-family:'DM Mono',monospace;}
 </style>
 </head>
 <body>
@@ -495,11 +505,16 @@ body.pl-mode #cart-bar{background:#1565C0;}
   <div class="sheet">
     <div class="sheet-title">🟢 Buka Shift</div>
     <div class="sheet-sub" id="shift-open-sub"></div>
-    <div class="form-row">
-      <label class="form-lbl">Kas awal di laci (Rp)</label>
-      <input class="form-inp mono" id="shift-open-cash" inputmode="numeric" placeholder="0" oninput="fmtMoneyInp(this)" style="font-size:20px;font-weight:800;text-align:right;">
+    <div id="shift-open-prev"></div>
+    <div id="shift-open-count">
+      <div class="v-step">Hitung uang di laci per lembar</div>
+      <div id="denom-open"></div>
+      <div class="form-row" style="margin-top:10px;">
+        <label class="form-lbl">Kas awal (otomatis)</label>
+        <input class="form-inp mono" id="shift-open-cash" readonly placeholder="0" style="font-size:20px;font-weight:800;text-align:right;background:var(--g-light);">
+      </div>
+      <button class="sheet-btn primary" id="btn-open-shift" onclick="submitOpenShift(false)">Buka Shift</button>
     </div>
-    <button class="sheet-btn primary" id="btn-open-shift" onclick="submitOpenShift()">Buka Shift</button>
     <button class="sheet-btn ghost" onclick="closeSheet('sheet-shift-open');logoutPos()">Keluar</button>
   </div>
 </div>
@@ -511,11 +526,18 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <div class="sheet-title">🔒 Tutup Shift</div>
     <div class="sheet-sub" id="shift-close-sub"></div>
     <div id="shift-close-summary"></div>
-    <div class="form-row" style="margin-top:12px;">
-      <label class="form-lbl">Uang yang dihitung di laci (Rp)</label>
-      <input class="form-inp mono" id="shift-close-cash" inputmode="numeric" placeholder="0" oninput="fmtMoneyInp(this);calcShiftDiff()" style="font-size:20px;font-weight:800;text-align:right;">
+    <div class="v-step" style="margin-top:14px;">Hitung uang di laci per lembar</div>
+    <div id="denom-close"></div>
+    <div class="form-row" style="margin-top:10px;">
+      <label class="form-lbl">Total dihitung (otomatis)</label>
+      <input class="form-inp mono" id="shift-close-cash" readonly placeholder="0" style="font-size:20px;font-weight:800;text-align:right;background:var(--g-light);">
     </div>
     <div class="change-box" id="shift-diff-box"><div class="lbl" id="shift-diff-lbl">Selisih</div><div class="val" id="shift-diff-val">-</div></div>
+    <div class="form-row" style="margin-top:12px;">
+      <label class="form-lbl">💰 Modal buat besok (tinggal di laci, Rp)</label>
+      <input class="form-inp mono" id="shift-float-next" inputmode="numeric" placeholder="misal 300.000" oninput="fmtMoneyInp(this);calcSetor()" style="font-size:18px;font-weight:800;text-align:right;">
+      <div style="font-size:13px;color:var(--text2);margin-top:6px;" id="shift-setor"></div>
+    </div>
     <div class="form-row" style="margin-top:10px;">
       <label class="form-lbl" id="shift-note-lbl">Catatan (opsional)</label>
       <input class="form-inp" id="shift-close-note" placeholder="Misal: uang kembalian kurang">
@@ -793,16 +815,68 @@ function renderShiftBadge(){
   b.className = 'out-btn ' + (currentShift ? 'open' : 'closed');
   b.textContent = currentShift ? '🟢 Shift '+jamWIB(currentShift.opened_at) : '🔴 Shift';
 }
-function openShiftOpenSheet(){
-  document.getElementById('shift-open-sub').textContent = BRANCHES[currentBranch]+' · '+currentUser.nama+' — hitung dulu uang di laci';
-  document.getElementById('shift-open-cash').value = '';
-  openSheet('sheet-shift-open');
+const DENOMS = [100000,50000,20000,10000,5000,2000,1000,500,200,100];
+const denomState = { open:{}, close:{} };
+function denomTotal(k){ return DENOMS.reduce((t,v)=>t+v*(denomState[k][v]||0),0); }
+function denomJson(k){ const o={}; DENOMS.forEach(v=>{ if(denomState[k][v]) o[v]=denomState[k][v]; }); return Object.keys(o).length?o:null; }
+function renderDenoms(k){
+  document.getElementById('denom-'+k).innerHTML = '<div class="dn-grid">' + DENOMS.map(v=>{
+    const q = denomState[k][v]||0;
+    return `<div class="dn-row"><span class="dn-v">${v>=1000?(v/1000)+'rb':v}</span>
+      <span class="dn-q"><button onclick="dAdj('${k}',${v},-1)">−</button><input inputmode="numeric" value="${q||''}" placeholder="0" onfocus="this.select()" oninput="dSet('${k}',${v},this.value)"><button onclick="dAdj('${k}',${v},1)">+</button></span>
+      <span class="dn-s" id="dn-${k}-${v}">${q?rp(v*q):''}</span></div>`;
+  }).join('') + '</div>';
+  denomSync(k);
 }
-async function submitOpenShift(){
+function dAdj(k,v,d){ denomState[k][v] = Math.max(0,(denomState[k][v]||0)+d); renderDenoms(k); }
+function dSet(k,v,val){ denomState[k][v] = Math.max(0, parseInt(String(val).replace(/\D/g,''))||0); const el=document.getElementById('dn-'+k+'-'+v); if(el) el.textContent = denomState[k][v]?rp(v*denomState[k][v]):''; denomSync(k); }
+function denomSync(k){
+  const t = denomTotal(k), any = !!denomJson(k);
+  const inp = document.getElementById(k==='open'?'shift-open-cash':'shift-close-cash');
+  inp.value = any ? t.toLocaleString('id-ID') : '';
+  if(k==='close'){ calcShiftDiff(); calcSetor(); }
+}
+let _prevFloat = null;
+async function lastFloat(){
+  const { data } = await sb.from('pos_shifts').select('float_next, closed_by, closed_at').eq('branch_id', currentBranch).eq('status','closed').order('closed_at',{ascending:false}).limit(1).maybeSingle();
+  return (data && data.float_next!=null) ? data : null;
+}
+async function openShiftOpenSheet(){
+  document.getElementById('shift-open-sub').textContent = BRANCHES[currentBranch]+' · '+currentUser.nama;
+  denomState.open = {}; renderDenoms('open');
+  document.getElementById('shift-open-prev').innerHTML = '';
+  document.getElementById('shift-open-count').style.display = '';
+  openSheet('sheet-shift-open');
+  const pf = await lastFloat();
+  _prevFloat = pf ? Number(pf.float_next) : null;
+  if(pf){
+    document.getElementById('shift-open-prev').innerHTML = `<div class="prev-float">
+      <div style="font-size:12px;color:var(--text2);font-weight:700;">Modal yang disiapin pas tutup shift terakhir</div>
+      <div class="pf-amt">${rp(pf.float_next)}</div>
+      <div style="font-size:11px;color:var(--text3);">oleh ${pf.closed_by||'-'} · ${new Date(pf.closed_at).toLocaleString('id-ID',{timeZone:'Asia/Jakarta',weekday:'short',hour:'2-digit',minute:'2-digit'})}</div>
+      <button class="sheet-btn primary" style="margin-top:10px;" onclick="submitOpenShift(true)">✅ Sesuai, buka shift</button>
+      <button class="sheet-btn ghost" onclick="document.getElementById('shift-open-count').style.display='';this.style.display='none'">Beda, hitung ulang per lembar</button>
+    </div>`;
+    document.getElementById('shift-open-count').style.display = 'none';
+  }
+}
+function calcSetor(){
+  const el = document.getElementById('shift-setor'); if(!el) return;
+  const fv = document.getElementById('shift-float-next').value;
+  if(!denomJson('close') || fv===''){ el.textContent=''; return; }
+  const counted = denomTotal('close'), fl = parseMoney(fv);
+  el.innerHTML = fl>counted ? '<span style="color:var(--r);font-weight:700;">Modal lebih besar dari uang di laci</span>' : 'Disetor / diambil: <b>'+rp(counted-fl)+'</b>';
+}
+async function submitOpenShift(useFloat){
   const btn = document.getElementById('btn-open-shift');
-  const cash = parseMoney(document.getElementById('shift-open-cash').value);
+  let cash, denoms;
+  if(useFloat){ cash = _prevFloat||0; denoms = { sesuai_modal: true }; }
+  else {
+    cash = denomTotal('open'); denoms = denomJson('open');
+    if(!denoms && !confirm('Kas awal Rp0? (belum ada lembar yang diisi)')) return;
+  }
   btn.disabled = true;
-  const { error } = await sb.rpc('open_pos_shift', { p_branch_id: currentBranch, p_opened_by: currentUser.nama, p_opening_cash: cash });
+  const { error } = await sb.rpc('open_pos_shift', { p_branch_id: currentBranch, p_opened_by: currentUser.nama, p_opening_cash: cash, p_denoms: denoms });
   btn.disabled = false;
   if(error){ toast('Gagal buka shift: '+error.message); return; }
   closeSheet('sheet-shift-open');
@@ -827,10 +901,13 @@ async function openCloseShift(){
   (data.per_kasir||[]).forEach(k=>{ html += `<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;· ${k.nama} (${k.n} trx)</span><b>${rp(k.total)}</b></div>`; });
   html += `<div class="shift-row tot"><span>Harusnya di laci</span><b>${rp(expected)}</b></div>`;
   document.getElementById('shift-close-summary').innerHTML = html;
-  document.getElementById('shift-close-cash').value = '';
   document.getElementById('shift-close-note').value = '';
-  calcShiftDiff();
+  denomState.close = {}; renderDenoms('close');
+  document.getElementById('shift-float-next').value = '';
+  calcShiftDiff(); calcSetor();
   openSheet('sheet-shift-close');
+  const pf = await lastFloat();
+  if(pf && document.getElementById('shift-float-next').value==='') document.getElementById('shift-float-next').value = Number(pf.float_next).toLocaleString('id-ID');
 }
 function calcShiftDiff(){
   const inp = document.getElementById('shift-close-cash');
@@ -845,14 +922,17 @@ function calcShiftDiff(){
 }
 async function submitCloseShift(){
   const inp = document.getElementById('shift-close-cash');
-  if(inp.value===''){ toast('Isi dulu uang yang dihitung'); return; }
-  const counted = parseMoney(inp.value);
+  if(!denomJson('close') && !confirm('Uang di laci Rp0? (belum ada lembar yang diisi)')) return;
+  const counted = denomTotal('close');
+  const fvRaw = document.getElementById('shift-float-next').value;
+  const floatNext = fvRaw==='' ? null : parseMoney(fvRaw);
+  if(floatNext!=null && floatNext>counted){ toast('Modal besok gak boleh lebih dari uang di laci'); return; }
   const note = document.getElementById('shift-close-note').value.trim();
   if(counted !== _shiftSum.expected && !note){ toast('Ada selisih, isi catatan dulu'); return; }
-  if(!confirm('Tutup shift sekarang?\n\nHarusnya: '+rp(_shiftSum.expected)+'\nDihitung: '+rp(counted))) return;
+  if(!confirm('Tutup shift sekarang?\n\nHarusnya: '+rp(_shiftSum.expected)+'\nDihitung: '+rp(counted)+(floatNext!=null?'\nModal besok: '+rp(floatNext)+'\nDisetor: '+rp(counted-floatNext):''))) return;
   const btn = document.getElementById('btn-close-shift');
   btn.disabled = true;
-  const { data, error } = await sb.rpc('close_pos_shift', { p_shift_id: currentShift.id, p_closed_by: currentUser.nama, p_counted_cash: counted, p_note: note||null });
+  const { data, error } = await sb.rpc('close_pos_shift', { p_shift_id: currentShift.id, p_closed_by: currentUser.nama, p_counted_cash: counted, p_note: note||null, p_denoms: denomJson('close'), p_float_next: floatNext });
   btn.disabled = false;
   if(error){ toast('Gagal tutup shift: '+error.message); return; }
   closeSheet('sheet-shift-close');
@@ -878,6 +958,14 @@ function showShiftReceipt(d){
   const df = Number(sh.difference);
   html += `<div class="rc-row rc-tot"><span>SELISIH</span><span>${df===0?'PAS':(df>0?'+':'-')+rp(Math.abs(df))}</span></div>`;
   if(sh.note) html += `<div style="margin-top:4px;">Catatan: ${sh.note}</div>`;
+  if(sh.closing_denoms){
+    html += `<hr><div class="rc-item">Rincian uang di laci</div>`;
+    DENOMS.forEach(v=>{ const q=sh.closing_denoms[v]; if(q) html += `<div class="rc-row rc-sub"><span>${rp(v)} x ${q}</span><span>${rp(v*q)}</span></div>`; });
+  }
+  if(sh.float_next!=null){
+    html += `<hr><div class="rc-row"><span>Modal besok</span><span>${rp(sh.float_next)}</span></div>`;
+    html += `<div class="rc-row rc-tot"><span>DISETOR</span><span>${rp(Number(sh.counted_cash)-Number(sh.float_next))}</span></div>`;
+  }
   document.getElementById('receipt-body').innerHTML = html;
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
