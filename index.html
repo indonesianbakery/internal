@@ -358,6 +358,11 @@ body.font-xl{zoom:1.25;}
 .grp-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:10px 14px 4px;margin-top:6px;font-weight:700;font-size:14px;color:var(--g);}
 .grp-head small{font-weight:500;font-size:11px;color:var(--text3);}
 .ov-row.ov-child{margin-left:12px;border-left:3px solid var(--g-bg);}
+.ov-group{grid-column:1/-1;background:var(--g-light);border:1px solid var(--g-bg);border-radius:14px;padding:2px 8px 8px;margin:4px 0;}
+.ov-group .grp-head{padding:8px 6px 6px;margin-top:0;}
+.ov-group-body{display:flex;flex-direction:column;gap:4px;}
+.ov-group .ov-row.ov-child{margin-left:0;border-left:3px solid var(--g3);}
+@media(min-width:1024px){ .ov-group-body{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px;} }
 .pm2-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:6px;cursor:pointer;}
 .pm2-row:active{background:var(--g-light);}
 .pm2-main{flex:1;min-width:0;}
@@ -376,6 +381,7 @@ body.font-xl{zoom:1.25;}
 .var-row{display:flex;gap:6px;margin-bottom:6px;align-items:center;}
 .var-row input{min-width:0;}
 .var-del{border:none;background:var(--r-bg);color:var(--r);border-radius:8px;width:34px;height:38px;cursor:pointer;font-size:16px;}
+.exp-row .a .u{display:block;font-size:10px;font-weight:500;color:var(--text3);font-family:inherit;margin-top:1px;}
 .act-box{background:var(--g-light);border:1px solid var(--g-bg);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:12px;color:var(--text2);}
 .act-title{font-weight:700;color:var(--g);margin-bottom:4px;}
 .act-row{margin:2px 0;}
@@ -1263,7 +1269,7 @@ body{ max-width:none; }
       <div class="set-sum-row"><span>Total QRIS</span><span class="mono" id="sum-qris">Rp0</span></div>
       <div class="set-sum-row"><span>Total Uang Masuk</span><span class="mono" id="sum-revenue">Rp0</span></div>
       <div class="set-sum-row"><span>Modal (kas awal)</span><span class="mono minus" id="sum-modal">-Rp0</span></div>
-      <div class="set-sum-row net"><span>Omzet</span><span class="mono" id="sum-net">Rp0</span></div>
+      <div class="set-sum-row net"><span>Untung Bersih</span><span class="mono" id="sum-net">Rp0</span></div>
     </div>
 
     <label class="set-lbl" style="margin-top:12px">Catatan (opsional)</label>
@@ -2041,7 +2047,7 @@ function ovListHtml(names){
   return groupVariants(names).map(g=>{
     if(g.length===1 && !isVar(g[0])) return ovRowHtml(g[0]);
     const parent=nameParts(g[0]).parent, tot=g.reduce((s,n)=>s+(stockNow[n]?stockNow[n].now:0),0);
-    return '<div class="grp-head"><span>'+parent+'</span><small>'+g.length+' varian · '+tot+' di rak</small></div>'+g.map(n=>ovRowHtml(n,false,true)).join('');
+    return '<div class="ov-group"><div class="grp-head"><span>'+parent+'</span><small>'+g.length+' varian · '+tot+' di rak</small></div><div class="ov-group-body">'+g.map(n=>ovRowHtml(n,false,true)).join('')+'</div></div>';
   }).join('');
 }
 function ovRowHtml(n, draggable=false, child=false) {
@@ -2666,32 +2672,59 @@ function finRenderPengeluaran(){
   const umum=d.expRows.filter(r=>!r.branch_id).reduce((s,r)=>s+Number(r.amount||0),0);
   if(umum>0 && d.brs.length===1) h+='<div class="fin-note" style="margin:-6px 0 8px">Termasuk pengeluaran umum (semua cabang): '+fmtRp(umum)+'</div>';
   h+=cats.map(k=>'<div class="fin-bar-row"><div class="t"><span>'+finEsc(k)+'</span><b class="mono">'+fmtRp(byCat[k])+'</b></div><div class="fin-bar"><i style="width:'+Math.round(byCat[k]/max*100)+'%"></i></div></div>').join('');
+  h+=finItemSummary(d.expRows);
   h+='<div class="section-label">Daftar</div>';
   if(!d.expRows.length) h+='<div class="empty">Belum ada pengeluaran di periode ini</div>';
-  h+=d.expRows.map(r=>'<div class="exp-row"><div class="m"><b>'+finEsc(r.category)+'</b><small>'+finLabel(r.expense_date)+' · '+(r.branch_id?(BRANCHES[r.branch_id]||r.branch_id):'Umum')+(r.note?' · '+finEsc(r.note):'')+'</small></div>'
-    +(r.receipt_url?'<a href="'+finEsc(r.receipt_url)+'" target="_blank" rel="noopener" title="Lihat nota">📎</a>':'')
-    +'<span class="a">'+fmtRp(r.amount)+'</span>'+(isMaster?'<button onclick="deleteExpense('+r.id+')">🗑️</button>':'')+'</div>').join('');
+  h+=d.expRows.map(r=>{
+    const per=finPerUnit(r.amount,r.qty,r.unit);
+    const sub=[finLabel(r.expense_date), r.branch_id?(BRANCHES[r.branch_id]||r.branch_id):'Umum', r.item?finEsc(r.item)+(r.qty?' · '+finQtyFmt(r.qty)+' '+finEsc(r.unit||''):''):null, r.note?finEsc(r.note):null].filter(Boolean).join(' · ');
+    return '<div class="exp-row"><div class="m" onclick="editExpense('+r.id+')" style="cursor:pointer"><b>'+finEsc(r.category)+'</b><small>'+sub+'</small></div>'
+      +(r.receipt_url?'<a href="'+finEsc(r.receipt_url)+'" target="_blank" rel="noopener" title="Lihat nota">📎</a>':'')
+      +'<span class="a">'+fmtRp(r.amount)+(per?'<small class="u">'+per+'</small>':'')+'</span>'+(isMaster?'<button onclick="deleteExpense('+r.id+')">🗑️</button>':'')+'</div>';
+  }).join('');
   el.innerHTML=h;
+}
+function finItemSummary(rows){
+  const g={};
+  rows.forEach(r=>{ if(!r.item||!(Number(r.qty)>0)) return; const k=r.item.trim().toLowerCase()+'|'+(r.unit||''); const o=g[k]||(g[k]={name:r.item.trim(),unit:r.unit||'',qty:0,amt:0,n:0}); o.qty+=Number(r.qty); o.amt+=Number(r.amount||0); o.n++; });
+  const list=Object.values(g).sort((a,b)=>b.amt-a.amt).slice(0,6);
+  if(!list.length) return '';
+  return '<div class="section-label">Barang terbesar</div>'+list.map(o=>'<div class="fin-bar-row"><div class="t"><span>'+finEsc(o.name)+' · '+finQtyFmt(o.qty)+' '+finEsc(o.unit)+(o.n>1?' ('+o.n+'x)':'')+'</span><b class="mono">'+fmtRp(o.amt)+'</b></div><div class="fin-note" style="margin:0 0 8px">rata-rata '+finPerUnit(o.amt,o.qty,o.unit)+'</div></div>').join('');
 }
 
 // ----- catat pengeluaran -----
-let expPhoto=null;
-function openExpModal(){
-  expPhoto=null;
-  const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+BRANCHES[b]+'</option>').join('');
+let expPhoto=null, expEditRow=null;
+const FIN_UNITS=['kg','gram','pcs','liter','ml','ikat','sak','karung','dus','tray','lusin','botol','pak','lainnya'];
+function finQtyFmt(q){ return String(Math.round(Number(q)*100)/100).replace('.',','); }
+function finPerUnit(amount,qty,unit){ const q=Number(qty); if(!(q>0)) return ''; return fmtRp(Math.round(Number(amount)/q))+'/'+(unit||''); }
+function expHint(){
+  const el=document.getElementById('exp-hint'); if(!el) return;
+  const a=parseFloat(document.getElementById('exp-amount').value)||0, q=parseFloat(String(document.getElementById('exp-qty').value).replace(',','.'))||0, u=document.getElementById('exp-unit').value;
+  el.textContent=(a>0&&q>0&&u)?'≈ '+finPerUnit(a,q,u):'';
+}
+function editExpense(id){ const r=finData&&finData.expRows.find(x=>x.id===id); if(r) openExpModal(r); }
+function openExpModal(row){
+  expPhoto=null; expEditRow=row||null;
+  const e=row||{};
+  const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'"'+(e.branch_id===b?' selected':'')+'>'+BRANCHES[b]+'</option>').join('');
   document.getElementById('exp-body').innerHTML=
-    '<div class="modal-title">Catat pengeluaran</div><div class="modal-sub">Foto nota (opsional) disimpan ke Google Drive toko.</div>'
-    +'<label class="kor-lbl">Tanggal</label><input class="kor-input" type="date" id="exp-date" value="'+finTodayWIB()+'">'
+    '<div class="modal-title">'+(row?'Edit pengeluaran':'Catat pengeluaran')+'</div><div class="modal-sub">'+(row?'Ubah data lalu simpan. Foto nota lama tetap kecuali kamu pilih foto baru.':'Foto nota (opsional) disimpan ke Google Drive toko.')+'</div>'
+    +'<label class="kor-lbl">Tanggal</label><input class="kor-input" type="date" id="exp-date" value="'+(e.expense_date||finTodayWIB())+'">'
     +'<label class="kor-lbl" style="margin-top:10px">Cabang</label><select class="kor-input" id="exp-branch">'+brOpts+'</select>'
-    +'<label class="kor-lbl" style="margin-top:10px">Kategori</label><select class="kor-input" id="exp-cat">'+FIN_CATS.map(k=>'<option>'+finEsc(k)+'</option>').join('')+'</select>'
-    +'<label class="kor-lbl" style="margin-top:10px">Nominal (Rp)</label><input class="kor-input mono" type="number" inputmode="numeric" id="exp-amount" placeholder="0">'
-    +'<label class="kor-lbl" style="margin-top:10px">Catatan</label><input class="kor-input" id="exp-note" placeholder="misal: tepung 5 sak">'
-    +'<label class="kor-lbl" style="margin-top:10px">Foto nota</label><label class="pp-toggle" style="display:block;text-align:center;margin-top:0">📷 Ambil / pilih foto nota<input type="file" id="exp-photo" accept="image/*" onchange="expPickPhoto(this)" style="display:none"></label>'
+    +'<label class="kor-lbl" style="margin-top:10px">Kategori</label><select class="kor-input" id="exp-cat">'+FIN_CATS.map(k=>'<option'+(e.category===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select>'
+    +'<label class="kor-lbl" style="margin-top:10px">Barang <small style="font-weight:400;color:var(--text3)">(mis. Pisang, Telur, Tepung)</small></label><input class="kor-input" id="exp-item" list="exp-items-list" autocomplete="off" value="'+finEsc(e.item||'')+'" placeholder="Nama barang"><datalist id="exp-items-list"></datalist>'
+    +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Jumlah</label><input class="kor-input mono" type="text" inputmode="decimal" id="exp-qty" value="'+(e.qty?finQtyFmt(e.qty):'')+'" placeholder="0" oninput="expHint()"></div><div style="flex:1"><label class="kor-lbl">Satuan</label><select class="kor-input" id="exp-unit" onchange="expHint()"><option value="">—</option>'+FIN_UNITS.map(u=>'<option'+(e.unit===u?' selected':'')+'>'+u+'</option>').join('')+'</select></div></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">Total harga (Rp)</label><input class="kor-input mono" type="number" inputmode="numeric" id="exp-amount" value="'+(e.amount?Math.round(Number(e.amount)):'')+'" placeholder="0" oninput="expHint()"><div id="exp-hint" class="fin-note" style="margin-top:4px;min-height:14px"></div>'
+    +'<label class="kor-lbl" style="margin-top:6px">Catatan <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="exp-note" value="'+finEsc(e.note||'')+'" placeholder="misal: beli di pasar">'
+    +'<label class="kor-lbl" style="margin-top:10px">Foto nota</label>'+(e.receipt_url?'<div class="fin-note" style="margin:0 0 6px">📎 Nota sudah terlampir. Pilih foto baru kalau mau mengganti.</div>':'')+'<label class="pp-toggle" style="display:block;text-align:center;margin-top:0">📷 Ambil / pilih foto nota<input type="file" id="exp-photo" accept="image/*" onchange="expPickPhoto(this)" style="display:none"></label>'
     +'<div id="exp-preview" style="margin-top:8px"></div>'
     +'<div id="exp-msg" style="font-size:12px;margin-top:8px;text-align:center"></div>'
-    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeExpModal()">Batal</button><button class="save-btn save-in" id="exp-save" style="flex:2" onclick="saveExpense()">💾 Simpan</button></div>';
-  const sel=document.getElementById('fin-branch').value; if(sel!=='all') document.getElementById('exp-branch').value=sel;
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeExpModal()">Batal</button><button class="save-btn save-in" id="exp-save" style="flex:2" onclick="saveExpense()">'+(row?'💾 Simpan perubahan':'💾 Simpan')+'</button></div>';
+  const sel=document.getElementById('fin-branch').value; if(!row && sel!=='all') document.getElementById('exp-branch').value=sel;
   document.getElementById('exp-modal').classList.add('open');
+  expHint();
+  (async()=>{ try{ const r=await sb.from('expenses').select('item').not('item','is',null).order('id',{ascending:false}).limit(300);
+    const set=[...new Set((r.data||[]).map(x=>x.item))].slice(0,40); const dl=document.getElementById('exp-items-list'); if(dl) dl.innerHTML=set.map(i=>'<option value="'+finEsc(i)+'">').join(''); }catch(_){} })();
 }
 function closeExpModal(){ document.getElementById('exp-modal').classList.remove('open'); }
 function expPickPhoto(inp){
@@ -2719,11 +2752,21 @@ async function saveExpense(){
   const date=document.getElementById('exp-date').value, br=document.getElementById('exp-branch').value||null;
   const cat=document.getElementById('exp-cat').value, amount=parseInt(document.getElementById('exp-amount').value)||0;
   const note=document.getElementById('exp-note').value.trim(), msg=document.getElementById('exp-msg'), btn=document.getElementById('exp-save');
-  if(!date){ msg.textContent='Pilih tanggal dulu'; msg.style.color='var(--r)'; return; }
-  if(amount<=0){ msg.textContent='Nominal harus lebih dari 0'; msg.style.color='var(--r)'; return; }
+  const item=document.getElementById('exp-item').value.trim(), qtyRaw=document.getElementById('exp-qty').value.trim().replace(',','.'), unit=document.getElementById('exp-unit').value;
+  const qty=qtyRaw===''?null:parseFloat(qtyRaw);
+  const bad=m=>{ msg.textContent=m; msg.style.color='var(--r)'; };
+  if(!date) return bad('Pilih tanggal dulu');
+  if(amount<=0) return bad('Total harga harus lebih dari 0');
+  if(qty!==null && !(qty>0)) return bad('Jumlah harus angka lebih dari 0');
+  if(qty>0 && !item) return bad('Isi nama barang untuk jumlah ini');
+  if(qty>0 && !unit) return bad('Pilih satuan (kg, pcs, dll)');
+  const payload={expense_date:date,branch_id:br,category:cat,amount:amount,item:item||null,qty:qty>0?qty:null,unit:qty>0?unit:null,note:note||null};
+  const editing=expEditRow, label=editing?'💾 Simpan perubahan':'💾 Simpan';
   btn.disabled=true; btn.textContent='Menyimpan...';
-  const { data:row, error } = await sb.from('expenses').insert({expense_date:date,branch_id:br,category:cat,amount:amount,note:note||null,created_by:currentUser.nama}).select().single();
-  if(error||!row){ btn.disabled=false; btn.textContent='💾 Simpan'; msg.textContent='Gagal: '+(error?error.message:'tidak ada respons'); msg.style.color='var(--r)'; return; }
+  let row, error;
+  if (editing) { const r=await sb.from('expenses').update(payload).eq('id',editing.id); error=r.error; row={id:editing.id}; }
+  else { const r=await sb.from('expenses').insert(Object.assign({created_by:currentUser.nama},payload)).select().single(); row=r.data; error=r.error; }
+  if(error||!row){ btn.disabled=false; btn.textContent=label; msg.textContent='Gagal: '+(error?error.message:'tidak ada respons'); msg.style.color='var(--r)'; return; }
   let info='';
   if(expPhoto){
     if(!driveScriptUrl){ info='Pengeluaran tersimpan. Foto belum diunggah karena Google Drive belum diatur di Pengaturan.'; }
@@ -2737,7 +2780,7 @@ async function saveExpense(){
       }catch(e){ info='Pengeluaran tersimpan, tapi foto belum bisa dipastikan terunggah ('+e.message+'). Cek folder Drive toko.'; }
     }
   }
-  btn.disabled=false; btn.textContent='💾 Simpan';
+  btn.disabled=false; btn.textContent=label;
   if(info){ msg.textContent=info; msg.style.color='var(--y)'; await loadKeuangan(); setTimeout(closeExpModal,2600); return; }
   closeExpModal(); await loadKeuangan();
 }
