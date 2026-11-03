@@ -3146,7 +3146,7 @@ async function loadDashboard() {
 function renderDailyHistory(rows, summary) {
   summary = summary||[];
   const summaryMap={};
-  summary.forEach(s=>{ summaryMap[s.d||s.movement_date]={stok_kemarin:s.kemarin||s.stok_kemarin||0, produksi:s.produksi||0, sisa:s.sisa||0, retur:s.retur||0, terjual:s.terjual||0}; });
+  summary.forEach(s=>{ summaryMap[s.d||s.movement_date]={stok_kemarin:s.kemarin||s.stok_kemarin||0, produksi:s.produksi||0, sisa:s.sisa||0, retur:s.retur||0, terjual:(s.terjual_pos!=null?s.terjual_pos:(s.terjual||0))}; }); // Terjual = dari POS (movement 'terjual')
   const byDate={};
   rows.forEach(r=>{ if(!byDate[r.movement_date])byDate[r.movement_date]=[]; byDate[r.movement_date].push(r); });
   const dates=Object.keys(byDate).sort().reverse();
@@ -3167,7 +3167,7 @@ function renderDailyHistory(rows, summary) {
       +'<div class="ds"><div class="ds-n" style="color:var(--in)">'+sm.produksi+'</div><div class="ds-l">Masuk</div></div>'
       +'<div class="ds"><div class="ds-n" style="color:var(--out)">'+sm.sisa+'</div><div class="ds-l">Sisa</div></div>'
       +'<div class="ds"><div class="ds-n" style="color:#7C3AED">'+sm.retur+'</div><div class="ds-l">Retur</div></div>'
-      +'<div class="ds" style="background:var(--g-bg)"><div class="ds-n" style="color:var(--g)">'+sm.terjual+'</div><div class="ds-l">Terjual</div></div>'
+      +'<div class="ds" style="background:var(--g-bg)"><div class="ds-n" style="color:var(--g)">'+sm.terjual+'</div><div class="ds-l">Terjual POS</div></div>'
       +'</div><div class="timeline" id="tl-'+di+'" style="display:none">';
     tls.forEach((t,ti)=>{
       const jam=new Date(t.time).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
