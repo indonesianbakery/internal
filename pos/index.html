@@ -1294,7 +1294,7 @@ function renderVariant(){
   let html = '';
   let leaf = vars;
   if(twoLevel){
-    const opt1 = [...new Set(vars.map(p=>vParts(p)[1]))];
+    const opt1 = [...new Set(vars.map(p=>vParts(p)[1]))].sort((x,y)=>x.localeCompare(y,'id'));
     if(!vSel.opt1) vSel.opt1 = opt1[0];
     html += '<div class="v-step">1. Pilih</div><div class="v-tabs">';
     opt1.forEach(o=>{
@@ -1305,6 +1305,8 @@ function renderVariant(){
     leaf = vars.filter(p=>vParts(p)[1]===vSel.opt1);
   }
   html += `<div class="v-step">${twoLevel?'2. Pilih & atur jumlah':'Pilih & atur jumlah'}</div><div class="v-opts">`;
+  const vLabel = p=>{ const a=vParts(p); return twoLevel ? (a.slice(2).join(' ')||a[1]) : a.slice(1).join(' '); };
+  leaf = [...leaf].sort((x,y)=>vLabel(x).localeCompare(vLabel(y),'id'));
   leaf.forEach(p=>{
     const a = vParts(p), label = twoLevel ? (a.slice(2).join(' ')||a[1]) : a.slice(1).join(' ');
     const q = vSel.qty[p.id]||0, pr = priceOf(p);
