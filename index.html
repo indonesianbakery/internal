@@ -382,6 +382,12 @@ body.font-xl{zoom:1.25;}
 .var-row input{min-width:0;}
 .var-del{border:none;background:var(--r-bg);color:var(--r);border-radius:8px;width:34px;height:38px;cursor:pointer;font-size:16px;}
 .exp-row .a .u{display:block;font-size:10px;font-weight:500;color:var(--text3);font-family:inherit;margin-top:1px;}
+.bhn-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:11px 12px;margin-bottom:6px;cursor:pointer;}
+.bhn-row:active{background:var(--g-light);}
+.bhn-main{flex:1;min-width:0;} .bhn-name{font-size:14px;font-weight:600;} .bhn-sub{font-size:11px;color:var(--text3);margin-top:2px;}
+.bhn-right{text-align:right;} .bhn-qty{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--g);}
+.bhn-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:3px;}
+.bhn-badge.cukup{background:var(--g-bg);color:var(--g);} .bhn-badge.tipis{background:var(--y-bg);color:#9A6700;} .bhn-badge.habis{background:var(--r-bg);color:var(--r);} .bhn-badge.belum{background:#EDEAEA;color:#6B5A5F;}
 .act-box{background:var(--g-light);border:1px solid var(--g-bg);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:12px;color:var(--text2);}
 .act-title{font-weight:700;color:var(--g);margin-bottom:4px;}
 .act-row{margin:2px 0;}
@@ -1281,6 +1287,27 @@ body{ max-width:none; }
   </div>
 </div>
 
+<div id="screen-bahan" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">🧂 Stok Bahan</span>
+  </div>
+  <div class="sub-body">
+    <div class="fin-note" style="margin:0 0 8px">Stok bahan baku <b>Jl. Melur</b>. Hitungan fisik jadi patokan, pembelian menambah, dan pemakaian dihitung otomatis dari selisih antar hitungan. Catat pembelian dulu, baru hitung.</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button class="add-btn" style="flex:2" onclick="openBahanHitung()">📋 Hitung stok</button>
+      <button class="add-btn" style="flex:1;background:var(--b)" onclick="openBahanAdd()">+ Bahan</button>
+    </div>
+    <div style="text-align:right;margin:-2px 0 8px"><button class="mini-btn" onclick="openBahanFromExpenses()">➕ Ambil dari Pengeluaran</button></div>
+    <div id="bahan-summary"></div>
+    <input class="form-input" id="bahan-search" placeholder="Cari bahan..." oninput="renderBahanList()" style="margin-bottom:8px">
+    <div id="bahan-list"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="bahan-modal" onclick="if(event.target===this)closeBahanModal()">
+  <div class="modal-sheet pp-sheet"><div id="bahan-modal-body"></div></div>
+</div>
+
 <div id="screen-keuangan" class="screen">
   <div class="sub-header">
     <button class="back-btn" onclick="show('overview')">← Kembali</button>
@@ -1844,6 +1871,7 @@ function refreshActiveScreen(){
   else if(id==='shipments' && typeof openShipments==='function') openShipments();
   else if(id==='itemhistory' && typeof renderItemHistory==='function') renderItemHistory();
   else if(id==='koreksi' && typeof renderKoreksi==='function') renderKoreksi();
+  else if(id==='bahan' && typeof loadBahan==='function') loadBahan();
   else if(id==='keuangan' && typeof loadKeuangan==='function'){ var fb=document.getElementById('fin-branch'); if(fb && fb.value!=='all') fb.value=branch; loadKeuangan(); }
   else if(id==='input'){ /* layar catat: balik ke overview biar ga campur cabang */ show('overview'); }
 }
@@ -2684,6 +2712,191 @@ function finRenderPengeluaran(){
   }).join('');
   el.innerHTML=h;
 }
+// ===== STOK BAHAN BAKU (Jl. Melur) =====
+let bahanRows = [], bahanAll = [];
+function bahanFmt(n){ return n==null ? '—' : String(Math.round(Number(n)*100)/100).replace('.',','); }
+function bahanParse(v){ const s=String(v==null?'':v).trim().replace(',','.'); if(s==='') return null; const n=parseFloat(s); return isNaN(n)?NaN:n; }
+function bahanTgl(ts){ return new Date(ts).toLocaleDateString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short'}); }
+function bahanConvert(qty,from,to){
+  if (from===to) return qty;
+  const pairs = {'kg>gram':1000,'gram>kg':0.001,'liter>ml':1000,'ml>liter':0.001};
+  const f = pairs[from+'>'+to]; return f==null ? null : qty*f;
+}
+function bahanStatus(r){
+  if (r.stok==null) return {k:'belum',t:'Belum dihitung',o:2};
+  if (Number(r.stok)<=0) return {k:'habis',t:'Habis',o:0};
+  if (r.min_stock!=null && Number(r.stok)<=Number(r.min_stock)) return {k:'tipis',t:'Menipis',o:1};
+  if (r.hari_tersisa!=null && Number(r.hari_tersisa)<=3) return {k:'tipis',t:'Segera habis',o:1};
+  return {k:'cukup',t:'Cukup',o:3};
+}
+async function openBahan(){ show('bahan'); await loadBahan(); }
+async function loadBahan(){
+  const el=document.getElementById('bahan-list');
+  const { data, error } = await sb.rpc('get_ingredient_stock');
+  if (error) { el.innerHTML='<div class="empty">Gagal memuat: '+finEsc(error.message)+'</div>'; return; }
+  bahanRows = data||[]; renderBahanList();
+}
+function renderBahanList(){
+  const q=(document.getElementById('bahan-search').value||'').toLowerCase();
+  const st = bahanRows.map(r=>Object.assign({_s:bahanStatus(r)},r));
+  const cnt = k=>st.filter(r=>r._s.k===k).length;
+  document.getElementById('bahan-summary').innerHTML = st.length
+    ? '<div class="fin-note" style="margin:0 0 8px">'+st.length+' bahan · <b style="color:var(--r)">'+cnt('habis')+' habis</b> · <b style="color:#9A6700">'+cnt('tipis')+' menipis</b> · '+cnt('belum')+' belum dihitung</div>' : '';
+  const list = st.filter(r=>!q||r.name.toLowerCase().includes(q)).sort((a,b)=>a._s.o-b._s.o || a.name.localeCompare(b.name));
+  document.getElementById('bahan-list').innerHTML = list.length ? list.map(r=>{
+    const bits=[];
+    if (r.last_count_at) bits.push('dihitung '+bahanTgl(r.last_count_at));
+    if (r.pakai_harian!=null && Number(r.pakai_harian)>0) bits.push('pakai ±'+bahanFmt(r.pakai_harian)+' '+finEsc(r.unit)+'/hari');
+    if (r.hari_tersisa!=null && r.stok!=null && Number(r.stok)>0) bits.push('≈ habis '+Math.max(1,Math.round(r.hari_tersisa))+' hari');
+    if (r.min_stock!=null) bits.push('min '+bahanFmt(r.min_stock));
+    return '<div class="bhn-row" onclick="openBahanDetail('+r.id+')"><div class="bhn-main"><div class="bhn-name">'+finEsc(r.name)+'</div><div class="bhn-sub">'+(bits.join(' · ')||'belum ada hitungan')+'</div></div>'
+      +'<div class="bhn-right"><div class="bhn-qty">'+(r.stok==null?'—':bahanFmt(r.stok)+' '+finEsc(r.unit))+'</div><span class="bhn-badge '+r._s.k+'">'+r._s.t+'</span></div></div>';
+  }).join('') : '<div class="empty">'+(bahanRows.length?'Tidak ada bahan yang cocok':'Belum ada bahan. Tambah lewat "+ Bahan" atau "Ambil dari Pengeluaran".')+'</div>';
+}
+function openBahanModal(html){ document.getElementById('bahan-modal-body').innerHTML=html; document.getElementById('bahan-modal').classList.add('open'); }
+function closeBahanModal(){ document.getElementById('bahan-modal').classList.remove('open'); }
+
+// ----- hitung stok (isi sebagian boleh) -----
+function openBahanHitung(){
+  if (!bahanRows.length) { openBahanModal('<div class="modal-title">📋 Hitung stok</div><div class="modal-sub">Belum ada bahan. Tambah dulu lewat "+ Bahan" atau "Ambil dari Pengeluaran".</div><button class="pp-close" onclick="closeBahanModal()">Tutup</button>'); return; }
+  const rows = bahanRows.slice().sort((a,b)=>a.name.localeCompare(b.name));
+  openBahanModal('<div class="modal-title">📋 Hitung stok</div><div class="modal-sub">Isi yang sudah kamu hitung saja, sisanya boleh dikosongkan. Pembelian yang belum dicatat, catat dulu di Pengeluaran.</div>'
+    +rows.map(r=>'<div class="pd-row" style="margin-bottom:8px"><div style="flex:1"><div style="font-size:13px;font-weight:600">'+finEsc(r.name)+'</div><div class="pm2-sub">perkiraan sistem: '+(r.stok==null?'belum ada':bahanFmt(r.stok)+' '+finEsc(r.unit))+'</div></div><input class="mini-input bh-in" data-id="'+r.id+'" type="text" inputmode="decimal" placeholder="0" style="width:88px"><span class="pm-pcs">'+finEsc(r.unit)+'</span></div>').join('')
+    +'<div id="bh-msg" class="price-save-status" style="display:block;margin:6px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeBahanModal()">Batal</button><button class="save-btn save-in" id="bh-save" style="flex:2" onclick="saveBahanHitung()">Simpan hitungan</button></div>');
+}
+async function saveBahanHitung(){
+  const msg=document.getElementById('bh-msg'), bad=m=>{ msg.textContent=m; msg.className='price-save-status err'; };
+  const ins=[];
+  for (const inp of document.querySelectorAll('.bh-in')) {
+    const v=bahanParse(inp.value); if (v==null) continue;
+    if (Number.isNaN(v) || v<0) return bad('Ada angka yang tidak valid (harus 0 atau lebih)');
+    ins.push({ingredient_id:parseInt(inp.dataset.id),type:'hitung',qty:v,user_name:currentUser.nama});
+  }
+  if (!ins.length) return bad('Belum ada yang diisi');
+  document.getElementById('bh-save').disabled=true; msg.textContent='Menyimpan...'; msg.className='price-save-status';
+  const { error } = await sb.from('ingredient_movements').insert(ins);
+  if (error) { document.getElementById('bh-save').disabled=false; return bad('Gagal: '+error.message); }
+  closeBahanModal(); await loadBahan();
+}
+
+// ----- tambah bahan -----
+function openBahanAdd(){
+  openBahanModal('<div class="modal-title">+ Bahan baru</div>'
+    +'<label class="kor-lbl">Nama bahan</label><input class="kor-input" id="ba-name" placeholder="mis. Tepung terigu">'
+    +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Satuan</label><select class="kor-input" id="ba-unit">'+FIN_UNITS.map(u=>'<option>'+u+'</option>').join('')+'</select></div><div style="flex:1"><label class="kor-lbl">Stok sekarang <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input mono" id="ba-qty" type="text" inputmode="decimal" placeholder="0"></div></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">Batas menipis <small style="font-weight:400;color:var(--text3)">(opsional, ada peringatan di bawah angka ini)</small></label><input class="kor-input mono" id="ba-min" type="text" inputmode="decimal" placeholder="0">'
+    +'<div id="ba-msg" class="price-save-status" style="display:block;margin:8px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeBahanModal()">Batal</button><button class="save-btn save-in" id="ba-save" style="flex:2" onclick="addBahan()">Simpan</button></div>');
+}
+async function addBahan(){
+  const msg=document.getElementById('ba-msg'), bad=m=>{ msg.textContent=m; msg.className='price-save-status err'; };
+  const name=cleanPart(document.getElementById('ba-name').value), unit=document.getElementById('ba-unit').value;
+  const qty=bahanParse(document.getElementById('ba-qty').value), mn=bahanParse(document.getElementById('ba-min').value);
+  if (!name) return bad('Nama bahan kosong');
+  if ((qty!=null&&(Number.isNaN(qty)||qty<0)) || (mn!=null&&(Number.isNaN(mn)||mn<0))) return bad('Angka tidak valid');
+  if (bahanRows.some(r=>r.name.toLowerCase()===name.toLowerCase())) return bad('Bahan "'+name+'" sudah ada');
+  const { data:ing, error } = await sb.from('ingredients').insert({name:name,unit:unit,min_stock:mn}).select().single();
+  if (error || !ing) return bad(/duplicate|unique/i.test((error&&error.message)||'') ? 'Nama sudah dipakai (mungkin bahan nonaktif)' : 'Gagal: '+(error?error.message:'tidak ada respons'));
+  if (qty!=null) await sb.from('ingredient_movements').insert({ingredient_id:ing.id,type:'hitung',qty:qty,user_name:currentUser.nama});
+  closeBahanModal(); await loadBahan();
+}
+
+// ----- ambil daftar bahan dari Pengeluaran -----
+async function openBahanFromExpenses(){
+  openBahanModal('<div class="modal-title">➕ Ambil dari Pengeluaran</div><div class="loading"><div class="spinner"></div>Memeriksa...</div>');
+  const [ex, ing] = await Promise.all([ sb.from('expenses').select('item,unit,qty').eq('category','Bahan baku').not('item','is',null).limit(1000), sb.from('ingredients').select('name') ]);
+  const have = new Set((ing.data||[]).map(x=>x.name.toLowerCase()));
+  const cand = {};
+  (ex.data||[]).forEach(r=>{ const k=String(r.item).trim().toLowerCase(); if(!k||have.has(k)) return; if(!cand[k]) cand[k]={name:String(r.item).trim(),unit:r.unit||'kg'}; });
+  const list = Object.values(cand).sort((a,b)=>a.name.localeCompare(b.name));
+  openBahanModal('<div class="modal-title">➕ Ambil dari Pengeluaran</div><div class="modal-sub">Barang kategori Bahan baku yang pernah kamu catat dan belum ada di daftar bahan.</div>'
+    +(list.length ? list.map((r,i)=>'<label class="bp-toggle" style="margin:6px 0"><input type="checkbox" class="bfe-ck" data-name="'+finEsc(r.name)+'" data-unit="'+finEsc(r.unit)+'" checked> '+finEsc(r.name)+' <small style="color:var(--text3)">('+finEsc(r.unit)+')</small></label>').join('') : '<div style="text-align:center;color:var(--text3);padding:16px;font-size:13px">Semua barang dari Pengeluaran sudah ada di daftar bahan.</div>')
+    +'<div id="bfe-msg" class="price-save-status" style="display:block;margin:8px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeBahanModal()">Tutup</button>'+(list.length?'<button class="save-btn save-in" style="flex:2" onclick="saveBahanFromExpenses()">Tambahkan yang dicentang</button>':'')+'</div>');
+}
+async function saveBahanFromExpenses(){
+  const rows=[...document.querySelectorAll('.bfe-ck')].filter(x=>x.checked).map(x=>({name:x.dataset.name,unit:x.dataset.unit}));
+  const msg=document.getElementById('bfe-msg');
+  if (!rows.length) { msg.textContent='Belum ada yang dicentang'; msg.className='price-save-status err'; return; }
+  const { error } = await sb.from('ingredients').insert(rows);
+  if (error) { msg.textContent='Gagal: '+error.message; msg.className='price-save-status err'; return; }
+  closeBahanModal(); await loadBahan();
+}
+
+// ----- detail bahan -----
+const BAHAN_TIPE = {hitung:'Hitungan',masuk:'Masuk (beli)',pakai:'Dipakai',buang:'Dibuang'};
+async function openBahanDetail(id){
+  const r = bahanRows.find(x=>x.id===id); if(!r) return;
+  openBahanModal('<div class="loading"><div class="spinner"></div>Memuat...</div>');
+  const { data:mv } = await sb.from('ingredient_movements').select('*').eq('ingredient_id',id).order('created_at',{ascending:false}).limit(15);
+  const s=bahanStatus(r), u=finEsc(r.unit);
+  openBahanModal('<div class="modal-title">'+finEsc(r.name)+'</div><div class="modal-sub">Stok: <b>'+(r.stok==null?'belum dihitung':bahanFmt(r.stok)+' '+u)+'</b> · <span class="bhn-badge '+s.k+'">'+s.t+'</span>'+(r.pakai_harian!=null&&Number(r.pakai_harian)>0?'<br>Pemakaian rata-rata ±'+bahanFmt(r.pakai_harian)+' '+u+'/hari':'')+'</div>'
+    +'<div class="pd-sec">Hitung sekarang</div><div class="pd-row"><input class="kor-input mono" id="bd-count" type="text" inputmode="decimal" placeholder="jumlah di gudang" style="flex:1"><span class="pm-pcs">'+u+'</span><button class="mini-btn" onclick="bahanDetailAdd('+id+',\'hitung\')">Simpan</button></div>'
+    +'<div class="pd-sec">Catat pembelian / terima barang</div><div class="pd-row"><input class="kor-input mono" id="bd-masuk" type="text" inputmode="decimal" placeholder="jumlah masuk" style="flex:1"><span class="pm-pcs">'+u+'</span><button class="mini-btn" onclick="bahanDetailAdd('+id+',\'masuk\')">Simpan</button></div>'
+    +'<div class="pd-sec">Catat pemakaian / dibuang <small style="font-weight:400;color:var(--text3)">(opsional)</small></div><div class="pd-row"><input class="kor-input mono" id="bd-pakai" type="text" inputmode="decimal" placeholder="jumlah" style="flex:1"><select class="kor-input" id="bd-tipe" style="width:96px"><option value="pakai">dipakai</option><option value="buang">dibuang</option></select><button class="mini-btn" onclick="bahanDetailAdd('+id+',\'pakai\')">Simpan</button></div>'
+    +'<div id="bd-msg" class="price-save-status" style="display:block;margin:6px 0"></div>'
+    +'<div class="pd-sec">Pengaturan</div><input class="kor-input" id="bd-name" value="'+finEsc(r.name)+'"><div style="display:flex;gap:8px;margin-top:8px"><select class="kor-input" id="bd-unit" style="flex:1">'+FIN_UNITS.map(x=>'<option'+(x===r.unit?' selected':'')+'>'+x+'</option>').join('')+'</select><input class="kor-input mono" id="bd-min" type="text" inputmode="decimal" value="'+(r.min_stock==null?'':bahanFmt(r.min_stock))+'" placeholder="batas menipis" style="flex:1"></div>'
+    +'<div class="fin-note" style="margin:4px 0 8px">Mengubah satuan tidak mengonversi angka lama.</div><div class="pd-row"><button class="mini-btn" onclick="bahanDetailSave('+id+')">Simpan pengaturan</button><button class="del-btn" onclick="bahanDetailOff('+id+')">Nonaktifkan</button></div>'
+    +'<div class="pd-sec">Riwayat terakhir</div>'+((mv&&mv.length)?mv.map(m=>'<div class="pd-row" style="font-size:12px;margin-bottom:4px"><span style="width:52px;color:var(--text3)">'+bahanTgl(m.created_at)+'</span><b style="flex:1">'+(BAHAN_TIPE[m.type]||m.type)+(m.expense_id?' <span style="font-weight:400;color:var(--text3)">(nota)</span>':'')+'</b><span class="mono">'+(m.type==='buang'||m.type==='pakai'?'−':m.type==='masuk'?'+':'=')+bahanFmt(m.qty)+' '+u+'</span></div>').join(''):'<div class="pm2-sub">Belum ada riwayat.</div>')
+    +'<button class="pp-close" onclick="closeBahanModal()">Tutup</button>');
+}
+async function bahanDetailAdd(id,tipe){
+  const src = tipe==='hitung'?'bd-count':tipe==='masuk'?'bd-masuk':'bd-pakai';
+  const v=bahanParse(document.getElementById(src).value), msg=document.getElementById('bd-msg');
+  if (v==null || Number.isNaN(v) || v<0) { msg.textContent='Isi jumlah yang valid'; msg.className='price-save-status err'; return; }
+  const type = tipe==='pakai' ? document.getElementById('bd-tipe').value : tipe;
+  const { error } = await sb.from('ingredient_movements').insert({ingredient_id:id,type:type,qty:v,user_name:currentUser.nama});
+  if (error) { msg.textContent='Gagal: '+error.message; msg.className='price-save-status err'; return; }
+  await loadBahan(); openBahanDetail(id);
+}
+async function bahanDetailSave(id){
+  const msg=document.getElementById('bd-msg'), bad=m=>{ msg.textContent=m; msg.className='price-save-status err'; };
+  const name=cleanPart(document.getElementById('bd-name').value), unit=document.getElementById('bd-unit').value, mn=bahanParse(document.getElementById('bd-min').value);
+  if (!name) return bad('Nama kosong');
+  if (mn!=null && (Number.isNaN(mn)||mn<0)) return bad('Batas menipis tidak valid');
+  if (bahanRows.some(r=>r.id!==id && r.name.toLowerCase()===name.toLowerCase())) return bad('Nama sudah dipakai bahan lain');
+  const { error } = await sb.from('ingredients').update({name:name,unit:unit,min_stock:mn}).eq('id',id);
+  if (error) return bad('Gagal: '+error.message);
+  await loadBahan(); openBahanDetail(id);
+}
+async function bahanDetailOff(id){
+  const r=bahanRows.find(x=>x.id===id); if(!r) return;
+  if (!confirm('Nonaktifkan "'+r.name+'"? Bahan disembunyikan dari daftar, riwayatnya tetap tersimpan.')) return;
+  const { error } = await sb.from('ingredients').update({is_active:false}).eq('id',id);
+  if (error) { alert('Gagal: '+error.message); return; }
+  closeBahanModal(); await loadBahan();
+}
+
+// ----- sambungan Pengeluaran -> stok bahan -----
+let expLinked = null;
+function expStokSync(force){
+  const wrap=document.getElementById('exp-stok-wrap'); if(!wrap) return;
+  const cat=document.getElementById('exp-cat').value, item=document.getElementById('exp-item').value.trim();
+  const qty=parseFloat(String(document.getElementById('exp-qty').value).replace(',','.'))||0, unit=document.getElementById('exp-unit').value;
+  const isBahan = cat==='Bahan baku';
+  wrap.style.display = isBahan ? '' : 'none';
+  const ck=document.getElementById('exp-stok'), hint=document.getElementById('exp-stok-hint');
+  if (isBahan && !expStokTouched) ck.checked = !!(item && qty>0 && unit) || (!!expEditRow && !!expLinked);
+  if (!isBahan) ck.checked = false;
+  const have = bahanAll.find(b=>b.name.toLowerCase()===item.toLowerCase());
+  hint.textContent = !ck.checked ? '' : !(item&&qty>0&&unit) ? 'Isi Barang, Jumlah, dan Satuan supaya stok bisa bertambah.'
+    : have ? (bahanConvert(qty,unit,have.unit)==null ? '⚠️ Satuan beda dari bahan ('+have.unit+'), stok tidak akan bertambah.' : '→ menambah stok "'+have.name+'" ('+have.unit+')')
+    : '→ bahan baru "'+item+'" akan dibuat';
+}
+let expStokTouched = false;
+async function syncExpenseStock(expenseId, p, want, linked){
+  const ok = want && p.item && p.qty>0 && p.unit;
+  if (!ok) { if (linked) await sb.from('ingredient_movements').delete().eq('id',linked.id); return want ? 'Stok bahan tidak ditambah: isi Barang, Jumlah, dan Satuan.' : null; }
+  const { data:all } = await sb.from('ingredients').select('id,name,unit,is_active');
+  let ing = (all||[]).find(b=>b.name.toLowerCase()===p.item.toLowerCase()), qty = p.qty;
+  if (ing) { qty = bahanConvert(p.qty,p.unit,ing.unit); if (qty==null) { if (linked) await sb.from('ingredient_movements').delete().eq('id',linked.id); return 'Stok bahan tidak ditambah: satuan nota ('+p.unit+') beda dari satuan bahan ('+ing.unit+'). Tambah manual lewat Stok Bahan.'; } if (ing.is_active===false) await sb.from('ingredients').update({is_active:true}).eq('id',ing.id); }
+  else { const r = await sb.from('ingredients').insert({name:p.item,unit:p.unit}).select().single(); if (r.error||!r.data) return 'Pengeluaran tersimpan, tapi bahan baru gagal dibuat: '+(r.error?r.error.message:'tidak ada respons'); ing = r.data; }
+  const mv = {ingredient_id:ing.id,qty:qty,movement_date:p.expense_date};
+  const res = linked ? await sb.from('ingredient_movements').update(mv).eq('id',linked.id)
+                     : await sb.from('ingredient_movements').insert(Object.assign({type:'masuk',expense_id:expenseId,user_name:currentUser.nama,note:'Pembelian'},mv));
+  return (res&&res.error) ? 'Pengeluaran tersimpan, tapi stok bahan gagal diperbarui: '+res.error.message : null;
+}
 function finItemSummary(rows){
   const g={};
   rows.forEach(r=>{ if(!r.item||!(Number(r.qty)>0)) return; const k=r.item.trim().toLowerCase()+'|'+(r.unit||''); const o=g[k]||(g[k]={name:r.item.trim(),unit:r.unit||'',qty:0,amt:0,n:0}); o.qty+=Number(r.qty); o.amt+=Number(r.amount||0); o.n++; });
@@ -2704,17 +2917,18 @@ function expHint(){
 }
 function editExpense(id){ const r=finData&&finData.expRows.find(x=>x.id===id); if(r) openExpModal(r); }
 function openExpModal(row){
-  expPhoto=null; expEditRow=row||null;
+  expPhoto=null; expEditRow=row||null; expLinked=null; expStokTouched=false;
   const e=row||{};
   const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'"'+(e.branch_id===b?' selected':'')+'>'+BRANCHES[b]+'</option>').join('');
   document.getElementById('exp-body').innerHTML=
     '<div class="modal-title">'+(row?'Edit pengeluaran':'Catat pengeluaran')+'</div><div class="modal-sub">'+(row?'Ubah data lalu simpan. Foto nota lama tetap kecuali kamu pilih foto baru.':'Foto nota (opsional) disimpan ke Google Drive toko.')+'</div>'
     +'<label class="kor-lbl">Tanggal</label><input class="kor-input" type="date" id="exp-date" value="'+(e.expense_date||finTodayWIB())+'">'
     +'<label class="kor-lbl" style="margin-top:10px">Cabang</label><select class="kor-input" id="exp-branch">'+brOpts+'</select>'
-    +'<label class="kor-lbl" style="margin-top:10px">Kategori</label><select class="kor-input" id="exp-cat">'+FIN_CATS.map(k=>'<option'+(e.category===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select>'
-    +'<label class="kor-lbl" style="margin-top:10px">Barang <small style="font-weight:400;color:var(--text3)">(mis. Pisang, Telur, Tepung)</small></label><input class="kor-input" id="exp-item" list="exp-items-list" autocomplete="off" value="'+finEsc(e.item||'')+'" placeholder="Nama barang"><datalist id="exp-items-list"></datalist>'
-    +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Jumlah</label><input class="kor-input mono" type="text" inputmode="decimal" id="exp-qty" value="'+(e.qty?finQtyFmt(e.qty):'')+'" placeholder="0" oninput="expHint()"></div><div style="flex:1"><label class="kor-lbl">Satuan</label><select class="kor-input" id="exp-unit" onchange="expHint()"><option value="">—</option>'+FIN_UNITS.map(u=>'<option'+(e.unit===u?' selected':'')+'>'+u+'</option>').join('')+'</select></div></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">Kategori</label><select class="kor-input" id="exp-cat" onchange="expStokSync()">'+FIN_CATS.map(k=>'<option'+(e.category===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select>'
+    +'<label class="kor-lbl" style="margin-top:10px">Barang <small style="font-weight:400;color:var(--text3)">(mis. Pisang, Telur, Tepung)</small></label><input class="kor-input" id="exp-item" list="exp-items-list" autocomplete="off" value="'+finEsc(e.item||'')+'" placeholder="Nama barang" oninput="expStokSync()"><datalist id="exp-items-list"></datalist>'
+    +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Jumlah</label><input class="kor-input mono" type="text" inputmode="decimal" id="exp-qty" value="'+(e.qty?finQtyFmt(e.qty):'')+'" placeholder="0" oninput="expHint();expStokSync()"></div><div style="flex:1"><label class="kor-lbl">Satuan</label><select class="kor-input" id="exp-unit" onchange="expHint();expStokSync()"><option value="">—</option>'+FIN_UNITS.map(u=>'<option'+(e.unit===u?' selected':'')+'>'+u+'</option>').join('')+'</select></div></div>'
     +'<label class="kor-lbl" style="margin-top:10px">Total harga (Rp)</label><input class="kor-input mono" type="number" inputmode="numeric" id="exp-amount" value="'+(e.amount?Math.round(Number(e.amount)):'')+'" placeholder="0" oninput="expHint()"><div id="exp-hint" class="fin-note" style="margin-top:4px;min-height:14px"></div>'
+    +'<label class="bp-toggle" id="exp-stok-wrap" style="display:none"><input type="checkbox" id="exp-stok" onchange="expStokTouched=true;expStokSync()"> Tambahkan ke stok bahan (Melur)</label><div id="exp-stok-hint" class="fin-note" style="margin:2px 0 0;min-height:12px"></div>'
     +'<label class="kor-lbl" style="margin-top:6px">Catatan <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="exp-note" value="'+finEsc(e.note||'')+'" placeholder="misal: beli di pasar">'
     +'<label class="kor-lbl" style="margin-top:10px">Foto nota</label>'+(e.receipt_url?'<div class="fin-note" style="margin:0 0 6px">📎 Nota sudah terlampir. Pilih foto baru kalau mau mengganti.</div>':'')+'<label class="pp-toggle" style="display:block;text-align:center;margin-top:0">📷 Ambil / pilih foto nota<input type="file" id="exp-photo" accept="image/*" onchange="expPickPhoto(this)" style="display:none"></label>'
     +'<div id="exp-preview" style="margin-top:8px"></div>'
@@ -2723,6 +2937,7 @@ function openExpModal(row){
   const sel=document.getElementById('fin-branch').value; if(!row && sel!=='all') document.getElementById('exp-branch').value=sel;
   document.getElementById('exp-modal').classList.add('open');
   expHint();
+  (async()=>{ try{ const [a,l]=await Promise.all([ sb.from('ingredients').select('id,name,unit,is_active'), row?sb.from('ingredient_movements').select('id,ingredient_id,qty').eq('expense_id',row.id):Promise.resolve({data:[]}) ]); bahanAll=a.data||[]; expLinked=(l.data&&l.data[0])||null; expStokSync(); }catch(_){ expStokSync(); } })();
   (async()=>{ try{ const r=await sb.from('expenses').select('item').not('item','is',null).order('id',{ascending:false}).limit(300);
     const set=[...new Set((r.data||[]).map(x=>x.item))].slice(0,40); const dl=document.getElementById('exp-items-list'); if(dl) dl.innerHTML=set.map(i=>'<option value="'+finEsc(i)+'">').join(''); }catch(_){} })();
 }
@@ -2767,6 +2982,8 @@ async function saveExpense(){
   if (editing) { const r=await sb.from('expenses').update(payload).eq('id',editing.id); error=r.error; row={id:editing.id}; }
   else { const r=await sb.from('expenses').insert(Object.assign({created_by:currentUser.nama},payload)).select().single(); row=r.data; error=r.error; }
   if(error||!row){ btn.disabled=false; btn.textContent=label; msg.textContent='Gagal: '+(error?error.message:'tidak ada respons'); msg.style.color='var(--r)'; return; }
+  let stokMsg=null;
+  try{ const wantStok=!!(document.getElementById('exp-stok')&&document.getElementById('exp-stok').checked&&cat==='Bahan baku'); stokMsg=await syncExpenseStock(row.id,{item:item,qty:qty,unit:unit,expense_date:date},wantStok,expLinked); }catch(e){ stokMsg='Pengeluaran tersimpan, tapi stok bahan belum bisa diperbarui ('+e.message+')'; }
   let info='';
   if(expPhoto){
     if(!driveScriptUrl){ info='Pengeluaran tersimpan. Foto belum diunggah karena Google Drive belum diatur di Pengaturan.'; }
@@ -2781,6 +2998,7 @@ async function saveExpense(){
     }
   }
   btn.disabled=false; btn.textContent=label;
+  if(stokMsg) info=(info?info+' ':'')+stokMsg;
   if(info){ msg.textContent=info; msg.style.color='var(--y)'; await loadKeuangan(); setTimeout(closeExpModal,2600); return; }
   closeExpModal(); await loadKeuangan();
 }
@@ -4635,6 +4853,7 @@ const SB_NAV = [
   {scr:'dashboard', ic:'📊', label:'Dashboard', roles:['master','manager']},
   {scr:'salesreport', ic:'💰', label:'Laporan Penjualan', roles:['master'], fn:'openSalesReport'},
   {scr:'keuangan', ic:'🧾', label:'Keuangan', roles:['master','manager'], fn:'openKeuangan'},
+  {scr:'bahan', ic:'🧂', label:'Stok Bahan', roles:['master','manager'], fn:'openBahan'},
   {scr:'shelf', ic:'🏷️', label:'Kedaluwarsa', roles:['master','manager','karyawan'], fn:'openShelfReport'},
   {section:'Operasional'},
   {scr:'setoran', ic:'💵', label:'Setoran Harian', roles:['master','manager','karyawan'], fn:'openSetoran'},
