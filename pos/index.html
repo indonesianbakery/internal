@@ -474,8 +474,8 @@ body.pl-mode #cart-bar{background:#1565C0;}
         <div class="val" id="change-val">Rp0</div>
       </div>
     </div>
-    <div class="form-row" style="margin-top:14px;">
-      <label class="form-lbl">Nama pelanggan (opsional, struk jadi NOTA)</label>
+    <div class="form-row" id="customer-name-row" style="margin-top:14px;">
+      <label class="form-lbl">Nama di NOTA</label>
       <input class="form-inp" id="customer-name-inp" placeholder="misal: Shanum Cafe" autocomplete="off">
     </div>
     <div class="form-row">
@@ -1475,7 +1475,9 @@ function openPayment(){
   document.getElementById('cash-block').classList.remove('hidden');
   document.getElementById('cash-display').textContent = '0';
   document.getElementById('customer-email-inp').value = '';
-  document.getElementById('customer-name-inp').value = (txMode && txMode.type==='edit' && txMode.customer) ? txMode.customer : (plId() ? plName(plId()) : '');
+  const _cn = (txMode && txMode.type==='edit' && txMode.customer) ? txMode.customer : (plId() ? plName(plId()) : '');
+  document.getElementById('customer-name-inp').value = _cn;
+  document.getElementById('customer-name-row').style.display = _cn ? '' : 'none';
   document.getElementById('pay-total-sub').textContent = 'Total: ' + rp(calcGrandTotal());
   calcChange();
   if(txMode && txMode.type==='edit'){
@@ -1665,10 +1667,6 @@ function showReceipt(){
   html += `<div class="rc-row rc-tot"><span>TOTAL</span><span>${rp(r.grand)}</span></div>`;
   html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):rp(r.grand)}</span></div>`;
   if(r.change!=null) html += `<div class="rc-row"><span>Kembali</span><span>${rp(r.change)}</span></div>`;
-  if(r.customer){
-    html += `<hr><div class="rc-row"><span>Penerima,</span><span>Hormat kami,</span></div>`;
-    html += `<div class="rc-gap" style="height:36px"></div><div class="rc-row"><span>(${r.customer})</span><span>(Indonesian Bakery)</span></div>`;
-  }
   html += `<hr><div style="text-align:center;">Terima kasih! 🍞</div>`;
   document.getElementById('receipt-body').innerHTML = html;
   openSheet('sheet-receipt');
