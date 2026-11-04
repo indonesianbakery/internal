@@ -475,6 +475,10 @@ body.pl-mode #cart-bar{background:#1565C0;}
       </div>
     </div>
     <div class="form-row" style="margin-top:14px;">
+      <label class="form-lbl">Nama pelanggan (opsional, struk jadi NOTA)</label>
+      <input class="form-inp" id="customer-name-inp" placeholder="misal: Shanum Cafe" autocomplete="off">
+    </div>
+    <div class="form-row">
       <label class="form-lbl">Email customer (opsional, untuk kirim struk nanti)</label>
       <input class="form-inp" type="email" id="customer-email-inp" placeholder="nama@email.com">
     </div>
@@ -507,7 +511,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <div class="sheet-sub" id="shift-open-sub"></div>
     <div id="shift-open-prev"></div>
     <div id="shift-open-count">
-      <div class="v-step">Hitung uang di laci per lembar</div>
+      <div class="v-step" style="display:flex;align-items:center;gap:8px;">Hitung uang di laci per lembar <button class="gf-edit" style="margin-left:auto;font-size:12px;padding:5px 10px;" onclick="fillPrevDenoms('open')">↺ Isi seperti terakhir</button></div>
       <div id="denom-open"></div>
       <div class="form-row" style="margin-top:10px;">
         <label class="form-lbl">Kas awal (otomatis)</label>
@@ -526,7 +530,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
     <div class="sheet-title">🔒 Tutup Shift</div>
     <div class="sheet-sub" id="shift-close-sub"></div>
     <div id="shift-close-summary"></div>
-    <div class="v-step" style="margin-top:14px;">Hitung uang di laci per lembar</div>
+    <div class="v-step" style="margin-top:14px;display:flex;align-items:center;gap:8px;">Hitung uang di laci per lembar <button class="gf-edit" style="margin-left:auto;font-size:12px;padding:5px 10px;" onclick="fillPrevDenoms('close')">↺ Isi seperti terakhir</button></div>
     <div id="denom-close"></div>
     <div class="form-row" style="margin-top:10px;">
       <label class="form-lbl">Total dihitung (otomatis)</label>
@@ -835,6 +839,24 @@ function denomSync(k){
   const inp = document.getElementById(k==='open'?'shift-open-cash':'shift-close-cash');
   inp.value = any ? t.toLocaleString('id-ID') : '';
   if(k==='close'){ calcShiftDiff(); calcSetor(); }
+}
+function realDenoms(o){ if(!o || typeof o!=='object') return null; const r={}; DENOMS.forEach(v=>{ const q=parseInt(o[v]); if(q>0) r[v]=q; }); return Object.keys(r).length ? r : null; }
+async function fillPrevDenoms(k){
+  let src = null, from = '';
+  if(k==='close' && currentShift){ src = realDenoms(currentShift.opening_denoms); if(src) from = 'hitungan buka shift ini'; }
+  if(!src){
+    const { data } = await sb.from('pos_shifts').select('opening_denoms, closing_denoms, opened_at, closed_at, status').eq('branch_id', currentBranch).order('opened_at',{ascending:false}).limit(6);
+    for(const r of (data||[])){
+      if(k==='close' && currentShift && r.status==='open') continue;
+      const c = realDenoms(r.closing_denoms), o = realDenoms(r.opening_denoms);
+      if(c){ src = c; from = 'tutup shift terakhir'; break; }
+      if(o){ src = o; from = 'buka shift terakhir'; break; }
+    }
+  }
+  if(!src){ toast('Belum ada rincian lembar yang tersimpan'); return; }
+  denomState[k] = Object.assign({}, src);
+  renderDenoms(k);
+  toast('Diisi dari '+from+' · cek & sesuaikan lagi ya');
 }
 let _prevFloat = null;
 async function lastFloat(){
@@ -1453,6 +1475,7 @@ function openPayment(){
   document.getElementById('cash-block').classList.remove('hidden');
   document.getElementById('cash-display').textContent = '0';
   document.getElementById('customer-email-inp').value = '';
+  document.getElementById('customer-name-inp').value = (txMode && txMode.type==='edit' && txMode.customer) ? txMode.customer : (plId() ? plName(plId()) : '');
   document.getElementById('pay-total-sub').textContent = 'Total: ' + rp(calcGrandTotal());
   calcChange();
   if(txMode && txMode.type==='edit'){
@@ -1536,6 +1559,7 @@ async function _confirmPayment(){
       product_id: c.product_id, product_name: c.name, qty: c.qty,
       unit_price: c.price, item_discount: c.item_discount, is_gift: c.is_gift, gift_reason: c.gift_reason
     }));
+    const custName = (document.getElementById('customer-name-inp').value||'').trim();
     let rpcName = 'create_pos_transaction', args;
     if(txMode && txMode.type==='edit'){
       rpcName = 'update_pos_transaction';
@@ -1547,13 +1571,14 @@ async function _confirmPayment(){
       if(txMode && txMode.type==='manual') args.p_created_at = txMode.ts.toISOString();
       if(!payRef) payRef = newPayRef();
       args.p_client_ref = payRef;
-      if(plId()){ args.p_price_list_id = plId(); args.p_customer_name = plName(plId()); }
+      if(plId()) args.p_price_list_id = plId();
+      if(custName) args.p_customer_name = custName;
     }
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     const wasMode = txMode;
     lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
-      ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: plId() ? plName(plId()) : (wasMode && wasMode.customer) || null };
+      ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: custName || (wasMode && wasMode.customer) || null };
     closeSheet('sheet-payment');
     showReceipt();
     cart = []; discountTotal = 0; updateCartBar();
@@ -1629,7 +1654,7 @@ function showReceipt(){
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
   const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', gofood:'GoFood'}[r.payMethod];
-  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}${r.customer?'<br>Pelanggan: '+r.customer:''}</div><hr>`;
+  let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}${r.customer?'<br><br>NOTA<br>Kepada: '+r.customer:''}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-item">${c.name}${c.is_gift?' (GRATIS)':''}</div>`;
     html += `<div class="rc-row rc-sub"><span>${c.qty} x @${rp(c.price)}</span><span>${c.is_gift?'Rp0':rp(c.price*c.qty)}</span></div>`;
@@ -1640,6 +1665,10 @@ function showReceipt(){
   html += `<div class="rc-row rc-tot"><span>TOTAL</span><span>${rp(r.grand)}</span></div>`;
   html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):rp(r.grand)}</span></div>`;
   if(r.change!=null) html += `<div class="rc-row"><span>Kembali</span><span>${rp(r.change)}</span></div>`;
+  if(r.customer){
+    html += `<hr><div class="rc-row"><span>Penerima,</span><span>Hormat kami,</span></div>`;
+    html += `<div class="rc-gap" style="height:36px"></div><div class="rc-row"><span>(${r.customer})</span><span>(Indonesian Bakery)</span></div>`;
+  }
   html += `<hr><div style="text-align:center;">Terima kasih! 🍞</div>`;
   document.getElementById('receipt-body').innerHTML = html;
   openSheet('sheet-receipt');
@@ -1672,6 +1701,7 @@ function buildReceiptText(){
     if(el.classList.contains('rc-hd')){ el.innerHTML.split(/<br\s*\/?>|<\/b>/i).forEach(part=>{ const d=document.createElement('div'); d.innerHTML=part; const t=d.textContent; if(rcClean(t) && rcClean(t).toLowerCase()!=='indonesian bakery') lines.push(rcCenter(t)); }); return; }
     if(el.classList.contains('rc-row')){ const sp=el.querySelectorAll('span'); const sub=el.classList.contains('rc-sub'); const L=(sub?'  ':'')+rcClean(sp[0]?sp[0].textContent:''); const R=rcClean(sp[1]?sp[1].textContent:''); const gap=RC_W-L.length-R.length; lines.push(gap>=1 ? L+' '.repeat(gap)+R : rcLR(L,R)); return; }
     if(el.classList.contains('rc-item')){ lines.push(rcWrap(el.textContent)); return; }
+    if(el.classList.contains('rc-gap')){ lines.push('','',''); return; }
     const t = el.textContent; if(rcClean(t)) lines.push(el.style.textAlign==='center'?rcCenter(t):rcWrap(t));
   });
   return lines.join('\n') + '\n\n\n\n';
