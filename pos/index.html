@@ -442,6 +442,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
       <div class="pay-method active" data-m="cash" onclick="selectPayMethod('cash')"><span class="ic">💵</span>Cash</div>
       <div class="pay-method" data-m="qris" onclick="selectPayMethod('qris')"><span class="ic">📱</span>QRIS</div>
       <div class="pay-method" data-m="transfer" onclick="selectPayMethod('transfer')"><span class="ic">🏦</span>Transfer</div>
+      <div class="pay-method" data-m="debit" onclick="selectPayMethod('debit')"><span class="ic">💳</span>Debit</div>
     </div>
     <div id="cash-block">
       <div class="form-row">
@@ -918,6 +919,7 @@ async function openCloseShift(){
     <div class="shift-row"><span>💵 Penjualan Cash</span><b>${rp(data.cash)}</b></div>
     <div class="shift-row"><span>📱 QRIS</span><b>${rp(data.qris)}</b></div>
     <div class="shift-row"><span>🏦 Transfer</span><b>${rp(data.transfer)}</b></div>
+    <div class="shift-row"><span>💳 Debit</span><b>${rp(data.debit||0)}</b></div>
     <div class="shift-row"><span>🟢 GoFood</span><b>${rp(data.gofood||0)}</b></div>
     <div class="shift-row"><span>Jumlah transaksi</span><b>${data.tx_count}</b></div>`;
   (data.per_kasir||[]).forEach(k=>{ html += `<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;· ${k.nama} (${k.n} trx)</span><b>${rp(k.total)}</b></div>`; });
@@ -971,6 +973,7 @@ function showShiftReceipt(d){
   html += `<div class="rc-row"><span>Cash</span><span>${rp(sh.cash_sales)}</span></div>`;
   html += `<div class="rc-row"><span>QRIS</span><span>${rp(sh.qris_sales)}</span></div>`;
   html += `<div class="rc-row"><span>Transfer</span><span>${rp(sh.transfer_sales)}</span></div>`;
+  html += `<div class="rc-row"><span>Debit</span><span>${rp(sh.debit_sales||0)}</span></div>`;
   html += `<div class="rc-row"><span>GoFood</span><span>${rp(sh.gofood_sales||0)}</span></div>`;
   html += `<div class="rc-row"><span>Transaksi</span><span>${d.tx_count}</span></div><hr>`;
   (d.per_kasir||[]).forEach(k=>{ html += `<div class="rc-row"><span>${k.nama} (${k.n})</span><span>${rp(k.total)}</span></div>`; });
@@ -1613,7 +1616,7 @@ async function openRiwayat(){
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
     return `<div class="cart-item">
       <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
-        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.customer_name?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">☕ '+r.customer_name+'</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',debit:'💳',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.customer_name?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">☕ '+r.customer_name+'</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
         <div class="ci-price">${items}</div>
         <div class="ci-price">Kasir: ${r.cashier_name}${r.edited_by?' · diedit '+r.edited_by+' '+new Date(r.edited_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):''}</div>
       </div>
@@ -1655,7 +1658,7 @@ function showReceipt(){
   document.getElementById('btn-edit-tx').style.display = (canManageTx() && r.fromHistory) ? '' : 'none';
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
-  const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', gofood:'GoFood'}[r.payMethod];
+  const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', debit:'Debit', gofood:'GoFood'}[r.payMethod];
   let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}${r.customer?'<br><br>NOTA<br>Kepada: '+r.customer:''}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-item">${c.name}${c.is_gift?' (GRATIS)':''}</div>`;
