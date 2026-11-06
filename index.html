@@ -1914,7 +1914,7 @@ async function loadCategories() {
 }
 let branchPrices = {}; // { product_id: {melur:x, delima:y} }
 async function loadProducts() {
-  const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price,shelf_life_days').order('sort_order');
+  const { data, error } = await sb.from('products').select('id,name,category_id,is_active,cost_price,shelf_life_days,hpp').order('sort_order');
   if (!error&&data) products = data;
   const { data: bp } = await sb.from('product_branch_prices').select('*');
   branchPrices = {};
@@ -2593,7 +2593,7 @@ async function openShelfReport() {
 
 // ===== KEUANGAN (rekap penjualan + pengeluaran) =====
 let finPeriod='7', finTab='ringkasan', finBasis='setoran', finData=null, finExpErr=null, driveScriptUrl='';
-const FIN_CATS=['Bahan baku','Kemasan','Gaji','Listrik/Air/Gas','Sewa','Transport','Peralatan & perawatan','Marketing','Lainnya'];
+const FIN_CATS=['Bahan baku','Barang dagangan','Kemasan','Gaji','Listrik/Air/Gas','Sewa','Transport','Peralatan & perawatan','Marketing','Lainnya'];
 function finEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function finTodayWIB(){ return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'}); }
 function finAddDays(ds,n){ const d=new Date(ds+'T00:00:00+07:00'); d.setTime(d.getTime()+n*86400000); return d.toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'}); }
@@ -2933,7 +2933,7 @@ let masukTab='due', masukPeriod='30', masukRows=[], masukFilter={supplier:'',sta
 function addDaysStr(d,n){ const t=new Date(Date.parse(d+'T00:00:00Z')+n*86400000); return t.toISOString().slice(0,10); }
 function dueDiff(d){ return Math.round((Date.parse(d+'T00:00:00Z')-Date.parse(finTodayWIB()+'T00:00:00Z'))/86400000); }
 function dueBadge(d){ const n=dueDiff(d); if(n<0) return {t:'Terlambat '+(-n)+' hari',c:'late'}; if(n===0) return {t:'Hari ini',c:'soon'}; if(n===1) return {t:'Besok',c:'soon'}; if(n<=3) return {t:'H-'+n,c:'soon'}; return {t:'H-'+n,c:'ok'}; }
-function notaTotal(p){ const s=(p.purchase_items||[]).reduce((a,i)=>a+Number(i.amount||0),0); return s||Number(p.total||0); }
+function notaTotal(p){ const s=(p.purchase_items||[]).reduce((a,i)=>a+Number(i.amount||0)*(1+Number(i.ppn_rate||0)/100),0); return s?Math.round(s):Number(p.total||0); }
 function notaItemsText(p){ const it=(p.purchase_items||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map(i=>i.item); return it.length<=2?it.join(', '):it.slice(0,2).join(', ')+' +'+(it.length-2); }
 function notaLabel(p){ return finEsc(p.supplier||'Tanpa supplier')+(p.invoice_no?' · #'+finEsc(p.invoice_no):''); }
 function openMasukModal(h){ document.getElementById('masuk-modal-body').innerHTML=h; document.getElementById('masuk-modal').classList.add('open'); }
@@ -3001,7 +3001,7 @@ function masukFiltered(){ return masukRows.filter(p=>(!masukFilter.supplier||(p.
 function masukRekap(rows){
   const g={};
   rows.forEach(p=>(p.purchase_items||[]).forEach(i=>{ const k=String(i.item).trim().toLowerCase()+'|'+i.unit; const o=g[k]||(g[k]={name:String(i.item).trim(),unit:i.unit,qty:0,amt:0,n:0,min:null,max:null});
-    const up=Number(i.amount)/Number(i.qty); o.qty+=Number(i.qty); o.amt+=Number(i.amount); o.n++; o.min=o.min==null?up:Math.min(o.min,up); o.max=o.max==null?up:Math.max(o.max,up); }));
+    const ai=Number(i.amount)*(1+Number(i.ppn_rate||0)/100), up=ai/Number(i.qty); o.qty+=Number(i.qty); o.amt+=ai; o.n++; o.min=o.min==null?up:Math.min(o.min,up); o.max=o.max==null?up:Math.max(o.max,up); }));
   return Object.values(g).sort((a,b)=>b.amt-a.amt);
 }
 function setMasukFilter(k,v){ masukFilter[k]=v; renderMasukLap(); }
@@ -3011,7 +3011,7 @@ function renderMasukLap(){
   const tot=rows.reduce((s,p)=>s+notaTotal(p),0), paid=rows.filter(p=>p.status==='lunas').reduce((s,p)=>s+notaTotal(p),0);
   let h=masukPeriodBar()
     +'<div style="display:flex;gap:8px;margin-bottom:10px"><select class="kor-input" style="flex:1" onchange="setMasukFilter(\'supplier\',this.value)"><option value="">Semua supplier</option>'+sup.map(s=>'<option'+(masukFilter.supplier===s?' selected':'')+'>'+finEsc(s)+'</option>').join('')+'</select><select class="kor-input" style="flex:1" onchange="setMasukFilter(\'status\',this.value)"><option value="">Semua status</option><option value="belum"'+(masukFilter.status==='belum'?' selected':'')+'>Belum dibayar</option><option value="lunas"'+(masukFilter.status==='lunas'?' selected':'')+'>Lunas</option></select></div>'
-    +'<div class="fin-note" style="margin:0 0 8px"><b>'+rows.length+' nota</b> · total <b>'+fmtRp(tot)+'</b> · sudah dibayar <b>'+fmtRp(paid)+'</b> · belum <b>'+fmtRp(tot-paid)+'</b></div>'
+    +'<div class="fin-note" style="margin:0 0 8px"><b>'+rows.length+' nota</b> (harga termasuk PPN) · total <b>'+fmtRp(tot)+'</b> · sudah dibayar <b>'+fmtRp(paid)+'</b> · belum <b>'+fmtRp(tot-paid)+'</b></div>'
     +'<div style="text-align:right;margin:-2px 0 8px"><button class="mini-btn" onclick="exportMasukExcel()">⬇️ Export Excel</button></div>';
   const rk=masukRekap(rows);
   h+=rk.length?'<div class="section-label">Per barang</div>'+rk.map(o=>'<div class="fin-bar-row"><div class="t"><span>'+finEsc(o.name)+' · '+finQtyFmt(o.qty)+' '+finEsc(o.unit)+' ('+o.n+'x)</span><b class="mono">'+fmtRp(o.amt)+'</b></div><div class="fin-note" style="margin:0 0 8px">rata-rata '+finPerUnit(o.amt,o.qty,o.unit)+(o.min!==o.max?' · kisaran '+fmtRp(Math.round(o.min))+'–'+fmtRp(Math.round(o.max))+'/'+finEsc(o.unit):'')+'</div></div>').join(''):'<div class="empty">Belum ada barang masuk di periode ini.</div>';
@@ -3019,7 +3019,7 @@ function renderMasukLap(){
 }
 function exportMasukExcel(){
   const rows=masukFiltered(), lines=[];
-  rows.forEach(p=>(p.purchase_items||[]).forEach(i=>lines.push({Tanggal:p.purchase_date,Supplier:p.supplier||'','No. Nota':p.invoice_no||'',Barang:i.item,Jumlah:Number(i.qty),Satuan:i.unit,'Harga satuan':Math.round(Number(i.amount)/Number(i.qty)),Total:Number(i.amount),Kategori:i.category,'Jatuh tempo':p.due_date||'',Status:p.status,'Tanggal bayar':p.paid_date||''})));
+  rows.forEach(p=>(p.purchase_items||[]).forEach(i=>lines.push({Tanggal:p.purchase_date,Supplier:p.supplier||'','No. Nota':p.invoice_no||'',Barang:i.item,Jumlah:Number(i.qty),Satuan:i.unit,'Harga satuan (incl. PPN)':Math.round(Number(i.amount)*(1+Number(i.ppn_rate||0)/100)/Number(i.qty)),'Total (sebelum PPN)':Number(i.amount),'PPN %':Number(i.ppn_rate||0),'Total + PPN':Math.round(Number(i.amount)*(1+Number(i.ppn_rate||0)/100)),Kategori:i.category,'Jatuh tempo':p.due_date||'',Status:p.status,'Tanggal bayar':p.paid_date||''})));
   const rekap=masukRekap(rows).map(o=>({Barang:o.name,Satuan:o.unit,'Total jumlah':Math.round(o.qty*100)/100,'Total Rp':o.amt,'Harga rata-rata':Math.round(o.amt/o.qty),'Harga min':Math.round(o.min),'Harga maks':Math.round(o.max),'Jumlah nota':o.n}));
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lines),'Barang Masuk');
@@ -3069,22 +3069,67 @@ async function doPay(id){
   closeMasukModal(); await loadMasuk(); loadDueCard();
 }
 // ----- form nota -----
+let notaMap = {};
+function notaDefaultDest(cat){ return cat==='Bahan baku'?'bahan':cat==='Barang dagangan'?'produk':'none'; }
+function notaProdOptions(sel){
+  return '<option value="">— pilih produk jual —</option><option value="__new">➕ Produk baru…</option>'+products.filter(p=>p.is_active!==false||p.id===sel).slice().sort((a,b)=>dn(a.name).localeCompare(dn(b.name))).map(p=>'<option value="'+p.id+'"'+(p.id===sel?' selected':'')+'>'+finEsc(dn(p.name))+' · '+fmtRp(p.cost_price||0)+'</option>').join('');
+}
 function notaRowHtml(i){
   i=i||{}; const cat=i.category||'Bahan baku';
-  return '<div class="nota-row"><div style="display:flex;gap:6px"><input class="kor-input nr-item" list="nota-items-list" autocomplete="off" placeholder="Barang" value="'+finEsc(i.item||'')+'" style="flex:1"><button class="var-del" type="button" onclick="this.closest(\'.nota-row\').remove();notaCalc()">×</button></div>'
+  const dest=i.id?(i.product_id?'produk':(i.to_stock?'bahan':'none')):notaDefaultDest(cat);
+  return '<div class="nota-row"><div style="display:flex;gap:6px"><input class="kor-input nr-item" list="nota-items-list" autocomplete="off" placeholder="Barang (nama di nota)" value="'+finEsc(i.item||'')+'" style="flex:1" onchange="notaItemChanged(this)"><button class="var-del" type="button" onclick="this.closest(\'.nota-row\').remove();notaCalc()">×</button></div>'
     +'<div style="display:flex;gap:6px;margin-top:6px"><input class="kor-input mono nr-qty" type="text" inputmode="decimal" placeholder="Jml" value="'+(i.qty?finQtyFmt(i.qty):'')+'" style="flex:1" oninput="notaCalc()"><select class="kor-input nr-unit" style="flex:1" onchange="notaCalc()"><option value="">Sat</option>'+FIN_UNITS.map(u=>'<option'+(i.unit===u?' selected':'')+'>'+u+'</option>').join('')+'</select><input class="kor-input mono nr-amt" type="number" inputmode="numeric" placeholder="Total Rp" value="'+(i.amount!=null&&i.amount!==''?Math.round(Number(i.amount)):'')+'" style="flex:1.5" oninput="notaCalc()"></div>'
-    +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select class="kor-input nr-cat" style="flex:1" onchange="notaCatChange(this)">'+FIN_CATS.map(k=>'<option'+(cat===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select><label class="bp-toggle" style="margin:0;white-space:nowrap"><input type="checkbox" class="nr-stok"'+((i.to_stock!==false&&cat==='Bahan baku')?' checked':'')+'> tambah ke stok</label></div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span style="font-size:12px;color:var(--text2);white-space:nowrap">PPN</span><input class="kor-input mono nr-ppn" type="text" inputmode="decimal" placeholder="0" value="'+(i.ppn_rate&&Number(i.ppn_rate)>0?finQtyFmt(i.ppn_rate):'')+'" style="width:72px" oninput="this.dataset.manual=\'1\';notaCalc()"><span style="font-size:12px;color:var(--text2)">%</span><span class="nr-incl" style="flex:1;text-align:right;font-size:12px;color:var(--text2)"></span></div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><select class="kor-input nr-cat" style="flex:1" onchange="notaCatChange(this)">'+FIN_CATS.map(k=>'<option'+(cat===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select><select class="kor-input nr-dest" style="flex:1.2" onchange="notaDestChange(this)"><option value="bahan"'+(dest==='bahan'?' selected':'')+'>Stok bahan (Melur)</option><option value="produk"'+(dest==='produk'?' selected':'')+'>Produk jual</option><option value="none"'+(dest==='none'?' selected':'')+'>Tidak ke stok</option></select></div>'
+    +'<div class="nr-prod" style="display:'+(dest==='produk'?'':'none')+';margin-top:6px"><select class="kor-input nr-prodsel" onchange="notaProdChange(this)">'+notaProdOptions(i.product_id)+'</select>'
+    +'<div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span style="font-size:12px;white-space:nowrap;color:var(--text2)">Isi per satuan</span><input class="kor-input mono nr-pack" type="text" inputmode="decimal" value="'+(i.pack_size&&Number(i.pack_size)!==1?finQtyFmt(i.pack_size):'1')+'" style="width:84px" oninput="notaCalc()"><span class="pm-pcs">pcs</span></div>'
+    +'<div class="nr-new" style="display:none;margin-top:6px"><input class="kor-input nr-npname" placeholder="Nama jual (mis. Yogurt Cimory Strawberry)" oninput="notaCalc()"><div style="display:flex;gap:6px;margin-top:6px"><input class="kor-input mono nr-npprice" type="number" inputmode="numeric" placeholder="Harga jual Rp" style="flex:1.3" oninput="notaCalc()"><select class="kor-input nr-npcat" style="flex:1.2">'+categories.map(c=>'<option value="'+c.id+'">'+finEsc(c.name)+'</option>').join('')+'</select><input class="kor-input mono nr-npshelf" type="number" inputmode="numeric" value="14" style="flex:.8" title="Lama simpan (hari)"></div><div class="fin-note" style="margin:3px 0 0">Nama jual dan harga jual ini yang tampil di POS dan Catat Stok. Kolom terakhir = lama simpan (hari).</div></div></div>'
     +'<div class="pm2-sub nr-hint" style="margin-top:4px"></div></div>';
 }
-function notaCatChange(sel){ const row=sel.closest('.nota-row'); row.querySelector('.nr-stok').checked = sel.value==='Bahan baku'; }
-function notaAddRow(i){ const box=document.getElementById('nota-rows'); const d=document.createElement('div'); d.innerHTML=notaRowHtml(i); box.appendChild(d.firstChild); }
+function notaDestChange(sel){ const row=sel.closest('.nota-row'); row.querySelector('.nr-prod').style.display=sel.value==='produk'?'':'none'; notaCalc(); }
+function notaCatChange(sel){ const row=sel.closest('.nota-row'); const d=row.querySelector('.nr-dest'); d.value=notaDefaultDest(sel.value); notaDestChange(d); }
+function notaProdChange(sel){ const row=sel.closest('.nota-row'); row.querySelector('.nr-new').style.display=sel.value==='__new'?'':'none'; notaCalc(); }
+function notaItemChanged(inp){
+  const m=notaMap[inp.value.trim().toLowerCase()]; if(!m) return;
+  const row=inp.closest('.nota-row'); if(!products.find(p=>p.id===m.product_id)) return;
+  row.querySelector('.nr-cat').value=m.category||'Barang dagangan';
+  const d=row.querySelector('.nr-dest'); d.value='produk'; notaDestChange(d);
+  const ps=row.querySelector('.nr-prodsel'); ps.value=String(m.product_id); notaProdChange(ps);
+  row.querySelector('.nr-pack').value=Number(m.pack_size)===1?'1':finQtyFmt(m.pack_size);
+  const u=row.querySelector('.nr-unit'); if(!u.value&&m.unit) u.value=m.unit;
+  notaCalc();
+}
+function notaAddRow(i){ const box=document.getElementById('nota-rows'); const d=document.createElement('div'); d.innerHTML=notaRowHtml(i); const row=d.firstChild; box.appendChild(row); if(!(i&&i.id)){ const h=document.getElementById('nota-ppn'); if(h&&h.value.trim()) row.querySelector('.nr-ppn').value=h.value.trim(); } }
+function notaPpnInit(items,isNew){
+  if (isNew) { try{ return localStorage.getItem('ib_ppn_default')||''; }catch(_){ return ''; } }
+  if (items.length && items.every(x=>Number(x.ppn_rate||0)===Number(items[0].ppn_rate||0)) && Number(items[0].ppn_rate)>0) return finQtyFmt(items[0].ppn_rate);
+  return '';
+}
+function notaPpnAll(){ const v=document.getElementById('nota-ppn').value.trim(); document.querySelectorAll('#nota-rows .nota-row .nr-ppn').forEach(inp=>{ if(inp.dataset.manual!=='1') inp.value=v; }); notaCalc(); }
 function notaCalc(){
-  let tot=0;
+  let sub=0, ppn=0;
   document.querySelectorAll('#nota-rows .nota-row').forEach(r=>{
     const a=parseFloat(r.querySelector('.nr-amt').value)||0, q=bahanParse(r.querySelector('.nr-qty').value), u=r.querySelector('.nr-unit').value;
-    tot+=a; r.querySelector('.nr-hint').textContent=(a>0&&q>0&&u)?'≈ '+finPerUnit(a,q,u):'';
+    const rate=bahanParse(r.querySelector('.nr-ppn').value)||0, rt=(rate>0&&rate<=100)?rate:0, ai=a*(1+rt/100);
+    sub+=a; ppn+=a*rt/100;
+    r.querySelector('.nr-incl').textContent=(rt>0&&a>0)?'= '+fmtRp(Math.round(ai))+' (termasuk PPN)':'';
+    let h=(ai>0&&q>0&&u)?'≈ '+finPerUnit(ai,q,u)+(rt>0?' (incl. PPN)':''):'';
+    if (r.querySelector('.nr-dest').value==='produk' && ai>0 && q>0) {
+      const pk=bahanParse(r.querySelector('.nr-pack').value)||0, pcs=q*pk;
+      if (pk>0) {
+        if (Math.abs(pcs-Math.round(pcs))>1e-9) h+=' · ⚠️ jadi '+finQtyFmt(pcs)+' pcs (harus bilangan bulat)';
+        else {
+          h+=' · modal '+fmtRp(Math.round(ai/pcs))+'/pcs ('+pcs+' pcs)';
+          const pv=r.querySelector('.nr-prodsel').value; let price=null;
+          if (pv==='__new') price=parseFloat(r.querySelector('.nr-npprice').value)||null; else if (pv) { const pr=products.find(p=>p.id===parseInt(pv)); if (pr) price=pr.cost_price||null; }
+          if (price) h+=' · jual '+fmtRp(price)+' · margin '+Math.round((price-ai/pcs)/price*100)+'%';
+        }
+      }
+    }
+    r.querySelector('.nr-hint').textContent=h;
   });
-  const el=document.getElementById('nota-total'); if(el) el.textContent=fmtRp(tot);
+  const el=document.getElementById('nota-total'); if(el) el.textContent=fmtRp(Math.round(sub+ppn));
+  const pl=document.getElementById('nota-ppnline'); if(pl) pl.textContent=ppn>0?'Subtotal '+fmtRp(Math.round(sub))+' + PPN '+fmtRp(Math.round(ppn)):'';
 }
 function notaDueQuick(n){ const d=document.getElementById('nota-date').value||finTodayWIB(); document.getElementById('nota-due').value=addDaysStr(d,n); }
 function notaStatusChange(){ document.getElementById('nota-paidwrap').style.display=document.querySelector('input[name="nota-status"]:checked').value==='lunas'?'':'none'; }
@@ -3097,11 +3142,12 @@ async function openNota(id){
   const e=p||{}, items=(e.purchase_items||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
   const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'"'+(e.branch_id===b?' selected':'')+'>'+BRANCHES[b]+'</option>').join('');
   openMasukModal('<div class="modal-title">'+(p?'Edit nota':'Catat barang masuk')+'</div><div class="modal-sub">'+(p?'Mengubah nota otomatis menyesuaikan stok bahan dan pengeluaran terkait.':'Satu nota bisa berisi beberapa barang.')+'</div>'
-    +'<div style="display:flex;gap:8px"><div style="flex:1"><label class="kor-lbl">Tanggal terima</label><input class="kor-input" type="date" id="nota-date" value="'+(e.purchase_date||finTodayWIB())+'"></div><div style="flex:1"><label class="kor-lbl">Cabang</label><select class="kor-input" id="nota-branch">'+brOpts+'</select></div></div>'
+    +'<div style="display:flex;gap:8px"><div style="flex:1"><label class="kor-lbl">Tanggal terima</label><input class="kor-input" type="date" id="nota-date" value="'+(e.purchase_date||finTodayWIB())+'"></div><div style="flex:1"><label class="kor-lbl">Cabang <small style="font-weight:400;color:var(--text3)">(wajib bila ada barang ke produk jual)</small></label><select class="kor-input" id="nota-branch">'+brOpts+'</select></div></div>'
     +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Supplier</label><input class="kor-input" id="nota-supplier" list="nota-sup-list" autocomplete="off" value="'+finEsc(e.supplier||'')+'" placeholder="Nama toko / supplier"><datalist id="nota-sup-list"></datalist></div><div style="flex:1"><label class="kor-lbl">No. nota <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="nota-inv" value="'+finEsc(e.invoice_no||'')+'"></div></div>'
     +'<label class="kor-lbl" style="margin-top:10px">Jatuh tempo (tanggal bayar) <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><div style="display:flex;gap:6px;align-items:center"><input class="kor-input" type="date" id="nota-due" value="'+(e.due_date||'')+'" style="flex:1"><button class="mini-btn" type="button" onclick="notaDueQuick(7)">+7</button><button class="mini-btn" type="button" onclick="notaDueQuick(14)">+14</button><button class="mini-btn" type="button" onclick="notaDueQuick(30)">+30</button></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">PPN untuk semua barang (%) <small style="font-weight:400;color:var(--text3)">(isi sekali; tiap barang tetap bisa diubah)</small></label><input class="kor-input mono" id="nota-ppn" type="text" inputmode="decimal" placeholder="mis. 11" value="'+finEsc(notaPpnInit(items,!p))+'" oninput="notaPpnAll()">'
     +'<div class="pd-sec">Barang</div><datalist id="nota-items-list"></datalist><div id="nota-rows"></div><button class="mini-btn" type="button" onclick="notaAddRow()">+ Tambah barang</button>'
-    +'<div style="text-align:right;margin:8px 0;font-size:14px">Total: <b class="mono" id="nota-total">Rp0</b></div>'
+    +'<div style="text-align:right;margin:8px 0;font-size:14px"><div id="nota-ppnline" class="pm2-sub"></div>Total bayar: <b class="mono" id="nota-total">Rp0</b></div>'
     +'<div class="pd-sec">Pembayaran</div><label class="bp-toggle"><input type="radio" name="nota-status" value="belum"'+(e.status==='lunas'?'':' checked')+' onchange="notaStatusChange()"> Belum dibayar</label><label class="bp-toggle"><input type="radio" name="nota-status" value="lunas"'+(e.status==='lunas'?' checked':'')+' onchange="notaStatusChange()"> Sudah lunas</label>'
     +'<div id="nota-paidwrap" style="display:'+(e.status==='lunas'?'':'none')+'"><label class="kor-lbl">Tanggal bayar</label><input class="kor-input" type="date" id="nota-paid" value="'+(e.paid_date||finTodayWIB())+'"><div class="fin-note" style="margin-top:4px">Pengeluaran per barang otomatis tercatat di Keuangan pada tanggal bayar.</div></div>'
     +'<label class="kor-lbl" style="margin-top:10px">Catatan <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="nota-note" value="'+finEsc(e.note||'')+'">'
@@ -3110,32 +3156,52 @@ async function openNota(id){
     +(p?'<button class="del-btn" style="width:100%;margin-top:10px" onclick="deleteNota('+p.id+')">🗑️ Hapus nota</button>':''));
   (items.length?items:[{},{}]).forEach(i=>notaAddRow(i)); notaCalc();
   (async()=>{ try{
-    const [ing,pr]=await Promise.all([ sb.from('ingredients').select('name'), sb.from('purchases').select('supplier').not('supplier','is',null).order('id',{ascending:false}).limit(200) ]);
+    const [ing,pr,mp]=await Promise.all([ sb.from('ingredients').select('name'), sb.from('purchases').select('supplier').not('supplier','is',null).order('id',{ascending:false}).limit(200), sb.from('purchase_items').select('item,product_id,pack_size,unit,category').not('product_id','is',null).order('id',{ascending:false}).limit(300) ]);
+    notaMap={}; (mp.data||[]).forEach(x=>{ const k=String(x.item).trim().toLowerCase(); if(!notaMap[k]) notaMap[k]=x; });
     const sl=document.getElementById('nota-sup-list'), il=document.getElementById('nota-items-list');
     if (sl) sl.innerHTML=[...new Set((pr.data||[]).map(x=>x.supplier))].slice(0,30).map(s=>'<option value="'+finEsc(s)+'">').join('');
-    if (il) il.innerHTML=[...new Set((ing.data||[]).map(x=>x.name))].map(s=>'<option value="'+finEsc(s)+'">').join('');
+    if (il) il.innerHTML=[...new Set((ing.data||[]).map(x=>x.name).concat(Object.values(notaMap).map(x=>x.item)))].map(s=>'<option value="'+finEsc(s)+'">').join('');
   }catch(_){} })();
 }
 async function saveNota(id){
   const msg=document.getElementById('nota-msg'), bad=m=>{ msg.textContent=m; msg.style.color='var(--r)'; };
   const date=document.getElementById('nota-date').value; if(!date) return bad('Isi tanggal terima');
-  const items=[]; let err=null;
+  const items=[]; let err=null, adaProduk=false;
   document.querySelectorAll('#nota-rows .nota-row').forEach((r,i)=>{
     const item=r.querySelector('.nr-item').value.trim(), qRaw=r.querySelector('.nr-qty').value.trim(), unit=r.querySelector('.nr-unit').value, aRaw=r.querySelector('.nr-amt').value.trim();
     if (!item && !qRaw && !aRaw) return;
-    const q=bahanParse(qRaw), a=aRaw===''?NaN:parseFloat(aRaw);
-    if (!item) err='Baris '+(i+1)+': isi nama barang'; else if (!(q>0)) err='Baris "'+item+'": jumlah harus lebih dari 0'; else if (!unit) err='Baris "'+item+'": pilih satuan'; else if (!(a>=0)) err='Baris "'+item+'": isi total harga';
-    items.push({item:item,qty:q,unit:unit,amount:a,category:r.querySelector('.nr-cat').value,to_stock:r.querySelector('.nr-stok').checked});
+    const q=bahanParse(qRaw), a=aRaw===''?NaN:parseFloat(aRaw), dest=r.querySelector('.nr-dest').value, ppnRaw=bahanParse(r.querySelector('.nr-ppn').value), ppnRate=ppnRaw==null?0:ppnRaw;
+    const e=m=>{ if(!err) err=m; };
+    if (!item) e('Baris '+(i+1)+': isi nama barang'); else if (!(q>0)) e('Baris "'+item+'": jumlah harus lebih dari 0'); else if (!unit) e('Baris "'+item+'": pilih satuan'); else if (!(a>=0)) e('Baris "'+item+'": isi total harga');
+    if (Number.isNaN(ppnRate) || ppnRate<0 || ppnRate>100) e('Baris "'+item+'": PPN harus angka 0 sampai 100');
+    let productId=null, packSize=1, newProduct=null;
+    if (dest==='produk') {
+      adaProduk=true;
+      const pv=r.querySelector('.nr-prodsel').value, pk=bahanParse(r.querySelector('.nr-pack').value);
+      if (!(pk>0)) e('Baris "'+item+'": isi per satuan harus lebih dari 0');
+      else if (q>0 && Math.abs(q*pk-Math.round(q*pk))>1e-9) e('Baris "'+item+'": '+finQtyFmt(q)+' x isi '+finQtyFmt(pk)+' = '+finQtyFmt(q*pk)+' pcs, harus bilangan bulat');
+      packSize=pk;
+      if (!pv) e('Baris "'+item+'": pilih produk jual atau "Produk baru"');
+      else if (pv==='__new') {
+        const nm=cleanPart(r.querySelector('.nr-npname').value), pr=parseFloat(r.querySelector('.nr-npprice').value), sh=parseInt(r.querySelector('.nr-npshelf').value)||14;
+        if (!nm) e('Baris "'+item+'": isi nama jual produk baru'); else if (!(pr>=0)) e('Baris "'+item+'": isi harga jual produk baru');
+        else newProduct={name:nm,price:pr,category_id:parseInt(r.querySelector('.nr-npcat').value),shelf_life_days:Math.max(1,sh)};
+      } else productId=parseInt(pv);
+    }
+    items.push({item:item,qty:q,unit:unit,amount:a,category:r.querySelector('.nr-cat').value,to_stock:dest==='bahan',product_id:productId,pack_size:packSize,new_product:newProduct,ppn_rate:ppnRate});
   });
   if (err) return bad(err);
   if (!items.length) return bad('Isi minimal satu barang');
+  if (adaProduk && !document.getElementById('nota-branch').value) return bad('Pilih cabang tujuan stok (Melur/Delima) untuk barang yang masuk ke produk jual');
   const status=document.querySelector('input[name="nota-status"]:checked').value;
   const header={purchase_date:date,branch_id:document.getElementById('nota-branch').value||'',supplier:document.getElementById('nota-supplier').value.trim(),invoice_no:document.getElementById('nota-inv').value.trim(),due_date:document.getElementById('nota-due').value||'',status:status,paid_date:status==='lunas'?(document.getElementById('nota-paid').value||finTodayWIB()):'',note:document.getElementById('nota-note').value.trim()};
   const btn=document.getElementById('nota-save'); btn.disabled=true; btn.textContent='Menyimpan...';
+  try{ const hp=(document.getElementById('nota-ppn').value||'').trim(); if(hp) localStorage.setItem('ib_ppn_default',hp); }catch(_){}
   const { data, error } = await sb.rpc('save_purchase',{p_id:id,p_header:header,p_items:items,p_user:currentUser.nama});
   if (error) { btn.disabled=false; btn.textContent='💾 Simpan'; return bad('Gagal: '+error.message); }
   const sk=(data&&data.skipped)||[];
   closeMasukModal(); await loadMasuk(); loadDueCard();
+  if (adaProduk) { await loadProducts(); await loadStockNow(); }
   if (sk.length) alert('Nota tersimpan. Stok bahan TIDAK ditambah untuk: '+sk.map(s=>s.item+' (satuan nota '+s.unit_nota+' beda dari satuan bahan '+s.unit_bahan+')').join('; ')+'.\nTambah manual lewat Stok Bahan.');
 }
 async function deleteNota(id){
@@ -4308,6 +4374,7 @@ function renderProdDetail(){
     +'<div style="margin-top:8px"><button class="mini-btn" onclick="savePdName()">Simpan nama</button> <span id="pd-name-status" class="price-save-status"></span></div>'
     +'<div class="pd-sec">Kategori</div><select class="kor-input" onchange="pdMoveCat(this.value)">'+categories.map(c=>'<option value="'+c.id+'"'+(c.id===p.category_id?' selected':'')+'>'+finEsc(c.name)+'</option>').join('')+'</select>'
     +'<div class="pd-sec">Harga dasar</div><div class="pd-row"><span class="pm-rp">Rp</span><input class="kor-input mono" type="number" min="0" value="'+(p.cost_price||0)+'" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
+    +(p.hpp!=null?'<div class="fin-note" style="margin:4px 0 0">Modal terakhir '+fmtRp(Math.round(Number(p.hpp)))+'/pcs'+(p.cost_price>0?' · margin '+Math.round((p.cost_price-p.hpp)/p.cost_price*100)+'%':'')+'</div>':'')
     +'<label class="bp-toggle"><input type="checkbox" '+(bpOn?'checked ':'')+'onchange="toggleBranchPrice('+p.id+',this.checked).then(refreshPmDetail)"> Harga beda per cabang</label>'+(bpOn?branchPriceBox(p):'')
     +'<div class="pd-sec">Lama simpan</div><div class="pd-row"><input class="kor-input mono" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:90px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
     +'<div class="pd-sec">Status</div><div class="pd-row"><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="pdToggle()">'+(p.is_active===false?'Aktifkan':'Nonaktifkan')+'</button><button class="del-btn" onclick="pdDelete()">🗑️ Hapus</button></div>'
