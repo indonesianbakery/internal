@@ -388,6 +388,14 @@ body.font-xl{zoom:1.25;}
 .bhn-right{text-align:right;} .bhn-qty{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--g);}
 .bhn-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:3px;}
 .bhn-badge.cukup{background:var(--g-bg);color:var(--g);} .bhn-badge.tipis{background:var(--y-bg);color:#9A6700;} .bhn-badge.habis{background:var(--r-bg);color:var(--r);} .bhn-badge.belum{background:#EDEAEA;color:#6B5A5F;}
+.due-card{margin:10px 16px;background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:10px 12px;}
+.due-title{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:700;color:var(--g);margin-bottom:6px;}
+.due-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;margin-bottom:5px;font-size:12px;cursor:pointer;}
+.due-row.late{background:var(--r-bg);color:var(--r);} .due-row.soon{background:var(--y-bg);color:#9A6700;} .due-row.ok{background:var(--g-light);color:var(--text2);}
+.due-row b{font-family:'DM Mono',monospace;white-space:nowrap;}
+.dbadge{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;white-space:nowrap;}
+.dbadge.late{background:var(--r-bg);color:var(--r);} .dbadge.soon{background:var(--y-bg);color:#9A6700;} .dbadge.ok,.dbadge.paid{background:var(--g-bg);color:var(--g);}
+.nota-row{border:1.5px solid var(--border);border-radius:10px;padding:8px;margin-bottom:8px;}
 .act-box{background:var(--g-light);border:1px solid var(--g-bg);border-radius:10px;padding:8px 10px;margin:0 0 8px;font-size:12px;color:var(--text2);}
 .act-title{font-weight:700;color:var(--g);margin-bottom:4px;}
 .act-row{margin:2px 0;}
@@ -853,6 +861,8 @@ body{ max-width:none; }
     </div>
   </div>
 
+  <div id="due-card" class="due-card" style="display:none"></div>
+
   <div class="ft-card">
     <div class="ft-eyebrow">Kondisi stok sekarang</div>
     <h1 class="ft-h1"><span>📍</span><span id="focus-name">Jl. Melur</span></h1>
@@ -1285,6 +1295,25 @@ body{ max-width:none; }
     <button class="save-btn save-in" style="width:100%;margin-top:4px" onclick="saveSetoran()">💾 Simpan Setoran</button>
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:8px" id="set-sheet-note"></div>
   </div>
+</div>
+
+<div id="screen-masuk" class="screen">
+  <div class="sub-header">
+    <button class="back-btn" onclick="show('overview')">← Kembali</button>
+    <span class="sub-title">📥 Barang Masuk</span>
+  </div>
+  <div class="sub-body">
+    <button class="add-btn" style="width:100%;margin-bottom:10px" onclick="openNota()">+ Catat barang masuk (nota)</button>
+    <div class="period-row" style="margin-bottom:10px">
+      <button class="period-btn" id="mtab-due" onclick="setMasukTab('due')">Jatuh tempo</button>
+      <button class="period-btn" id="mtab-nota" onclick="setMasukTab('nota')">Nota</button>
+      <button class="period-btn" id="mtab-lap" onclick="setMasukTab('lap')">Laporan</button>
+    </div>
+    <div id="masuk-body"></div>
+  </div>
+</div>
+<div class="modal-overlay" id="masuk-modal" onclick="if(event.target===this)closeMasukModal()">
+  <div class="modal-sheet pp-sheet"><div id="masuk-modal-body"></div></div>
 </div>
 
 <div id="screen-bahan" class="screen">
@@ -1872,6 +1901,8 @@ function refreshActiveScreen(){
   else if(id==='itemhistory' && typeof renderItemHistory==='function') renderItemHistory();
   else if(id==='koreksi' && typeof renderKoreksi==='function') renderKoreksi();
   else if(id==='bahan' && typeof loadBahan==='function') loadBahan();
+  else if(id==='masuk' && typeof loadMasuk==='function') loadMasuk();
+  else if(id==='overview' && typeof loadDueCard==='function') loadDueCard();
   else if(id==='keuangan' && typeof loadKeuangan==='function'){ var fb=document.getElementById('fin-branch'); if(fb && fb.value!=='all') fb.value=branch; loadKeuangan(); }
   else if(id==='input'){ /* layar catat: balik ke overview biar ga campur cabang */ show('overview'); }
 }
@@ -2705,7 +2736,7 @@ function finRenderPengeluaran(){
   if(!d.expRows.length) h+='<div class="empty">Belum ada pengeluaran di periode ini</div>';
   h+=d.expRows.map(r=>{
     const per=finPerUnit(r.amount,r.qty,r.unit);
-    const sub=[finLabel(r.expense_date), r.branch_id?(BRANCHES[r.branch_id]||r.branch_id):'Umum', r.item?finEsc(r.item)+(r.qty?' · '+finQtyFmt(r.qty)+' '+finEsc(r.unit||''):''):null, r.note?finEsc(r.note):null].filter(Boolean).join(' · ');
+    const sub=[finLabel(r.expense_date), r.branch_id?(BRANCHES[r.branch_id]||r.branch_id):'Umum', r.item?finEsc(r.item)+(r.qty?' · '+finQtyFmt(r.qty)+' '+finEsc(r.unit||''):''):null, r.purchase_id?'📥 dari nota':null, r.note?finEsc(r.note):null].filter(Boolean).join(' · ');
     return '<div class="exp-row"><div class="m" onclick="editExpense('+r.id+')" style="cursor:pointer"><b>'+finEsc(r.category)+'</b><small>'+sub+'</small></div>'
       +(r.receipt_url?'<a href="'+finEsc(r.receipt_url)+'" target="_blank" rel="noopener" title="Lihat nota">📎</a>':'')
       +'<span class="a">'+fmtRp(r.amount)+(per?'<small class="u">'+per+'</small>':'')+'</span>'+(isMaster?'<button onclick="deleteExpense('+r.id+')">🗑️</button>':'')+'</div>';
@@ -2838,7 +2869,7 @@ async function openBahanDetail(id){
     +'<div id="bd-msg" class="price-save-status" style="display:block;margin:6px 0"></div>'
     +'<div class="pd-sec">Pengaturan</div><input class="kor-input" id="bd-name" value="'+finEsc(r.name)+'"><div style="display:flex;gap:8px;margin-top:8px"><select class="kor-input" id="bd-unit" style="flex:1">'+FIN_UNITS.map(x=>'<option'+(x===r.unit?' selected':'')+'>'+x+'</option>').join('')+'</select><input class="kor-input mono" id="bd-min" type="text" inputmode="decimal" value="'+(r.min_stock==null?'':bahanFmt(r.min_stock))+'" placeholder="batas menipis" style="flex:1"></div>'
     +'<div class="fin-note" style="margin:4px 0 8px">Mengubah satuan tidak mengonversi angka lama.</div><div class="pd-row"><button class="mini-btn" onclick="bahanDetailSave('+id+')">Simpan pengaturan</button><button class="del-btn" onclick="bahanDetailOff('+id+')">Nonaktifkan</button></div>'
-    +'<div class="pd-sec">Riwayat terakhir</div>'+((mv&&mv.length)?mv.map(m=>'<div class="pd-row" style="font-size:12px;margin-bottom:4px"><span style="width:52px;color:var(--text3)">'+bahanTgl(m.created_at)+'</span><b style="flex:1">'+(BAHAN_TIPE[m.type]||m.type)+(m.expense_id?' <span style="font-weight:400;color:var(--text3)">(nota)</span>':'')+'</b><span class="mono">'+(m.type==='buang'||m.type==='pakai'?'−':m.type==='masuk'?'+':'=')+bahanFmt(m.qty)+' '+u+'</span></div>').join(''):'<div class="pm2-sub">Belum ada riwayat.</div>')
+    +'<div class="pd-sec">Riwayat terakhir</div>'+((mv&&mv.length)?mv.map(m=>'<div class="pd-row" style="font-size:12px;margin-bottom:4px"><span style="width:52px;color:var(--text3)">'+bahanTgl(m.created_at)+'</span><b style="flex:1">'+(BAHAN_TIPE[m.type]||m.type)+((m.expense_id||m.purchase_item_id)?' <span style="font-weight:400;color:var(--text3)">(nota)</span>':'')+'</b><span class="mono">'+(m.type==='buang'||m.type==='pakai'?'−':m.type==='masuk'?'+':'=')+bahanFmt(m.qty)+' '+u+'</span></div>').join(''):'<div class="pm2-sub">Belum ada riwayat.</div>')
     +'<button class="pp-close" onclick="closeBahanModal()">Tutup</button>');
 }
 async function bahanDetailAdd(id,tipe){
@@ -2897,6 +2928,238 @@ async function syncExpenseStock(expenseId, p, want, linked){
                      : await sb.from('ingredient_movements').insert(Object.assign({type:'masuk',expense_id:expenseId,user_name:currentUser.nama,note:'Pembelian'},mv));
   return (res&&res.error) ? 'Pengeluaran tersimpan, tapi stok bahan gagal diperbarui: '+res.error.message : null;
 }
+// ===== BARANG MASUK (nota pembelian, jatuh tempo, pengingat bayar) =====
+let masukTab='due', masukPeriod='30', masukRows=[], masukFilter={supplier:'',status:''};
+function addDaysStr(d,n){ const t=new Date(Date.parse(d+'T00:00:00Z')+n*86400000); return t.toISOString().slice(0,10); }
+function dueDiff(d){ return Math.round((Date.parse(d+'T00:00:00Z')-Date.parse(finTodayWIB()+'T00:00:00Z'))/86400000); }
+function dueBadge(d){ const n=dueDiff(d); if(n<0) return {t:'Terlambat '+(-n)+' hari',c:'late'}; if(n===0) return {t:'Hari ini',c:'soon'}; if(n===1) return {t:'Besok',c:'soon'}; if(n<=3) return {t:'H-'+n,c:'soon'}; return {t:'H-'+n,c:'ok'}; }
+function notaTotal(p){ const s=(p.purchase_items||[]).reduce((a,i)=>a+Number(i.amount||0),0); return s||Number(p.total||0); }
+function notaItemsText(p){ const it=(p.purchase_items||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0)).map(i=>i.item); return it.length<=2?it.join(', '):it.slice(0,2).join(', ')+' +'+(it.length-2); }
+function notaLabel(p){ return finEsc(p.supplier||'Tanpa supplier')+(p.invoice_no?' · #'+finEsc(p.invoice_no):''); }
+function openMasukModal(h){ document.getElementById('masuk-modal-body').innerHTML=h; document.getElementById('masuk-modal').classList.add('open'); }
+function closeMasukModal(){ document.getElementById('masuk-modal').classList.remove('open'); }
+async function openMasuk(tab){ if(tab) masukTab=tab; show('masuk'); await loadMasuk(); }
+function setMasukTab(t){ masukTab=t; loadMasuk(); }
+function setMasukPeriod(p){ masukPeriod=p; loadMasuk(); }
+function masukRange(){
+  const today=finTodayWIB();
+  if (masukPeriod==='7') return {from:addDaysStr(today,-6),to:today};
+  if (masukPeriod==='bulan') return {from:today.slice(0,8)+'01',to:today};
+  return {from:addDaysStr(today,-29),to:today};
+}
+async function loadMasuk(){
+  ['due','nota','lap'].forEach(t=>{ const b=document.getElementById('mtab-'+t); if(b) b.classList.toggle('active',t===masukTab); });
+  const body=document.getElementById('masuk-body');
+  body.innerHTML='<div class="loading"><div class="spinner"></div>Memuat...</div>';
+  let q=sb.from('purchases').select('*, purchase_items(*)');
+  if (masukTab==='due') q=q.eq('status','belum').order('due_date',{ascending:true,nullsFirst:false}).limit(500);
+  else { const r=masukRange(); q=q.gte('purchase_date',r.from).lte('purchase_date',r.to).order('purchase_date',{ascending:false}).order('id',{ascending:false}).limit(1000); }
+  const { data, error } = await q;
+  if (error) { body.innerHTML='<div class="empty">Gagal memuat: '+finEsc(error.message)+'</div>'; return; }
+  masukRows=data||[];
+  if (masukTab==='due') renderMasukDue(); else if (masukTab==='nota') renderMasukNota(); else renderMasukLap();
+}
+function masukPeriodBar(){
+  return '<div class="period-row" style="margin-bottom:10px">'+[['7','7 hari'],['30','30 hari'],['bulan','Bulan ini']].map(x=>'<button class="period-btn'+(masukPeriod===x[0]?' active':'')+'" onclick="setMasukPeriod(\''+x[0]+'\')">'+x[1]+'</button>').join('')+'</div>';
+}
+function statusBadge(p){
+  if (p.status==='lunas') return '<span class="dbadge paid">Lunas'+(p.paid_date?' '+finLabel(p.paid_date).split(',').pop().trim():'')+'</span>';
+  if (p.due_date) { const b=dueBadge(p.due_date); return '<span class="dbadge '+b.c+'">'+b.t+'</span>'; }
+  return '<span class="dbadge ok">Belum dibayar</span>';
+}
+// ----- tab Jatuh tempo -----
+function dueGroups(rows){
+  const g={}, none=[];
+  rows.forEach(p=>{ if(!p.due_date){ none.push(p); return; } (g[p.due_date]=g[p.due_date]||[]).push(p); });
+  const list=Object.keys(g).sort().map(d=>({date:d,rows:g[d]}));
+  return {list:list,none:none};
+}
+function renderMasukDue(){
+  const body=document.getElementById('masuk-body'), {list,none}=dueGroups(masukRows);
+  const total=masukRows.reduce((s,p)=>s+notaTotal(p),0), late=masukRows.filter(p=>p.due_date&&dueDiff(p.due_date)<0).reduce((s,p)=>s+notaTotal(p),0);
+  let h='<div class="fin-note" style="margin:0 0 8px">Belum dibayar: <b>'+fmtRp(total)+'</b> ('+masukRows.length+' nota)'+(late?' · <b style="color:var(--r)">Terlambat '+fmtRp(late)+'</b>':'')+'</div>';
+  if (list.length) h+='<div style="text-align:right;margin:-2px 0 8px"><button class="mini-btn" onclick="exportDueIcs()">📅 Tambahkan semua ke Kalender</button></div>';
+  if (!masukRows.length) h+='<div class="empty">Tidak ada tagihan yang belum dibayar. 🎉</div>';
+  h+=list.map(g=>{ const b=dueBadge(g.date), tot=g.rows.reduce((s,p)=>s+notaTotal(p),0);
+    return '<div style="margin-bottom:12px"><div class="due-row '+b.c+'" style="cursor:default"><span><b style="font-family:inherit">'+finEsc(finLabel(g.date))+'</b> · bayar <b>'+fmtRp(tot)+'</b> · '+g.rows.length+' nota</span><span style="display:flex;gap:6px;align-items:center"><span class="dbadge '+b.c+'">'+b.t+'</span><button class="mini-btn" onclick="exportDueIcs(\''+g.date+'\')">📅</button></span></div>'
+      +g.rows.map(duePurchaseRow).join('')+'</div>'; }).join('');
+  if (none.length) h+='<div class="section-label">Tanpa jatuh tempo</div>'+none.map(duePurchaseRow).join('');
+  body.innerHTML=h;
+}
+function duePurchaseRow(p){
+  return '<div class="pm2-row"><div class="pm2-main" onclick="openNota('+p.id+')"><div class="pm2-name">'+notaLabel(p)+'</div><div class="pm2-sub">'+finEsc(notaItemsText(p))+' · terima '+finEsc(finLabel(p.purchase_date))+'</div></div><div class="pm2-price">'+fmtRp(notaTotal(p))+'</div><button class="mini-btn" onclick="openPay('+p.id+')">Lunas</button></div>';
+}
+// ----- tab Nota -----
+function renderMasukNota(){
+  const body=document.getElementById('masuk-body');
+  let h=masukPeriodBar();
+  h+=masukRows.length?masukRows.map(p=>'<div class="pm2-row" onclick="openNota('+p.id+')"><div class="pm2-main"><div class="pm2-name">'+notaLabel(p)+'</div><div class="pm2-sub">'+finEsc(finLabel(p.purchase_date))+' · '+finEsc(notaItemsText(p))+(p.due_date&&p.status!=='lunas'?' · jatuh tempo '+finEsc(finLabel(p.due_date)):'')+'</div></div><div style="text-align:right"><div class="pm2-price">'+fmtRp(notaTotal(p))+'</div>'+statusBadge(p)+'</div></div>').join(''):'<div class="empty">Belum ada nota di periode ini.</div>';
+  body.innerHTML=h;
+}
+// ----- tab Laporan -----
+function masukFiltered(){ return masukRows.filter(p=>(!masukFilter.supplier||(p.supplier||'')===masukFilter.supplier)&&(!masukFilter.status||p.status===masukFilter.status)); }
+function masukRekap(rows){
+  const g={};
+  rows.forEach(p=>(p.purchase_items||[]).forEach(i=>{ const k=String(i.item).trim().toLowerCase()+'|'+i.unit; const o=g[k]||(g[k]={name:String(i.item).trim(),unit:i.unit,qty:0,amt:0,n:0,min:null,max:null});
+    const up=Number(i.amount)/Number(i.qty); o.qty+=Number(i.qty); o.amt+=Number(i.amount); o.n++; o.min=o.min==null?up:Math.min(o.min,up); o.max=o.max==null?up:Math.max(o.max,up); }));
+  return Object.values(g).sort((a,b)=>b.amt-a.amt);
+}
+function setMasukFilter(k,v){ masukFilter[k]=v; renderMasukLap(); }
+function renderMasukLap(){
+  const body=document.getElementById('masuk-body'), rows=masukFiltered();
+  const sup=[...new Set(masukRows.map(p=>p.supplier).filter(Boolean))].sort();
+  const tot=rows.reduce((s,p)=>s+notaTotal(p),0), paid=rows.filter(p=>p.status==='lunas').reduce((s,p)=>s+notaTotal(p),0);
+  let h=masukPeriodBar()
+    +'<div style="display:flex;gap:8px;margin-bottom:10px"><select class="kor-input" style="flex:1" onchange="setMasukFilter(\'supplier\',this.value)"><option value="">Semua supplier</option>'+sup.map(s=>'<option'+(masukFilter.supplier===s?' selected':'')+'>'+finEsc(s)+'</option>').join('')+'</select><select class="kor-input" style="flex:1" onchange="setMasukFilter(\'status\',this.value)"><option value="">Semua status</option><option value="belum"'+(masukFilter.status==='belum'?' selected':'')+'>Belum dibayar</option><option value="lunas"'+(masukFilter.status==='lunas'?' selected':'')+'>Lunas</option></select></div>'
+    +'<div class="fin-note" style="margin:0 0 8px"><b>'+rows.length+' nota</b> · total <b>'+fmtRp(tot)+'</b> · sudah dibayar <b>'+fmtRp(paid)+'</b> · belum <b>'+fmtRp(tot-paid)+'</b></div>'
+    +'<div style="text-align:right;margin:-2px 0 8px"><button class="mini-btn" onclick="exportMasukExcel()">⬇️ Export Excel</button></div>';
+  const rk=masukRekap(rows);
+  h+=rk.length?'<div class="section-label">Per barang</div>'+rk.map(o=>'<div class="fin-bar-row"><div class="t"><span>'+finEsc(o.name)+' · '+finQtyFmt(o.qty)+' '+finEsc(o.unit)+' ('+o.n+'x)</span><b class="mono">'+fmtRp(o.amt)+'</b></div><div class="fin-note" style="margin:0 0 8px">rata-rata '+finPerUnit(o.amt,o.qty,o.unit)+(o.min!==o.max?' · kisaran '+fmtRp(Math.round(o.min))+'–'+fmtRp(Math.round(o.max))+'/'+finEsc(o.unit):'')+'</div></div>').join(''):'<div class="empty">Belum ada barang masuk di periode ini.</div>';
+  body.innerHTML=h;
+}
+function exportMasukExcel(){
+  const rows=masukFiltered(), lines=[];
+  rows.forEach(p=>(p.purchase_items||[]).forEach(i=>lines.push({Tanggal:p.purchase_date,Supplier:p.supplier||'','No. Nota':p.invoice_no||'',Barang:i.item,Jumlah:Number(i.qty),Satuan:i.unit,'Harga satuan':Math.round(Number(i.amount)/Number(i.qty)),Total:Number(i.amount),Kategori:i.category,'Jatuh tempo':p.due_date||'',Status:p.status,'Tanggal bayar':p.paid_date||''})));
+  const rekap=masukRekap(rows).map(o=>({Barang:o.name,Satuan:o.unit,'Total jumlah':Math.round(o.qty*100)/100,'Total Rp':o.amt,'Harga rata-rata':Math.round(o.amt/o.qty),'Harga min':Math.round(o.min),'Harga maks':Math.round(o.max),'Jumlah nota':o.n}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(lines),'Barang Masuk');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rekap),'Rekap Barang');
+  XLSX.writeFile(wb,'barang-masuk-'+finTodayWIB()+'.xlsx');
+}
+// ----- kalender (.ics) dengan alarm -----
+function icsEsc(s){ return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n'); }
+function icsFold(line){ const out=[]; let l=line; while(l.length>74){ out.push(l.slice(0,74)); l=' '+l.slice(74); } out.push(l); return out.join('\r\n'); }
+function buildDueIcs(groups){
+  const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Indonesian Bakery//Jatuh Tempo//ID','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  groups.forEach(g=>{
+    const d=g.date.replace(/-/g,''), total=g.rows.reduce((s,p)=>s+notaTotal(p),0);
+    const desc=g.rows.map(p=>'- '+(p.supplier||'Tanpa supplier')+(p.invoice_no?' #'+p.invoice_no:'')+': '+fmtRp(notaTotal(p))).join('\n');
+    lines.push('BEGIN:VEVENT','UID:jatuh-tempo-'+d+'@indonesianbakery','DTSTAMP:'+stamp,'DTSTART:'+d+'T010000Z','DTEND:'+d+'T013000Z',
+      'SUMMARY:'+icsEsc('Bayar '+fmtRp(total)+' ('+g.rows.length+' nota)'),'DESCRIPTION:'+icsEsc(desc),
+      'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Besok jatuh tempo: bayar '+fmtRp(total)),'TRIGGER:-P1D','END:VALARM',
+      'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc('Hari ini jatuh tempo: bayar '+fmtRp(total)),'TRIGGER:PT0S','END:VALARM','END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.map(icsFold).join('\r\n')+'\r\n';
+}
+function exportDueIcs(date){
+  const all=dueGroups(masukRows).list.filter(g=>dueDiff(g.date)>=0);
+  const groups=date?all.filter(g=>g.date===date):all;
+  if (!groups.length) { alert(date?'Tanggal ini sudah lewat, tidak bisa ditambahkan ke kalender.':'Tidak ada tagihan mendatang untuk ditambahkan ke kalender (yang sudah lewat tidak ikut).'); return; }
+  const blob=new Blob([buildDueIcs(groups)],{type:'text/calendar;charset=utf-8'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=date?'jatuh-tempo-'+date+'.ics':'jatuh-tempo-bayar.ics'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{ a.remove(); URL.revokeObjectURL(url); },1500);
+}
+// ----- tandai lunas -----
+function openPay(id){
+  const p=masukRows.find(x=>x.id===id); if(!p) return;
+  openMasukModal('<div class="modal-title">Tandai lunas</div><div class="modal-sub">'+notaLabel(p)+'<br>Bayar <b>'+fmtRp(notaTotal(p))+'</b></div>'
+    +'<label class="kor-lbl">Tanggal bayar</label><input class="kor-input" type="date" id="pay-date" value="'+finTodayWIB()+'">'
+    +'<div class="fin-note" style="margin-top:8px">Pengeluaran per barang otomatis tercatat di Keuangan pada tanggal bayar ini.</div>'
+    +'<div id="pay-msg" class="price-save-status" style="display:block;margin:8px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeMasukModal()">Batal</button><button class="save-btn save-in" id="pay-go" style="flex:2" onclick="doPay('+id+')">✓ Tandai lunas</button></div>');
+}
+async function doPay(id){
+  const d=document.getElementById('pay-date').value, msg=document.getElementById('pay-msg');
+  if (!d) { msg.textContent='Pilih tanggal bayar'; msg.className='price-save-status err'; return; }
+  document.getElementById('pay-go').disabled=true;
+  const { error } = await sb.rpc('set_purchase_paid',{p_id:id,p_paid:true,p_date:d,p_user:currentUser.nama});
+  if (error) { document.getElementById('pay-go').disabled=false; msg.textContent='Gagal: '+error.message; msg.className='price-save-status err'; return; }
+  closeMasukModal(); await loadMasuk(); loadDueCard();
+}
+// ----- form nota -----
+function notaRowHtml(i){
+  i=i||{}; const cat=i.category||'Bahan baku';
+  return '<div class="nota-row"><div style="display:flex;gap:6px"><input class="kor-input nr-item" list="nota-items-list" autocomplete="off" placeholder="Barang" value="'+finEsc(i.item||'')+'" style="flex:1"><button class="var-del" type="button" onclick="this.closest(\'.nota-row\').remove();notaCalc()">×</button></div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px"><input class="kor-input mono nr-qty" type="text" inputmode="decimal" placeholder="Jml" value="'+(i.qty?finQtyFmt(i.qty):'')+'" style="flex:1" oninput="notaCalc()"><select class="kor-input nr-unit" style="flex:1" onchange="notaCalc()"><option value="">Sat</option>'+FIN_UNITS.map(u=>'<option'+(i.unit===u?' selected':'')+'>'+u+'</option>').join('')+'</select><input class="kor-input mono nr-amt" type="number" inputmode="numeric" placeholder="Total Rp" value="'+(i.amount!=null&&i.amount!==''?Math.round(Number(i.amount)):'')+'" style="flex:1.5" oninput="notaCalc()"></div>'
+    +'<div style="display:flex;gap:8px;align-items:center;margin-top:6px"><select class="kor-input nr-cat" style="flex:1" onchange="notaCatChange(this)">'+FIN_CATS.map(k=>'<option'+(cat===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select><label class="bp-toggle" style="margin:0;white-space:nowrap"><input type="checkbox" class="nr-stok"'+((i.to_stock!==false&&cat==='Bahan baku')?' checked':'')+'> tambah ke stok</label></div>'
+    +'<div class="pm2-sub nr-hint" style="margin-top:4px"></div></div>';
+}
+function notaCatChange(sel){ const row=sel.closest('.nota-row'); row.querySelector('.nr-stok').checked = sel.value==='Bahan baku'; }
+function notaAddRow(i){ const box=document.getElementById('nota-rows'); const d=document.createElement('div'); d.innerHTML=notaRowHtml(i); box.appendChild(d.firstChild); }
+function notaCalc(){
+  let tot=0;
+  document.querySelectorAll('#nota-rows .nota-row').forEach(r=>{
+    const a=parseFloat(r.querySelector('.nr-amt').value)||0, q=bahanParse(r.querySelector('.nr-qty').value), u=r.querySelector('.nr-unit').value;
+    tot+=a; r.querySelector('.nr-hint').textContent=(a>0&&q>0&&u)?'≈ '+finPerUnit(a,q,u):'';
+  });
+  const el=document.getElementById('nota-total'); if(el) el.textContent=fmtRp(tot);
+}
+function notaDueQuick(n){ const d=document.getElementById('nota-date').value||finTodayWIB(); document.getElementById('nota-due').value=addDaysStr(d,n); }
+function notaStatusChange(){ document.getElementById('nota-paidwrap').style.display=document.querySelector('input[name="nota-status"]:checked').value==='lunas'?'':'none'; }
+async function openNota(id){
+  let p=null;
+  if (id) {
+    p=masukRows.find(x=>x.id===id) || (await sb.from('purchases').select('*, purchase_items(*)').eq('id',id).single()).data;
+    if (!p) { alert('Nota tidak ditemukan'); return; }
+  }
+  const e=p||{}, items=(e.purchase_items||[]).slice().sort((a,b)=>(a.sort_order||0)-(b.sort_order||0));
+  const brOpts='<option value="">Umum (semua cabang)</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'"'+(e.branch_id===b?' selected':'')+'>'+BRANCHES[b]+'</option>').join('');
+  openMasukModal('<div class="modal-title">'+(p?'Edit nota':'Catat barang masuk')+'</div><div class="modal-sub">'+(p?'Mengubah nota otomatis menyesuaikan stok bahan dan pengeluaran terkait.':'Satu nota bisa berisi beberapa barang.')+'</div>'
+    +'<div style="display:flex;gap:8px"><div style="flex:1"><label class="kor-lbl">Tanggal terima</label><input class="kor-input" type="date" id="nota-date" value="'+(e.purchase_date||finTodayWIB())+'"></div><div style="flex:1"><label class="kor-lbl">Cabang</label><select class="kor-input" id="nota-branch">'+brOpts+'</select></div></div>'
+    +'<div style="display:flex;gap:8px;margin-top:10px"><div style="flex:1"><label class="kor-lbl">Supplier</label><input class="kor-input" id="nota-supplier" list="nota-sup-list" autocomplete="off" value="'+finEsc(e.supplier||'')+'" placeholder="Nama toko / supplier"><datalist id="nota-sup-list"></datalist></div><div style="flex:1"><label class="kor-lbl">No. nota <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="nota-inv" value="'+finEsc(e.invoice_no||'')+'"></div></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">Jatuh tempo (tanggal bayar) <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><div style="display:flex;gap:6px;align-items:center"><input class="kor-input" type="date" id="nota-due" value="'+(e.due_date||'')+'" style="flex:1"><button class="mini-btn" type="button" onclick="notaDueQuick(7)">+7</button><button class="mini-btn" type="button" onclick="notaDueQuick(14)">+14</button><button class="mini-btn" type="button" onclick="notaDueQuick(30)">+30</button></div>'
+    +'<div class="pd-sec">Barang</div><datalist id="nota-items-list"></datalist><div id="nota-rows"></div><button class="mini-btn" type="button" onclick="notaAddRow()">+ Tambah barang</button>'
+    +'<div style="text-align:right;margin:8px 0;font-size:14px">Total: <b class="mono" id="nota-total">Rp0</b></div>'
+    +'<div class="pd-sec">Pembayaran</div><label class="bp-toggle"><input type="radio" name="nota-status" value="belum"'+(e.status==='lunas'?'':' checked')+' onchange="notaStatusChange()"> Belum dibayar</label><label class="bp-toggle"><input type="radio" name="nota-status" value="lunas"'+(e.status==='lunas'?' checked':'')+' onchange="notaStatusChange()"> Sudah lunas</label>'
+    +'<div id="nota-paidwrap" style="display:'+(e.status==='lunas'?'':'none')+'"><label class="kor-lbl">Tanggal bayar</label><input class="kor-input" type="date" id="nota-paid" value="'+(e.paid_date||finTodayWIB())+'"><div class="fin-note" style="margin-top:4px">Pengeluaran per barang otomatis tercatat di Keuangan pada tanggal bayar.</div></div>'
+    +'<label class="kor-lbl" style="margin-top:10px">Catatan <small style="font-weight:400;color:var(--text3)">(opsional)</small></label><input class="kor-input" id="nota-note" value="'+finEsc(e.note||'')+'">'
+    +'<div id="nota-msg" style="font-size:12px;margin:8px 0;text-align:center"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="closeMasukModal()">Batal</button><button class="save-btn save-in" id="nota-save" style="flex:2" onclick="saveNota('+(p?p.id:'null')+')">💾 Simpan</button></div>'
+    +(p?'<button class="del-btn" style="width:100%;margin-top:10px" onclick="deleteNota('+p.id+')">🗑️ Hapus nota</button>':''));
+  (items.length?items:[{},{}]).forEach(i=>notaAddRow(i)); notaCalc();
+  (async()=>{ try{
+    const [ing,pr]=await Promise.all([ sb.from('ingredients').select('name'), sb.from('purchases').select('supplier').not('supplier','is',null).order('id',{ascending:false}).limit(200) ]);
+    const sl=document.getElementById('nota-sup-list'), il=document.getElementById('nota-items-list');
+    if (sl) sl.innerHTML=[...new Set((pr.data||[]).map(x=>x.supplier))].slice(0,30).map(s=>'<option value="'+finEsc(s)+'">').join('');
+    if (il) il.innerHTML=[...new Set((ing.data||[]).map(x=>x.name))].map(s=>'<option value="'+finEsc(s)+'">').join('');
+  }catch(_){} })();
+}
+async function saveNota(id){
+  const msg=document.getElementById('nota-msg'), bad=m=>{ msg.textContent=m; msg.style.color='var(--r)'; };
+  const date=document.getElementById('nota-date').value; if(!date) return bad('Isi tanggal terima');
+  const items=[]; let err=null;
+  document.querySelectorAll('#nota-rows .nota-row').forEach((r,i)=>{
+    const item=r.querySelector('.nr-item').value.trim(), qRaw=r.querySelector('.nr-qty').value.trim(), unit=r.querySelector('.nr-unit').value, aRaw=r.querySelector('.nr-amt').value.trim();
+    if (!item && !qRaw && !aRaw) return;
+    const q=bahanParse(qRaw), a=aRaw===''?NaN:parseFloat(aRaw);
+    if (!item) err='Baris '+(i+1)+': isi nama barang'; else if (!(q>0)) err='Baris "'+item+'": jumlah harus lebih dari 0'; else if (!unit) err='Baris "'+item+'": pilih satuan'; else if (!(a>=0)) err='Baris "'+item+'": isi total harga';
+    items.push({item:item,qty:q,unit:unit,amount:a,category:r.querySelector('.nr-cat').value,to_stock:r.querySelector('.nr-stok').checked});
+  });
+  if (err) return bad(err);
+  if (!items.length) return bad('Isi minimal satu barang');
+  const status=document.querySelector('input[name="nota-status"]:checked').value;
+  const header={purchase_date:date,branch_id:document.getElementById('nota-branch').value||'',supplier:document.getElementById('nota-supplier').value.trim(),invoice_no:document.getElementById('nota-inv').value.trim(),due_date:document.getElementById('nota-due').value||'',status:status,paid_date:status==='lunas'?(document.getElementById('nota-paid').value||finTodayWIB()):'',note:document.getElementById('nota-note').value.trim()};
+  const btn=document.getElementById('nota-save'); btn.disabled=true; btn.textContent='Menyimpan...';
+  const { data, error } = await sb.rpc('save_purchase',{p_id:id,p_header:header,p_items:items,p_user:currentUser.nama});
+  if (error) { btn.disabled=false; btn.textContent='💾 Simpan'; return bad('Gagal: '+error.message); }
+  const sk=(data&&data.skipped)||[];
+  closeMasukModal(); await loadMasuk(); loadDueCard();
+  if (sk.length) alert('Nota tersimpan. Stok bahan TIDAK ditambah untuk: '+sk.map(s=>s.item+' (satuan nota '+s.unit_nota+' beda dari satuan bahan '+s.unit_bahan+')').join('; ')+'.\nTambah manual lewat Stok Bahan.');
+}
+async function deleteNota(id){
+  if (!confirm('Hapus nota ini?\n\nStok bahan dan pengeluaran yang terhubung dengan nota ini ikut terhapus.')) return;
+  const { error } = await sb.from('purchases').delete().eq('id',id);
+  if (error) { alert('Gagal hapus: '+error.message); return; }
+  closeMasukModal(); await loadMasuk(); loadDueCard();
+}
+// ----- kartu pengingat di Beranda -----
+async function loadDueCard(){
+  const el=document.getElementById('due-card'); if(!el) return;
+  if (!currentUser || !['master','manager'].includes(currentUser.role)) { el.style.display='none'; return; }
+  try {
+    const to=addDaysStr(finTodayWIB(),7);
+    const { data } = await sb.from('purchases').select('id,due_date,supplier,total,status').eq('status','belum').not('due_date','is',null).lte('due_date',to).order('due_date',{ascending:true}).limit(200);
+    const g={}; (data||[]).forEach(p=>{ const o=g[p.due_date]||(g[p.due_date]={date:p.due_date,n:0,tot:0}); o.n++; o.tot+=Number(p.total||0); });
+    const list=Object.values(g).sort((a,b)=>a.date<b.date?-1:1);
+    if (!list.length) { el.style.display='none'; el.innerHTML=''; return; }
+    el.style.display='';
+    el.innerHTML='<div class="due-title"><span>💸 Jatuh tempo bayar</span><button class="mini-btn" onclick="openMasuk(\'due\')">Lihat semua ›</button></div>'
+      +list.slice(0,4).map(o=>{ const b=dueBadge(o.date); return '<div class="due-row '+b.c+'" onclick="openMasuk(\'due\')"><span><b style="font-family:inherit">'+finEsc(finLabel(o.date))+'</b> · '+b.t+'</span><span>bayar <b>'+fmtRp(o.tot)+'</b> · '+o.n+' nota</span></div>'; }).join('')
+      +(list.length>4?'<div class="pm2-sub" style="text-align:center">+'+(list.length-4)+' tanggal lagi</div>':'');
+  } catch(_) { el.style.display='none'; }
+}
 function finItemSummary(rows){
   const g={};
   rows.forEach(r=>{ if(!r.item||!(Number(r.qty)>0)) return; const k=r.item.trim().toLowerCase()+'|'+(r.unit||''); const o=g[k]||(g[k]={name:r.item.trim(),unit:r.unit||'',qty:0,amt:0,n:0}); o.qty+=Number(r.qty); o.amt+=Number(r.amount||0); o.n++; });
@@ -2915,7 +3178,7 @@ function expHint(){
   const a=parseFloat(document.getElementById('exp-amount').value)||0, q=parseFloat(String(document.getElementById('exp-qty').value).replace(',','.'))||0, u=document.getElementById('exp-unit').value;
   el.textContent=(a>0&&q>0&&u)?'≈ '+finPerUnit(a,q,u):'';
 }
-function editExpense(id){ const r=finData&&finData.expRows.find(x=>x.id===id); if(r) openExpModal(r); }
+function editExpense(id){ const r=finData&&finData.expRows.find(x=>x.id===id); if(!r) return; if(r.purchase_id){ if(confirm('Pengeluaran ini berasal dari nota Barang Masuk, jadi diubah lewat notanya.\n\nBuka notanya sekarang?')) { openMasuk('nota').then(()=>openNota(r.purchase_id)); } return; } openExpModal(r); }
 function openExpModal(row){
   expPhoto=null; expEditRow=row||null; expLinked=null; expStokTouched=false;
   const e=row||{};
@@ -3003,6 +3266,7 @@ async function saveExpense(){
   closeExpModal(); await loadKeuangan();
 }
 async function deleteExpense(id){
+  const rr=finData&&finData.expRows.find(x=>x.id===id); if(rr&&rr.purchase_id){ alert('Pengeluaran ini berasal dari nota Barang Masuk. Ubah status lunas atau hapus lewat notanya.'); return; }
   if(!confirm('Hapus pengeluaran ini?\n\nFoto nota di Google Drive tidak ikut terhapus.')) return;
   const { error } = await sb.from('expenses').delete().eq('id',id);
   if(error){ alert('Gagal hapus: '+error.message); return; }
@@ -3479,6 +3743,7 @@ function show(name) {
   const main=document.getElementById('main-area');
   if(main) main.style.marginLeft = isAuth?'0':'';
   if(name==='dashboard')loadDashboard();
+  if(name==='overview' && typeof loadDueCard==='function') loadDueCard();
   if(name==='admin')loadUsers();
   if(name==='products')loadProductManagement();
   if(name==='faq')renderFAQ();
@@ -4854,6 +5119,7 @@ const SB_NAV = [
   {scr:'salesreport', ic:'💰', label:'Laporan Penjualan', roles:['master'], fn:'openSalesReport'},
   {scr:'keuangan', ic:'🧾', label:'Keuangan', roles:['master','manager'], fn:'openKeuangan'},
   {scr:'bahan', ic:'🧂', label:'Stok Bahan', roles:['master','manager'], fn:'openBahan'},
+  {scr:'masuk', ic:'📥', label:'Barang Masuk', roles:['master','manager'], fn:'openMasuk'},
   {scr:'shelf', ic:'🏷️', label:'Kedaluwarsa', roles:['master','manager','karyawan'], fn:'openShelfReport'},
   {section:'Operasional'},
   {scr:'setoran', ic:'💵', label:'Setoran Harian', roles:['master','manager','karyawan'], fn:'openSetoran'},
