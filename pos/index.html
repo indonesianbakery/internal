@@ -1093,7 +1093,7 @@ function clearSearch(){ const i=document.getElementById('prod-search'); i.value=
 function renderProducts(){
   const q = (document.getElementById('prod-search').value||'').toLowerCase().trim();
   document.getElementById('search-clear').classList.toggle('hidden', !q);
-  let list = products;
+  let list = products.filter(visibleNow);
   if(activeCategoryId==='top') list = topIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
   else if(activeCategoryId==='fav') list = favIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
   else if(activeCategoryId==='plmenu') list = list.filter(inPlMenu);
@@ -1120,7 +1120,7 @@ function renderProducts(){
       const a = vParts(p);
       if(!a){ out.push(p); return; }
       if(seen[a[0]]!=null) return;
-      const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0] && (activeCategoryId!=='plmenu' || inPlMenu(x)); });
+      const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0] && visibleNow(x) && (activeCategoryId!=='plmenu' || inPlMenu(x)); });
       const prices = vars.map(priceOf).filter(x=>x!=null);
       seen[a[0]] = _vGroups.length; _vGroups.push(a[0]);
       out.push({ __vg: seen[a[0]], id:p.id, name:a[0], category_id:p.category_id, n:vars.length,
@@ -1130,7 +1130,8 @@ function renderProducts(){
     list = out;
   }
   const grid = document.getElementById('prod-grid');
-  if(!list.length){ grid.innerHTML = `<div class="prod-empty">${activeCategoryId==='plmenu'?('Menu '+plName(plId())+' masih kosong'+(canManageTx()?' — buka Semua, terus ✏️ isi harga produk yang mau masuk menu':'')):activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
+  const exAdd = (activeCategoryId==='plmenu' && canManageTx()) ? `<div class="prod-card" style="border-style:dashed;justify-content:center;align-items:center;color:#1565C0;font-weight:800;" onclick="addExclusiveProduct()">➕ Produk khusus ${plName(plId())}</div>` : '';
+  if(!list.length){ grid.innerHTML = exAdd + `<div class="prod-empty">${activeCategoryId==='plmenu'?('Menu '+plName(plId())+' masih kosong'+(canManageTx()?' — buka Semua, terus ✏️ isi harga produk yang mau masuk menu':'')):activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
   grid.innerHTML = list.map(p=> p.__vg!=null ? `
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="openVariant(${p.__vg})">
       <div class="nm">${p.name}</div>
@@ -1142,8 +1143,8 @@ function renderProducts(){
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
       <div class="nm">${dispName(p)}</div>
       <div class="stk">${p.stok<=0?'Di rak: 0 (tetap bisa dijual)':'Di rak: '+p.stok}</div>
-      <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel!=='toko'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setChannelPrice(${p.id})">✏️</button>`:''}${(plId()&&plPriceOf(p)!=null)?'<span class="pl-tag">khusus</span>':''}</div>
-    </div>`).join('');
+      <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel!=='toko'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setChannelPrice(${p.id})">✏️</button>`:''}${(plId()&&plPriceOf(p)!=null)?'<span class="pl-tag">'+(plExclusive[p.id]?'eksklusif':'khusus')+'</span>':''}</div>
+    </div>`).join('') + exAdd;
   renderAZ(sort==='name', list);
 }
 function stickyH(){ const a=document.getElementById('pos-topbar'), b=document.getElementById('prod-search-wrap'); return (a?a.offsetHeight:0)+(b?b.offsetHeight:0); }
@@ -1222,7 +1223,25 @@ function startManualTx(){
 }
 // ===== CHANNEL: TOKO / GOFOOD =====
 let channel = 'toko';
-let priceLists = [], plPrices = {};
+let priceLists = [], plPrices = {}, plExclusive = {};
+function visibleNow(p){ const ex = plExclusive[p.id]; return ex==null || plId()===ex; }
+async function addExclusiveProduct(){
+  if(!canManageTx() || !plId()) return;
+  const lid = plId(), lname = plName(lid);
+  const name = (prompt('Nama produk khusus '+lname+'\n(cuma muncul di menu '+lname+')')||'').trim();
+  if(!name) return;
+  const price = parseMoney(prompt('Harga '+name+' untuk '+lname+' (Rp)')||'');
+  if(!price){ toast('Harga belum diisi'); return; }
+  const catId = (Object.keys(catNames).find(id=>String(catNames[id]).toLowerCase()==='dll')) || (categories[0]);
+  const maxSort = products.reduce((m,p)=>Math.max(m,p.sort_order||0),0);
+  const { data: np, error } = await sb.from('products').insert({ name, category_id: Number(catId), cost_price: price, is_active: true, sort_order: maxSort+1 }).select().single();
+  if(error){ toast('Gagal bikin produk: '+error.message); return; }
+  await sb.from('stock').insert([{product_id:np.id,branch_id:'melur',qty:0},{product_id:np.id,branch_id:'delima',qty:0}]);
+  const r2 = await sb.from('price_list_items').upsert({ price_list_id: lid, product_id: np.id, price, exclusive: true, updated_by: currentUser.nama, updated_at: new Date().toISOString() });
+  if(r2.error){ toast('Produk dibuat, tapi gagal masuk menu: '+r2.error.message); }
+  await loadProducts();
+  toast(name+' masuk menu '+lname);
+}
 function plId(){ return channel.startsWith('pl:') ? Number(channel.slice(3)) : null; }
 function plName(id){ const l = priceLists.find(x=>x.id===id); return l ? l.name : 'Pelanggan'; }
 function plPriceOf(p){ const id=plId(); const m=id&&plPrices[id]; return (m && m[p.id]!=null) ? Number(m[p.id]) : null; }
@@ -1235,10 +1254,11 @@ function channelLabel(){ return channel==='gofood' ? '🟢 GoFood' : (plId() ? '
 async function loadPriceLists(){
   const [{ data: pl }, { data: pi }] = await Promise.all([
     sb.from('price_lists').select('*').eq('is_active', true).order('name'),
-    sb.from('price_list_items').select('price_list_id, product_id, price')
+    sb.from('price_list_items').select('price_list_id, product_id, price, exclusive')
   ]);
   priceLists = pl || []; plPrices = {};
-  (pi||[]).forEach(r=>{ (plPrices[r.price_list_id] ||= {})[r.product_id] = Number(r.price); });
+  plExclusive = {};
+  (pi||[]).forEach(r=>{ (plPrices[r.price_list_id] ||= {})[r.product_id] = Number(r.price); if(r.exclusive) plExclusive[r.product_id] = r.price_list_id; });
   if(plId() && !priceLists.find(x=>x.id===plId())) channel = 'toko';
 }
 function renderChannel(){
@@ -1324,7 +1344,7 @@ function vOptHtml(label, items, onclickFn, sel){
   return `<button class="v-opt${sel?' sel':''}" onclick="${onclickFn}"><div class="vn">${label}</div><div class="vs">Di rak: ${stk}</div><div class="vp">${pr}</div></button>`;
 }
 function renderVariant(){
-  const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g && (activeCategoryId!=='plmenu' || inPlMenu(p)); });
+  const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g && visibleNow(p) && (activeCategoryId!=='plmenu' || inPlMenu(p)); });
   const twoLevel = vars.some(p=>vParts(p).length>=3);
   if(!vSel.qty) vSel.qty = {};
   let html = '';
