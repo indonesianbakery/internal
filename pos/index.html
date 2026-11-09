@@ -283,6 +283,8 @@ body.pl-mode #cart-bar{background:#1565C0;}
 .dn-row .dn-s{text-align:right;font-family:'DM Mono',monospace;font-size:12px;color:var(--text2);}
 .prev-float{background:var(--in-bg);border:1.5px solid var(--in);border-radius:12px;padding:12px 14px;margin-bottom:12px;}
 .prev-float .pf-amt{font-size:22px;font-weight:800;color:var(--in);font-family:'DM Mono',monospace;}
+.cat-tab.pl-menu-tab{border-color:#1565C0;color:#1565C0;}
+.cat-tab.pl-menu-tab.active{background:#1565C0;color:#fff;}
 </style>
 </head>
 <body>
@@ -1070,12 +1072,17 @@ async function loadTop5(){
   topIds = Object.keys(tot).sort((a,b)=>tot[b]-tot[a]).slice(0,5).map(Number);
 }
 function renderCatTabs(){
-  let html = `<div class="cat-tab active" data-c="all" onclick="setCat('all')">Semua</div>`;
+  if(activeCategoryId==='plmenu' && !plId()) activeCategoryId = 'all';
+  let html = '';
+  if(plId()) html += `<div class="cat-tab pl-menu-tab" data-c="plmenu" onclick="setCat('plmenu')">☕ Menu ${plName(plId())}</div>`;
+  html += `<div class="cat-tab" data-c="all" onclick="setCat('all')">Semua</div>`;
   html += `<div class="cat-tab" data-c="fav" onclick="setCat('fav')">📌 Favoritku</div>`;
   if(topIds.length) html += `<div class="cat-tab" data-c="top" onclick="setCat('top')">⭐ Top 5</div>`;
   categories.forEach(c=>{ html += `<div class="cat-tab" data-c="${c}" style="border-left-color:${catColor(c)}" onclick="setCat('${c}')">${catNames[c]||'Kategori '+c}</div>`; });
   document.getElementById('cat-tabs').innerHTML = html;
+  document.querySelectorAll('.cat-tab').forEach(el=>el.classList.toggle('active', el.dataset.c==String(activeCategoryId)));
 }
+function inPlMenu(p){ return plPriceOf(p)!=null; }
 function setCat(c){
   activeCategoryId = c;
   document.querySelectorAll('.cat-tab').forEach(el=>el.classList.toggle('active', el.dataset.c==String(c)));
@@ -1089,6 +1096,7 @@ function renderProducts(){
   let list = products;
   if(activeCategoryId==='top') list = topIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
   else if(activeCategoryId==='fav') list = favIds.map(id=>list.find(p=>p.id===id)).filter(Boolean);
+  else if(activeCategoryId==='plmenu') list = list.filter(inPlMenu);
   else if(activeCategoryId!=='all') list = list.filter(p=>String(p.category_id)===String(activeCategoryId));
   if(q){
     const words = q.split(/\s+/).filter(Boolean);
@@ -1112,7 +1120,7 @@ function renderProducts(){
       const a = vParts(p);
       if(!a){ out.push(p); return; }
       if(seen[a[0]]!=null) return;
-      const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0]; });
+      const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0] && (activeCategoryId!=='plmenu' || inPlMenu(x)); });
       const prices = vars.map(priceOf).filter(x=>x!=null);
       seen[a[0]] = _vGroups.length; _vGroups.push(a[0]);
       out.push({ __vg: seen[a[0]], id:p.id, name:a[0], category_id:p.category_id, n:vars.length,
@@ -1122,7 +1130,7 @@ function renderProducts(){
     list = out;
   }
   const grid = document.getElementById('prod-grid');
-  if(!list.length){ grid.innerHTML = `<div class="prod-empty">${activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
+  if(!list.length){ grid.innerHTML = `<div class="prod-empty">${activeCategoryId==='plmenu'?('Menu '+plName(plId())+' masih kosong'+(canManageTx()?' — buka Semua, terus ✏️ isi harga produk yang mau masuk menu':'')):activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
   grid.innerHTML = list.map(p=> p.__vg!=null ? `
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="openVariant(${p.__vg})">
       <div class="nm">${p.name}</div>
@@ -1234,6 +1242,7 @@ async function loadPriceLists(){
   if(plId() && !priceLists.find(x=>x.id===plId())) channel = 'toko';
 }
 function renderChannel(){
+  if(document.getElementById('cat-tabs')) renderCatTabs();
   document.body.classList.toggle('gofood-mode', channel==='gofood');
   document.body.classList.toggle('pl-mode', !!plId());
   const b = document.getElementById('ch-toggle'); if(b) b.textContent = channelLabel();
@@ -1251,6 +1260,8 @@ function selectChannel(ch){
   if(ch===channel){ closeSheet('sheet-channel'); return; }
   if(cart.length && !confirm('Ganti harga? Keranjang akan dikosongkan (harganya beda).')) return;
   channel = ch; cart = []; discountTotal = 0;
+  activeCategoryId = plId() ? 'plmenu' : (activeCategoryId==='plmenu' ? 'all' : activeCategoryId);
+  renderCatTabs();
   closeSheet('sheet-channel');
   updateCartBar(); renderChannel(); renderProducts();
   toast('Mode '+channelLabel());
@@ -1313,7 +1324,7 @@ function vOptHtml(label, items, onclickFn, sel){
   return `<button class="v-opt${sel?' sel':''}" onclick="${onclickFn}"><div class="vn">${label}</div><div class="vs">Di rak: ${stk}</div><div class="vp">${pr}</div></button>`;
 }
 function renderVariant(){
-  const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g; });
+  const vars = products.filter(p=>{ const a=vParts(p); return a && a[0]===vSel.g && (activeCategoryId!=='plmenu' || inPlMenu(p)); });
   const twoLevel = vars.some(p=>vParts(p).length>=3);
   if(!vSel.qty) vSel.qty = {};
   let html = '';
@@ -1414,7 +1425,7 @@ function renderCartSheet(){
 
   const sub = calcSubtotal(), grand = calcGrandTotal();
   document.getElementById('cart-summary').innerHTML = `
-    <div class="cs-row"><span>Subtotal</span><span class="mono">${rp(sub)}</span></div>
+    <div class="cs-row"><span>Subtotal (${cart.reduce((t,c)=>t+c.qty,0)} item)</span><span class="mono">${rp(sub)}</span></div>
     ${discountTotal>0?`<div class="cs-row"><span>Diskon Total</span><span class="mono">-${rp(discountTotal)}</span></div>`:''}
     <div class="cs-row total"><span>Total</span><span class="mono">${rp(grand)}</span></div>`;
   document.getElementById('btn-checkout').disabled = !cart.length;
