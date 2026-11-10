@@ -1159,7 +1159,7 @@ body{ max-width:none; }
     <div style="font-size:12px;color:var(--text2);margin-bottom:8px" id="prod-select-count">0 produk dipilih</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       <button class="add-btn" style="flex:1;min-width:120px" onclick="bulkEditHarga()">💰 Edit Harga</button>
-      <button class="add-btn" style="flex:1;min-width:120px;background:var(--y-bg);color:var(--y)" onclick="bulkEditShelf()">⏰ Shelf Life</button>
+      <button class="add-btn" id="bulk-shelf-btn" style="flex:1;min-width:120px;background:var(--y-bg);color:var(--y)" onclick="bulkEditShelf()">⏰ Shelf Life</button>
       <button class="mini-btn" style="flex:1" onclick="bulkToggleActive(false)">Nonaktifkan</button>
       <button class="del-btn" style="flex:1" onclick="bulkDelete()">🗑️ Hapus</button>
     </div>
@@ -1727,6 +1727,9 @@ let manualItemOrder = {};
 let manualEditMode = false;
 let dashPeriod = 7;
 let shelfAlerts = {}; // { productName: {tarik, warning} }
+// Fitur Kedaluwarsa dimatikan (keputusan: tidak dipakai di kedua cabang). Data batch lama tetap ada; ubah ke true untuk menyalakan lagi.
+const EXPIRY_ON = false;
+function batchInsert(rows){ return EXPIRY_ON ? sb.from('product_batches').insert(rows) : Promise.resolve({}); }
 
 // ===== KIRIM ROTI ANTAR BRANCH =====
 let kirimItems = {};      // { product_id: qty }
@@ -1806,7 +1809,7 @@ async function afterLogin() {
   document.getElementById('dashboard-btn').style.display = isFullAccess ? '' : 'none';
   document.getElementById('absen-btn').style.display = currentUser.role==='master' ? 'none' : '';
   document.getElementById('kirim-btn').style.display = canSendShipment() ? '' : 'none';
-  document.getElementById('shelf-btn').style.display = '';
+  document.getElementById('shelf-btn').style.display = EXPIRY_ON ? '' : 'none';
   document.getElementById('ship-btn').style.display = '';
 
   renderBranchMenu();
@@ -2148,7 +2151,7 @@ async function openProdProfile(name){
   document.getElementById('pp-body').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
   document.getElementById('prod-profile-modal').classList.add('open');
   const [bRes, mRes] = await Promise.all([
-    sb.from('product_batches').select('*').eq('product_id',prod.id).eq('branch_id',branch).order('batch_date',{ascending:false}).limit(8),
+    EXPIRY_ON ? sb.from('product_batches').select('*').eq('product_id',prod.id).eq('branch_id',branch).order('batch_date',{ascending:false}).limit(8) : Promise.resolve({data:[]}),
     sb.from('stock_movements').select('type,qty,user_name,created_at').eq('product_id',prod.id).eq('branch_id',branch).order('created_at',{ascending:false}).limit(15)
   ]);
   renderProdProfile(prod, (bRes&&bRes.data)||[], (mRes&&mRes.data)||[]);
@@ -2160,13 +2163,14 @@ function renderProdProfile(prod, batches, moves){
   const today = new Date(); today.setHours(0,0,0,0);
   const typeLbl = {masuk:'Masuk',produksi:'Masuk',sisa:'Sisa',retur:'Retur',terjual:'Terjual POS'};
   const sold = s.terjualToday||0;
-  let h = '<div class="modal-title">'+dn(n)+'</div><div class="modal-sub">'+cat+(priceFor(prod,branch)>0?' · '+fmtRp(priceFor(prod,branch))+'/pcs':'')+' · simpan '+shelf+' hari</div>';
+  let h = '<div class="modal-title">'+dn(n)+'</div><div class="modal-sub">'+cat+(priceFor(prod,branch)>0?' · '+fmtRp(priceFor(prod,branch))+'/pcs':'')+(EXPIRY_ON?' · simpan '+shelf+' hari':'')+'</div>';
   h += '<div class="pp-stats">'
     +'<div><small>Kemarin</small><b>'+(s.stokKemarin||0)+'</b></div>'
     +'<div><small>Masuk</small><b>'+(s.produksi||0)+'</b></div>'
     +'<div><small>Retur</small><b>'+(s.retur||0)+'</b></div>'
     +'<div><small>Di rak</small><b>'+s.now+'</b></div>'
     +'<div><small>Terjual</small><b>'+sold+'</b></div></div>';
+  if (EXPIRY_ON) {
   h += '<div class="pp-sec">Batch masuk</div>';
   if(!batches.length) h += '<div class="pp-empty">Belum ada catatan batch</div>';
   else h += batches.map(b=>{
@@ -2181,6 +2185,7 @@ function renderProdProfile(prod, batches, moves){
     else { st='Aman · '+diff+' hari lagi'; cls='ok'; }
     return '<div class="pp-batch '+cls+'"><div><b>Masuk '+fmtTglID(b.batch_date)+'</b><small>'+b.qty_in+' pcs · sisa '+Math.max(0,sisa)+' · exp '+fmtTglID(exp)+'</small></div><span class="pp-tag '+cls+'">'+st+'</span></div>';
   }).join('');
+  }
   h += '<div class="pp-sec">Riwayat terbaru</div>';
   if(!moves.length) h += '<div class="pp-empty">Belum ada riwayat</div>';
   else h += moves.map(m=>'<div class="pp-mv"><span class="pp-mv-t '+m.type+'">'+(typeLbl[m.type]||m.type)+'</span><b>'+m.qty+'</b><small>'+ppFmtJam(m.created_at)+' · '+(m.user_name||'-')+'</small></div>').join('');
@@ -2223,7 +2228,7 @@ async function ppSave(){
   const calls = [];
   if (ppInput.iProduksi>0) {
     calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'masuk',p_items:[{nama:ppName,qty:ppInput.iProduksi}]}));
-    calls.push(sb.from('product_batches').insert([{branch_id:branch,product_id:prod.id,batch_date:new Date().toISOString().slice(0,10),qty_in:ppInput.iProduksi,qty_sold:0}]));
+    calls.push(batchInsert([{branch_id:branch,product_id:prod.id,batch_date:new Date().toISOString().slice(0,10),qty_in:ppInput.iProduksi,qty_sold:0}]));
   }
   if (ppInput.iRetur>0) calls.push(sb.rpc('add_movement',{p_branch_id:branch,p_user_name:currentUser.nama,p_type:'retur',p_items:[{nama:ppName,qty:ppInput.iRetur}]}));
   if (ppInput.iSisa!==(s.now||0)) {
@@ -2456,7 +2461,7 @@ async function saveInput() {
       const prod = products.find(p=>p.name===n);
       return { branch_id: branch, product_id: prod.id, batch_date: today, qty_in: inputState[n].iProduksi, qty_sold: 0 };
     });
-    calls.push(sb.from('product_batches').insert(batchRows));
+    calls.push(batchInsert(batchRows));
   }
   // 2. RETUR (roti kemarin yang beneran ditarik/dibawa balik)
   const returItems = Object.keys(inputState).filter(n=>inputState[n].iRetur>0).map(n=>({nama:n,qty:inputState[n].iRetur}));
@@ -2480,6 +2485,7 @@ async function saveInput() {
 
 // FIFO: distribusi terjual ke batch dari yang terlama
 async function updateBatchFIFO(sisaItems) {
+  if (!EXPIRY_ON) return;
   for (const item of sisaItems) {
     const prod = products.find(p=>p.name===item.nama);
     if (!prod) continue;
@@ -2500,6 +2506,7 @@ async function updateBatchFIFO(sisaItems) {
 
 // Cek batch expired/mendekati kedaluwarsa, simpan ke stockNow untuk ditampilkan
 async function checkShelfLifeAlert() {
+  if (!EXPIRY_ON) { shelfAlerts = {}; return; }
   const today = new Date();
   today.setHours(0,0,0,0);
   const { data: batches } = await sb.from('product_batches').select('*,products(name,shelf_life_days)').eq('branch_id',branch);
@@ -2532,6 +2539,7 @@ function updateShelfBadge() {
 }
 
 async function openShelfReport() {
+  if (!EXPIRY_ON) return;
   show('shelf');
   const wrap = document.getElementById('shelf-report-body');
   wrap.innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
@@ -3085,7 +3093,7 @@ function notaRowHtml(i){
     +'<div style="display:flex;gap:6px;margin-top:6px"><select class="kor-input nr-cat" style="flex:1" onchange="notaCatChange(this)">'+FIN_CATS.map(k=>'<option'+(cat===k?' selected':'')+'>'+finEsc(k)+'</option>').join('')+'</select><select class="kor-input nr-dest" style="flex:1.2" onchange="notaDestChange(this)"><option value="bahan"'+(dest==='bahan'?' selected':'')+'>Stok bahan (Melur)</option><option value="produk"'+(dest==='produk'?' selected':'')+'>Produk jual</option><option value="none"'+(dest==='none'?' selected':'')+'>Tidak ke stok</option></select></div>'
     +'<div class="nr-prod" style="display:'+(dest==='produk'?'':'none')+';margin-top:6px"><select class="kor-input nr-prodsel" onchange="notaProdChange(this)">'+notaProdOptions(i.product_id)+'</select>'
     +'<div style="display:flex;gap:6px;margin-top:6px;align-items:center"><span style="font-size:12px;white-space:nowrap;color:var(--text2)">Isi per satuan</span><input class="kor-input mono nr-pack" type="text" inputmode="decimal" value="'+(i.pack_size&&Number(i.pack_size)!==1?finQtyFmt(i.pack_size):'1')+'" style="width:84px" oninput="notaCalc()"><span class="pm-pcs">pcs</span></div>'
-    +'<div class="nr-new" style="display:none;margin-top:6px"><input class="kor-input nr-npname" placeholder="Nama jual (mis. Yogurt Cimory Strawberry)" oninput="notaCalc()"><div style="display:flex;gap:6px;margin-top:6px"><input class="kor-input mono nr-npprice" type="number" inputmode="numeric" placeholder="Harga jual Rp" style="flex:1.3" oninput="notaCalc()"><select class="kor-input nr-npcat" style="flex:1.2">'+categories.map(c=>'<option value="'+c.id+'">'+finEsc(c.name)+'</option>').join('')+'</select><input class="kor-input mono nr-npshelf" type="number" inputmode="numeric" value="14" style="flex:.8" title="Lama simpan (hari)"></div><div class="fin-note" style="margin:3px 0 0">Nama jual dan harga jual ini yang tampil di POS dan Catat Stok. Kolom terakhir = lama simpan (hari).</div></div></div>'
+    +'<div class="nr-new" style="display:none;margin-top:6px"><input class="kor-input nr-npname" placeholder="Nama jual (mis. Yogurt Cimory Strawberry)" oninput="notaCalc()"><div style="display:flex;gap:6px;margin-top:6px"><input class="kor-input mono nr-npprice" type="number" inputmode="numeric" placeholder="Harga jual Rp" style="flex:1.3" oninput="notaCalc()"><select class="kor-input nr-npcat" style="flex:1.2">'+categories.map(c=>'<option value="'+c.id+'">'+finEsc(c.name)+'</option>').join('')+'</select><input class="kor-input mono nr-npshelf" type="number" inputmode="numeric" value="14" style="flex:.8;'+(EXPIRY_ON?'':'display:none')+'" title="Lama simpan (hari)"></div><div class="fin-note" style="margin:3px 0 0">Nama jual dan harga jual ini yang tampil di POS dan Catat Stok.'+(EXPIRY_ON?' Kolom terakhir = lama simpan (hari).':'')+'</div></div></div>'
     +'<div class="pm2-sub nr-hint" style="margin-top:4px"></div></div>';
 }
 function notaDestChange(sel){ const row=sel.closest('.nota-row'); row.querySelector('.nr-prod').style.display=sel.value==='produk'?'':'none'; notaCalc(); }
@@ -3844,6 +3852,7 @@ async function addManualUser(){ const nama=prompt('Nama karyawan:'); if(!nama)re
 let pmCollapsed = new Set();
 async function loadProductManagement() {
   renderPmLoginBanner();
+  { const bb=document.getElementById('bulk-shelf-btn'); if (bb) bb.style.display = EXPIRY_ON ? '' : 'none'; }
   await loadCategories(); await loadProducts();
   document.getElementById('new-prod-cat').innerHTML=categories.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
   document.getElementById('new-prod-bp').innerHTML='<div class="bp-title">Set harga per cabang <small>(kosongkan = pakai harga di atas)</small></div>'+Object.keys(BRANCHES).map(b=>'<div class="prod-manage-price"><span class="bp-lbl">'+BRANCHES[b]+'</span><span class="pm-rp">Rp</span><input class="mini-input" id="new-bp-'+b+'" type="number" min="0" style="width:90px"></div>').join('');
@@ -4332,7 +4341,7 @@ function pmGroupKey(cid,parent){ return (cid==null?'':cid)+'|'+parent; }
 function pmToggleGroup(key){ if(pmOpenGroups.has(key)) pmOpenGroups.delete(key); else pmOpenGroups.add(key); renderProdManageList(); }
 function pmRowHtml(p,child){
   const off = p.is_active===false;
-  const sub = [hasBranchPrice(p.id)?'harga beda per cabang':null, '⏰ '+(p.shelf_life_days||2)+' hari'].filter(Boolean).join(' · ');
+  const sub = [hasBranchPrice(p.id)?'harga beda per cabang':null, EXPIRY_ON?'⏰ '+(p.shelf_life_days||2)+' hari':null].filter(Boolean).join(' · ');
   return '<div class="pm2-row'+(off?' pm2-off':'')+(child?' pm2-child':'')+'" onclick="openProdDetail('+p.id+')"><div class="pm2-main"><div class="pm2-name">'+finEsc(child?dnOpts(p.name):dn(p.name))+(off?' <span class="inactive-badge">nonaktif</span>':'')+'</div><div class="pm2-sub">'+sub+'</div></div><div class="pm2-price">'+(p.cost_price>0?fmtRp(p.cost_price):'—')+'</div><span class="pm2-chev">›</span></div>';
 }
 function pmRowsHtml(cp,isMaster,filter){
@@ -4341,7 +4350,7 @@ function pmRowsHtml(cp,isMaster,filter){
     return '<div class="prod-manage-row'+(checked?' selected':'')+'" data-id="'+p.id+'" onclick="toggleProdCheck('+p.id+')">'
       +'<div class="prod-check'+(checked?' checked':'')+'">'+(checked?'✓':'')+'</div>'
       +'<div style="flex:1"><div class="prod-manage-name">'+finEsc(dn(p.name))+' '+(p.is_active===false?'<span class="inactive-badge">nonaktif</span>':'')+'</div>'
-      +'<div style="font-size:11px;color:var(--text2)">Rp '+(p.cost_price||0)+'/pcs · ⏰ '+(p.shelf_life_days||2)+' hari</div></div></div>';
+      +'<div style="font-size:11px;color:var(--text2)">Rp '+(p.cost_price||0)+'/pcs'+(EXPIRY_ON?' · ⏰ '+(p.shelf_life_days||2)+' hari':'')+'</div></div></div>';
   }).join('');
   return groupVariants(cp.map(p=>p.name)).map(g=>{
     const ps = g.map(n=>cp.find(p=>p.name===n));
@@ -4367,7 +4376,7 @@ function renderProdDetail(){
   if (!isMaster) {
     h += '<div class="pd-sec">Harga</div><div class="pm2-sub" style="font-size:13px">'+(p.cost_price>0?fmtRp(p.cost_price)+'/pcs':'—')+'</div>'
       +(hasBranchPrice(p.id)?'<div class="prod-manage-price-ro">'+Object.keys(BRANCHES).filter(b=>branchPrices[p.id][b]!=null).map(b=>BRANCHES[b]+' '+fmtRp(branchPrices[p.id][b])).join(' · ')+'</div>':'')
-      +'<div class="pd-sec">Lama simpan</div><div class="pm2-sub" style="font-size:13px">⏰ '+(p.shelf_life_days||2)+' hari</div>'
+      +(EXPIRY_ON?'<div class="pd-sec">Lama simpan</div><div class="pm2-sub" style="font-size:13px">⏰ '+(p.shelf_life_days||2)+' hari</div>':'')
       +'<button class="pp-close" onclick="closeProdDetail()">Tutup</button>';
     document.getElementById('pm-detail-body').innerHTML = h; return;
   }
@@ -4379,7 +4388,7 @@ function renderProdDetail(){
     +'<div class="pd-sec">Harga dasar</div><div class="pd-row"><span class="pm-rp">Rp</span><input class="kor-input mono" type="number" min="0" value="'+(p.cost_price||0)+'" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="price-save-status" id="price-status-'+p.id+'"></span></div>'
     +(p.hpp!=null?'<div class="fin-note" style="margin:4px 0 0">Modal terakhir '+fmtRp(Math.round(Number(p.hpp)))+'/pcs'+(p.cost_price>0?' · margin '+Math.round((p.cost_price-p.hpp)/p.cost_price*100)+'%':'')+'</div>':'')
     +'<label class="bp-toggle"><input type="checkbox" '+(bpOn?'checked ':'')+'onchange="toggleBranchPrice('+p.id+',this.checked).then(refreshPmDetail)"> Harga beda per cabang</label>'+(bpOn?branchPriceBox(p):'')
-    +'<div class="pd-sec">Lama simpan</div><div class="pd-row"><input class="kor-input mono" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:90px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>'
+    +(EXPIRY_ON?'<div class="pd-sec">Lama simpan</div><div class="pd-row"><input class="kor-input mono" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:90px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>':'')
     +'<div class="pd-sec">Status</div><div class="pd-row"><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="pdToggle()">'+(p.is_active===false?'Aktifkan':'Nonaktifkan')+'</button><button class="del-btn" onclick="pdDelete()">🗑️ Hapus</button></div>'
     +(typeof moveDataButtonHtml==='function'?moveDataButtonHtml():'')
     +'<button class="pp-close" onclick="closeProdDetail()">Selesai</button>';
@@ -4719,6 +4728,7 @@ var tourSteps={
   ]
 };
 var tourIdx=0;
+if (!EXPIRY_ON) Object.keys(tourSteps).forEach(function(k){ tourSteps[k]=tourSteps[k].filter(function(s){ return s.sel!=='#shelf-btn'; }); });
 function startTour(){ closeHelp(); show('overview'); tourIdx=0; document.getElementById('tour-overlay').classList.add('open'); setTimeout(renderTourStep,150); }
 function renderTourStep(){
   const steps=tourSteps[helpRole()]; const step=steps[tourIdx];
@@ -5213,6 +5223,7 @@ function renderSidebar(){
     if(it.section){ html+='<div class="sb-section">'+it.section+'</div>'; return; }
     if(!it.roles.includes(role)) return;
     if(it.cond==='canSendShipment' && !canSendShipment()) return;
+    if(it.scr==='shelf' && !EXPIRY_ON) return;
     html+='<div class="sb-item" data-scr="'+it.scr+'" onclick="navTo('+"'"+it.scr+"','"+(it.fn||'')+"'"+')">'
       +'<span class="ic">'+it.ic+'</span> '+it.label+'</div>';
   });
@@ -5234,7 +5245,7 @@ function renderFastActions(){
   html+='<button class="top-btn" id="refresh-btn" onclick="manualRefresh(this)" title="Refresh data">🔄</button>';
   html+='<button class="top-btn" id="help-btn" onclick="openHelp()" title="Bantuan & Tutorial">❓</button>';
   html+='<button class="top-btn" id="ship-btn" onclick="openShipments()">🔔</button>';
-  html+='<button class="top-btn" id="shelf-btn" onclick="openShelfReport()">🏷️</button>';
+  if (EXPIRY_ON) html+='<button class="top-btn" id="shelf-btn" onclick="openShelfReport()">🏷️</button>';
   document.getElementById('mock-fast-actions').innerHTML = html;
 }
 function toggleMockBranch(){
