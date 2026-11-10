@@ -1114,6 +1114,7 @@ body{ max-width:none; }
     <button class="top-btn" id="prod-select-btn" onclick="toggleProdSelect()" style="font-size:13px;padding:4px 10px">Pilih</button>
   </div>
   <div class="sub-body">
+    <div id="pm-login-banner"></div>
     <div class="period-row">
       <button class="period-btn active" id="pm-tab-btn-produk" onclick="setPmTab('produk',this)">🍞 Produk</button>
       <button class="period-btn" id="pm-tab-btn-kategori" onclick="setPmTab('kategori',this)">🏷️ Kategori</button>
@@ -1755,13 +1756,14 @@ async function loginPin() {
   if (pin.length<4) { errEl.textContent='PIN harus 4 digit'; return; }
   try {
     const { data: rows, error } = await sb.rpc('verify_pin', { p_nama: nama, p_pin: pin });
-    if (error) { errEl.textContent='Gagal — '+error.message; return; }
+    if (error) { errEl.textContent = /PIN_TERKUNCI/.test(error.message) ? error.message.replace(/^.*PIN_TERKUNCI:\s*/,'') : 'Gagal — '+error.message; return; }
     if (!rows||!rows.length) { errEl.textContent='Nama atau PIN salah'; return; }
     const row = rows[0];
     const role = row.role||'karyawan';
     if (role==='pending') { errEl.textContent='Akun belum di-approve'; return; }
     currentUser = { nama: row.nama, role, branch_id: row.branch_id, mode:'pin', id: row.id||null, username: row.username||null };
     afterLogin();
+    if (role==='master') upgradePinSession(nama, pin); // sesi aman dari server (tanpa menunggu; gagal = tetap mode PIN)
   } catch(e){ errEl.textContent='Koneksi gagal, coba lagi'; }
 }
 
@@ -3841,6 +3843,7 @@ async function addManualUser(){ const nama=prompt('Nama karyawan:'); if(!nama)re
 // ===== PRODUCTS MGMT =====
 let pmCollapsed = new Set();
 async function loadProductManagement() {
+  renderPmLoginBanner();
   await loadCategories(); await loadProducts();
   document.getElementById('new-prod-cat').innerHTML=categories.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
   document.getElementById('new-prod-bp').innerHTML='<div class="bp-title">Set harga per cabang <small>(kosongkan = pakai harga di atas)</small></div>'+Object.keys(BRANCHES).map(b=>'<div class="prod-manage-price"><span class="bp-lbl">'+BRANCHES[b]+'</span><span class="pm-rp">Rp</span><input class="mini-input" id="new-bp-'+b+'" type="number" min="0" style="width:90px"></div>').join('');
@@ -5203,7 +5206,7 @@ const SB_NAV = [
 function renderSidebar(){
   if(!currentUser) return;
   document.getElementById('sb-user-nm').textContent = currentUser.nama;
-  document.getElementById('sb-user-rl').innerHTML = (ROLE_LABEL[currentUser.role]||currentUser.role)+' <span style="opacity:.7">· Lihat profil ›</span>';
+  document.getElementById('sb-user-rl').innerHTML = (ROLE_LABEL[currentUser.role]||currentUser.role)+' · '+loginKind()+' <span style="opacity:.7">· Lihat profil ›</span>';
   const role = currentUser.role;
   let html='';
   SB_NAV.forEach(it=>{
@@ -5280,7 +5283,53 @@ async function manualRefresh(btn){
   if(btn){ btn.disabled=false; btn.classList.remove('spinning'); }
 }
 
+// ===== JENIS LOGIN, PESAN ERROR JELAS =====
+let authHasSession = false;
+function loginKind(){ return authHasSession ? (currentUser && currentUser.mode==='pin' ? 'PIN ✓' : 'Google') : (currentUser && currentUser.mode==='google' ? '⚠️ sesi Google habis' : 'PIN'); }
+function renderPmLoginBanner(){
+  const el=document.getElementById('pm-login-banner'); if(!el) return;
+  const show = currentUser && currentUser.role==='master' && !authHasSession;
+  el.innerHTML = show ? '<div class="act-warn" style="margin:0 0 10px">🔒 Kamu masuk lewat <b>PIN</b> (atau sesi Google sudah habis). Mengubah produk (tambah, harga, nama, hapus, Update via Excel) butuh login <b>Google</b>.<br><button class="mini-btn" style="margin-top:8px" onclick="loginGoogle()">Masuk dengan Google</button></div>' : '';
+}
+// Super Admin yang login PIN: server memeriksa PIN (dengan batas percobaan) lalu memberi sesi aman, jadi semua perubahan produk dll bisa jalan.
+async function upgradePinSession(nama, pin){
+  try {
+    if (!sb.functions || !sb.functions.invoke) return false;
+    const { data, error } = await sb.functions.invoke('pin-session', { body: { nama: nama, pin: pin } });
+    if (error || !data || !data.session || !data.token_hash) return false;
+    let r = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'email' });
+    if (r && r.error) r = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
+    if (!r || r.error) return false;
+    authHasSession = true; updateLoginBadge();
+    return true;
+  } catch(_) { return false; }
+}
+function updateLoginBadge(){ try{ if(currentUser) renderSidebar(); renderPmLoginBanner(); }catch(_){} }
+function friendlyDbError(msg, hasSession){
+  const m=String(msg==null?'':msg);
+  if (!/row-level security|42501|Hanya Super Admin|login Google/i.test(m)) return m;
+  return hasSession ? 'Akun yang sedang login bukan master, jadi tidak boleh melakukan perubahan ini.'
+                    : 'Perubahan ini butuh login Google dengan akun master. Kamu sedang masuk lewat PIN atau sesi Google sudah habis. Keluar, lalu masuk dengan tombol Google.';
+}
+function installDbErrorInterceptor(client){
+  try {
+    let proto = Object.getPrototypeOf(client.from('profiles').select());
+    while (proto && proto!==Object.prototype && !Object.prototype.hasOwnProperty.call(proto,'then')) proto = Object.getPrototypeOf(proto);
+    if (!proto || proto===Object.prototype || proto.__dbFriendly) return false;
+    const orig = proto.then;
+    proto.then = function(res, rej){
+      return orig.call(this, function(r){
+        try { if (r && r.error && r.error.message) { const f=friendlyDbError(r.error.message, authHasSession); if (f!==r.error.message) r.error.message=f; } } catch(_){}
+        return res ? res(r) : r;
+      }, rej);
+    };
+    proto.__dbFriendly = true; return true;
+  } catch(_) { return false; }
+}
+installDbErrorInterceptor(sb);
+sb.auth.getSession().then(function(r){ authHasSession=!!(r&&r.data&&r.data.session); updateLoginBadge(); }).catch(function(){});
 sb.auth.onAuthStateChange(function(event,session){
+  authHasSession=!!session; updateLoginBadge();
   if(event==='INITIAL_SESSION'||event==='SIGNED_IN'){
     if(window.location.hash.indexOf('access_token')>-1) history.replaceState(null,'',window.location.pathname+window.location.search);
     // cuma checkSession SEKALI di awal. Kalau user udah login, JANGAN reload
