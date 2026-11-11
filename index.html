@@ -5376,7 +5376,9 @@ function updateLoginBadge(){ try{ if(currentUser) renderSidebar(); renderPmLogin
 function friendlyDbError(msg, hasSession){
   const m=String(msg==null?'':msg);
   if (!/row-level security|42501|permission denied|Hanya Super Admin|login Google/i.test(m)) return m;
-  return hasSession ? 'Akun yang sedang login bukan master, jadi tidak boleh melakukan perubahan ini.'
+  return hasSession ? ((typeof currentUser!=='undefined' && currentUser && currentUser.role==='master')
+                        ? 'Database menolak perubahan ini walau kamu login sebagai master. Muat ulang halaman lalu coba lagi; kalau pesannya sama, kirim screenshot ini ke admin sistem.'
+                        : 'Akun yang sedang login bukan master, jadi tidak boleh melakukan perubahan ini.')
                     : 'Perubahan ini butuh login Google dengan akun master. Kamu sedang masuk lewat PIN atau sesi Google sudah habis. Keluar, lalu masuk dengan tombol Google.';
 }
 function installDbErrorInterceptor(client){
