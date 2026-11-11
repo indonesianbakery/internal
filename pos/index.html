@@ -285,6 +285,10 @@ body.pl-mode #cart-bar{background:#1565C0;}
 .prev-float .pf-amt{font-size:22px;font-weight:800;color:var(--in);font-family:'DM Mono',monospace;}
 .cat-tab.pl-menu-tab{border-color:#1565C0;color:#1565C0;}
 .cat-tab.pl-menu-tab.active{background:#1565C0;color:#fff;}
+.prod-card .cat-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);opacity:.75;padding-right:20px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#pos-meta.can-switch{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+#sheet-branch.open{align-items:center;padding:16px;}
+#sheet-branch .sheet{border-radius:20px;max-width:520px;}
 </style>
 </head>
 <body>
@@ -339,7 +343,7 @@ body.pl-mode #cart-bar{background:#1565C0;}
 <div id="screen-pos" class="hidden">
   <div id="pos-topbar">
     <span class="brand">🍞 POS</span>
-    <span class="meta" id="pos-meta"></span>
+    <span class="meta" id="pos-meta" onclick="openBranchSwitch()"></span>
     <span class="mono" id="pos-clock" style="font-size:11px;color:var(--text2);font-weight:700;"></span>
     <button class="out-btn" id="fs-btn" onclick="cycleFs()" title="Ukuran tulisan">Aa</button>
     <button class="out-btn closed" id="shift-badge" onclick="openCloseShift()">Shift</button>
@@ -598,6 +602,16 @@ body.pl-mode #cart-bar{background:#1565C0;}
   </div>
 </div>
 
+<!-- ===== PINDAH CABANG ===== -->
+<div class="sheet-overlay" id="sheet-branch">
+  <div class="sheet">
+    <button class="sheet-close" onclick="closeSheet('sheet-branch')">✕</button>
+    <div class="sheet-title">📍 Pindah cabang</div>
+    <div class="sheet-sub">Keranjang yang ditahan tetap aman di cabangnya masing-masing</div>
+    <div class="v-opts" id="branch-switch-list"></div>
+  </div>
+</div>
+
 <!-- ===== RIWAYAT SHEET ===== -->
 <div class="sheet-overlay" id="sheet-riwayat">
   <div class="sheet">
@@ -733,9 +747,29 @@ function afterLogin(){
   show('screen-branch');
 }
 
+function allowedBranches(){ return (currentUser && (currentUser.role==='master'||currentUser.role==='manager')) ? ['melur','delima'] : [ (currentUser&&currentUser.branch_id)||'melur' ]; }
+function openBranchSwitch(){
+  const list = allowedBranches();
+  if(list.length<2){ toast('Akun kamu cuma untuk '+BRANCHES[currentBranch]); return; }
+  document.getElementById('branch-switch-list').innerHTML = list.map(b=>`<button class="v-opt${b===currentBranch?' sel':''}" onclick="switchBranch('${b}')"><div class="vn">📍 ${BRANCHES[b]}</div><div class="vs">${b===currentBranch?'Lagi dibuka':'Tap buat pindah'}</div></button>`).join('');
+  openSheet('sheet-branch');
+}
+async function switchBranch(b){
+  if(b===currentBranch){ closeSheet('sheet-branch'); return; }
+  if(txMode){ toast('Selesaikan / batalkan mode edit dulu'); return; }
+  if(cart.length && !confirm('Keranjang masih ada isinya. Pindah cabang akan mengosongkan keranjang.\n\n(Kalau mau disimpan, pakai "Tahan" dulu.)')) return;
+  cart = []; discountTotal = 0; channel = 'toko'; activeCategoryId = 'all';
+  document.getElementById('prod-search').value = '';
+  closeSheet('sheet-branch');
+  updateCartBar();
+  await pickBranch(b);
+  renderChannel();
+  toast('Pindah ke '+BRANCHES[b]);
+}
 async function pickBranch(b){
   currentBranch = b;
-  document.getElementById('pos-meta').textContent = `${currentUser.nama} · ${BRANCHES[b]}`;
+  document.getElementById('pos-meta').textContent = `${currentUser.nama} · ${BRANCHES[b]}` + (allowedBranches().length>1 ? ' ▾' : '');
+  document.getElementById('pos-meta').classList.toggle('can-switch', allowedBranches().length>1);
   show('screen-pos');
   await loadProducts();
   await loadShift();
@@ -1134,6 +1168,7 @@ function renderProducts(){
   if(!list.length){ grid.innerHTML = exAdd + `<div class="prod-empty">${activeCategoryId==='plmenu'?('Menu '+plName(plId())+' masih kosong'+(canManageTx()?' — buka Semua, terus ✏️ isi harga produk yang mau masuk menu':'')):activeCategoryId==='fav'?'Belum ada favorit — tap ☆ di produk buat nambahin':'Produk tidak ditemukan'}</div>`; return; }
   grid.innerHTML = list.map(p=> p.__vg!=null ? `
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="openVariant(${p.__vg})">
+      <div class="cat-lbl">${catNames[p.category_id]||''}</div>
       <div class="nm">${p.name}</div>
       <div class="vtag">${p.n} varian</div>
       <div class="stk">Di rak: ${p.stok}</div>
@@ -1141,6 +1176,7 @@ function renderProducts(){
     </div>` : `
     <div class="prod-card${p.stok<=0?' oos':''}" data-l="${(p.name[0]||'').toUpperCase()}" style="border-left-color:${catColor(p.category_id)}" onclick="addToCart(${p.id})">
       <button class="fav-btn${favIds.includes(p.id)?' on':''}" onclick="event.stopPropagation();toggleFav(${p.id})">${favIds.includes(p.id)?'★':'☆'}</button>
+      <div class="cat-lbl">${catNames[p.category_id]||''}</div>
       <div class="nm">${dispName(p)}</div>
       <div class="stk">${p.stok<=0?'Di rak: 0 (tetap bisa dijual)':'Di rak: '+p.stok}</div>
       <div class="pr">${priceOf(p)==null?'<span style="font-size:11px;font-weight:700;">Harga GoFood belum diisi</span>':rp(priceOf(p))}${(channel!=='toko'&&canManageTx())?`<button class="gf-edit" onclick="event.stopPropagation();setChannelPrice(${p.id})">✏️</button>`:''}${(plId()&&plPriceOf(p)!=null)?'<span class="pl-tag">'+(plExclusive[p.id]?'eksklusif':'khusus')+'</span>':''}</div>
@@ -1536,6 +1572,18 @@ function calcInput(digit){
   document.getElementById('cash-display').textContent = Number(cashInputStr||0).toLocaleString('id-ID');
   calcChange();
 }
+// Keyboard laptop: angka, Backspace, Esc/Delete = C, Enter = konfirmasi
+document.addEventListener('keydown', e=>{
+  const pay = document.getElementById('sheet-payment');
+  if(!pay || !pay.classList.contains('open')) return;
+  const t = e.target; if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.tagName==='SELECT')) return;
+  if(e.metaKey || e.ctrlKey || e.altKey) return;
+  const cashOn = payMethod==='cash' && !document.getElementById('cash-block').classList.contains('hidden');
+  if(cashOn && /^[0-9]$/.test(e.key)){ e.preventDefault(); calcInput(e.key); return; }
+  if(cashOn && e.key==='Backspace'){ e.preventDefault(); calcBackspace(); return; }
+  if(cashOn && (e.key==='Delete' || e.key==='Escape')){ e.preventDefault(); calcClear(); return; }
+  if(e.key==='Enter'){ const b=document.getElementById('btn-confirm-pay'); if(b && !b.disabled){ e.preventDefault(); confirmPayment(); } }
+});
 function calcClear(){
   cashInputStr = '';
   document.getElementById('cash-display').textContent = '0';
@@ -1834,5 +1882,3 @@ function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); if(
 </script>
 </body>
 </html>
-
-
