@@ -610,6 +610,10 @@ table.jmonth td.today{border:2px solid var(--g);}
 @media (max-width:560px){ .jm-lbl{display:none;} }
 #shift-modal{z-index:110;}
 .jd-group{padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.jstack{display:flex;flex-direction:column;gap:3px;cursor:pointer;}
+.jb{font-size:8px;opacity:.75;margin-left:3px;font-weight:700;}
+.shift-pick-opt.on{border-color:var(--g3);background:var(--g-light);}
+.pk-chk{margin-left:8px;font-weight:700;color:var(--g);width:14px;text-align:center;}
 .tmpl-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;}
 .tmpl-dot{width:12px;height:12px;border-radius:4px;flex-shrink:0;}
 .tmpl-dot.pagi{background:var(--pagi);}.tmpl-dot.sore{background:var(--sore);}.tmpl-dot.malam{background:var(--malam);}
@@ -1527,7 +1531,8 @@ body{ max-width:none; }
   </div>
   <div class="sub-body">
     <div class="branch-tabs" id="jadwal-branch-tabs">
-      <button class="active" onclick="setJadwalBranch('melur',this)">Jl. Melur</button>
+      <button class="active" onclick="setJadwalBranch('semua',this)">Semua</button>
+      <button onclick="setJadwalBranch('melur',this)">Jl. Melur</button>
       <button onclick="setJadwalBranch('delima',this)">Jl. Delima</button>
     </div>
     <div class="locked-branch-banner" id="jadwal-locked-banner" style="display:none">🔒 Cabang: <b></b> <span style="color:var(--text3);font-weight:400">(manager cuma bisa atur cabang sendiri)</span></div>
@@ -1545,7 +1550,7 @@ body{ max-width:none; }
     <button class="copy-week-btn" onclick="copyLastWeek()">📋 Copy jadwal minggu lalu ke minggu ini</button>
     <button class="copy-week-btn" id="kirim-jadwal-btn" style="margin-top:8px" onclick="openKirimJadwal()">📧 Kirim jadwal minggu ini ke email karyawan</button>
     <div class="grid-wrap"><table class="jadwal-grid" id="jadwal-table"></table></div>
-    <div class="note" style="font-size:11px;color:var(--text3);margin-top:10px">Tap salah satu sel buat ganti shift karyawan di hari itu.</div>
+    <div class="note" style="font-size:11px;color:var(--text3);margin-top:10px">Ketuk sel untuk mengatur shift. Satu orang boleh punya lebih dari satu shift sehari, di Melur atau di Delima (huruf M/D = cabang).</div>
     </div>
     <div id="jadwal-month-view" style="display:none">
       <div class="week-nav">
@@ -1649,7 +1654,8 @@ body{ max-width:none; }
     <div class="modal-title">Atur Shift</div>
     <div class="modal-sub" id="shift-modal-sub">-</div>
     <div class="shift-pick" id="shift-pick-list"></div>
-    <button class="modal-cancel" style="width:100%" onclick="closeModalById('shift-modal')">Tutup</button>
+    <div class="add-status" id="shift-pick-msg" style="margin:0 0 8px"></div>
+    <button class="modal-cancel" style="width:100%" onclick="closeModalById('shift-modal')">Selesai</button>
   </div>
 </div>
 
@@ -5603,11 +5609,11 @@ async function loadMyWeek(){
   const { data, error } = await sb.rpc('get_week_schedule', { p_user_id: currentUser.id, p_start_date: ymd(monday) });
   if(error||!data){ wrap.innerHTML='<div class="empty">Gagal memuat</div>'; return; }
   const todayStr = ymd(new Date());
-  wrap.innerHTML = data.map(row=>{
-    const isToday = row.date===todayStr;
-    const t = row.shift_label ? inferShiftType(row.shift_label) : null;
-    const emoji = t==='pagi'?'🌅':t==='sore'?'🌇':t==='malam'?'🌙':'💤';
-    const lbl = fmtDateLabel(row.date);
+  const byDate = {}; data.forEach(row=>{ (byDate[row.date]=byDate[row.date]||[]).push(row); });
+  wrap.innerHTML = Object.keys(byDate).sort().map(date=>{
+    const isToday = date===todayStr;
+    const emoji = byDate[date].filter(r=>r.shift_label).map(r=>{ const t=inferShiftType(r.shift_label); return t==='pagi'?'🌅':t==='sore'?'🌇':'🌙'; }).join('') || '💤';
+    const lbl = fmtDateLabel(date);
     return `<div class="week-day${isToday?' today':''}"><div class="wd-lbl">${lbl.d2}</div><div class="wd-shift">${emoji}</div></div>`;
   }).join('');
 }
@@ -5654,36 +5660,40 @@ function applyBranchLock(ctx, currentVal, setter){
 }
 
 // ---- JADWAL MINGGUAN (admin) ----
-let jadwalBranch='melur', jadwalWeekStart=getMonday(new Date());
-function openJadwal(){ show('jadwal'); applyBranchLock('jadwal', jadwalBranch, b=>jadwalBranch=b); const pb=document.getElementById('jt-people'); if(pb) pb.style.display=(currentUser&&currentUser.role==='master')?'':'none'; refreshJadwalViews(); }
-function setJadwalBranch(b,el){ jadwalBranch=b; document.querySelectorAll('#jadwal-branch-tabs button').forEach(x=>x.classList.remove('active')); el.classList.add('active'); refreshJadwalViews(); }
+let jadwalBranch='melur', jadwalView='semua', jadwalWeekStart=getMonday(new Date());
+function openJadwal(){ show('jadwal'); applyBranchLock('jadwal', jadwalView, b=>jadwalView=b); const pb=document.getElementById('jt-people'); if(pb) pb.style.display=(currentUser&&currentUser.role==='master')?'':'none'; refreshJadwalViews(); }
+function setJadwalBranch(b,el){ jadwalView=b; document.querySelectorAll('#jadwal-branch-tabs button').forEach(x=>x.classList.remove('active')); el.classList.add('active'); refreshJadwalViews(); }
 function shiftWeek(d){ jadwalWeekStart=new Date(jadwalWeekStart.getTime()+d*7*86400000); renderJadwalGrid(); }
 async function copyLastWeek(){
   const fromMon = new Date(jadwalWeekStart.getTime()-7*86400000);
-  const { error } = await sb.rpc('copy_week_schedule', { p_branch_id: jadwalBranch, p_from_monday: ymd(fromMon), p_to_monday: ymd(jadwalWeekStart) });
+  const { error } = await sb.rpc('copy_week_schedule', { p_branch_id: jadwalView==='semua' ? null : jadwalView, p_from_monday: ymd(fromMon), p_to_monday: ymd(jadwalWeekStart) });
   if(error){ alert('Gagal copy: '+error.message); return; }
-  renderJadwalGrid();
+  refreshJadwalViews();
 }
 let _jadwalTemplates=[], _jadwalEmployees=[], _jadwalSched={}, _jadwalDays=[], _kjRows=[], _kjWeekLabel='';
-const JADWAL_EMPTY = 'Belum ada orang yang dijadwalkan di cabang ini. Ketuk "👥 Siapa yang dijadwalkan" untuk memilih master atau manager, atau tambah karyawan di Kelola Karyawan.';
+const JADWAL_EMPTY = 'Belum ada orang yang dijadwalkan. Ketuk "👥 Siapa yang dijadwalkan" untuk memilih master atau manager, atau tambah karyawan di Kelola Karyawan.';
 const jsArg = x => JSON.stringify(x).replace(/'/g,'&#39;').replace(/</g,'\\u003c');
+const BR_TAG = id => ({melur:'M',delima:'D'}[id] || String(id||'?').charAt(0).toUpperCase());
 function jadwalPeopleQuery(){
-  return sb.from('profiles').select('id,full_name,email,role,branch_id').eq('schedulable', true).neq('role','pending').or('branch_id.eq.'+jadwalBranch+',branch_id.is.null').order('full_name');
+  return sb.from('profiles').select('id,full_name,email,role,branch_id').eq('schedulable', true).neq('role','pending').order('full_name');
 }
-function jadwalTemplatesQuery(){ return sb.from('shift_templates').select('*').eq('branch_id', jadwalBranch).eq('is_active',true).order('start_time'); }
+function jadwalTemplatesQuery(){ return sb.from('shift_templates').select('*').eq('is_active',true).order('start_time'); }
+function jadwalScheduleQuery(from,to){ return sb.from('employee_schedules').select('user_id,date,shift_template_id,branch_id').gte('date',from).lte('date',to); }
+function jadwalViewOk(t){ return jadwalView==='semua' || (!!t && t.branch_id===jadwalView); }
+// peta 'userId_tanggal' -> daftar shift (objek template), urut jam mulai; semua cabang
+function jadwalBuildMap(rows, tmplById){
+  const m={}; (rows||[]).forEach(s=>{ const t=tmplById[s.shift_template_id]; if(!t) return; const k=s.user_id+'_'+s.date; (m[k]=m[k]||[]).push(t); });
+  Object.keys(m).forEach(k=>m[k].sort((a,b)=>String(a.start_time).localeCompare(String(b.start_time)))); return m;
+}
 async function renderJadwalGrid(){
   const monday = jadwalWeekStart;
   const days = [...Array(7)].map((_,i)=>{ const d=new Date(monday.getTime()+i*86400000); return ymd(d); });
   document.getElementById('jadwal-week-label').textContent = `${fmtDateLabel(days[0]).d1} – ${fmtDateLabel(days[6]).d1}`;
-  const [{data:emps}, {data:tmpls}, {data:scheds}] = await Promise.all([
-    jadwalPeopleQuery(),
-    jadwalTemplatesQuery(),
-    sb.from('employee_schedules').select('user_id,date,shift_template_id').eq('branch_id', jadwalBranch).gte('date',days[0]).lte('date',days[6])
-  ]);
+  const [{data:emps}, {data:tmpls}, {data:scheds}] = await Promise.all([ jadwalPeopleQuery(), jadwalTemplatesQuery(), jadwalScheduleQuery(days[0], days[6]) ]);
   _jadwalEmployees = emps||[]; _jadwalTemplates = tmpls||[];
-  const schedMap = {}; (scheds||[]).forEach(s=>{ schedMap[s.user_id+'_'+s.date]=s.shift_template_id; });
-  _jadwalSched = schedMap; _jadwalDays = days;
-  const tmplById = {}; (tmpls||[]).forEach(t=>tmplById[t.id]=t);
+  const tmplById = {}; _jadwalTemplates.forEach(t=>tmplById[t.id]=t);
+  const map = jadwalBuildMap(scheds, tmplById);
+  _jadwalSched = map; _jadwalDays = days;
   const todayStr = ymd(new Date());
   const tbl=document.getElementById('jadwal-table');
   if(!_jadwalEmployees.length){ tbl.innerHTML='<tr><td style="padding:18px 12px;font-size:13px;color:var(--text2);text-align:left">'+JADWAL_EMPTY+'</td></tr>'; return; }
@@ -5691,15 +5701,13 @@ async function renderJadwalGrid(){
   _jadwalEmployees.forEach(emp=>{
     html += `<tr><td class="emp-name">${finEsc(emp.full_name||emp.email||'-')}${emp.role==='master'||emp.role==='manager'?` <span class="pm2-sub" style="font-size:9px">${emp.role}</span>`:''}</td>`;
     days.forEach(d=>{
-      const sid = schedMap[emp.id+'_'+d];
-      const t = sid ? tmplById[sid] : null;
-      const cls = t ? inferShiftType(t.label) : 'kosong';
-      const lbl = t ? finEsc(t.label.replace('Shift ','')) : '-';
-      html += `<td><span class="jcell ${cls}" onclick='openShiftPick(${jsArg(emp.id)},${jsArg(emp.full_name||emp.email||'')},${jsArg(d)})'>${lbl}</span></td>`;
+      const list = (map[emp.id+'_'+d]||[]).filter(jadwalViewOk);
+      const chips = list.length ? list.map(t=>`<span class="jcell ${inferShiftType(t.label)}">${finEsc(t.label.replace('Shift ',''))}<small class="jb">${BR_TAG(t.branch_id)}</small></span>`).join('') : '<span class="jcell kosong">-</span>';
+      html += `<td><div class="jstack" onclick='openShiftPick(${jsArg(emp.id)},${jsArg(emp.full_name||emp.email||'')},${jsArg(d)})'>${chips}</div></td>`;
     });
     html += '</tr>';
   });
-  html += '<tr><td class="emp-name" style="color:var(--text3)">Jumlah orang</td>'+days.map(d=>{ const n=_jadwalEmployees.filter(e=>schedMap[e.id+'_'+d]).length; return '<td style="font-size:11px;color:var(--text3)">'+(n||'-')+'</td>'; }).join('')+'</tr>';
+  html += '<tr><td class="emp-name" style="color:var(--text3)">Jumlah orang</td>'+days.map(d=>{ const n=_jadwalEmployees.filter(e=>(map[e.id+'_'+d]||[]).some(jadwalViewOk)).length; return '<td style="font-size:11px;color:var(--text3)">'+(n||'-')+'</td>'; }).join('')+'</tr>';
   tbl.innerHTML = html;
 }
 // ---- KIRIM JADWAL KE EMAIL (Apps Script di akun Google toko) ----
@@ -5710,14 +5718,14 @@ async function openKirimJadwal(){
   const pr = await getPrivateSettings();
   if (!pr) { alert(friendlyDbError('permission denied', authHasSession)); return; }
   if (!pr.jadwal_script_url || !pr.jadwal_script_secret) { alert('Script jadwal belum dipasang. Buka Pengaturan → "Google Apps Script — Kirim Jadwal" dan tempel URL-nya.'); return; }
-  const tmplById = {}; _jadwalTemplates.forEach(t=>{ tmplById[t.id]=t; });
   _kjRows = _jadwalEmployees.map(e=>{
-    const shifts = _jadwalDays.map(d=>{ const sid=_jadwalSched[e.id+'_'+d]; const t=sid?tmplById[sid]:null; return t ? { date:d, label:t.label, start:String(t.start_time).slice(0,5), end:String(t.end_time).slice(0,5) } : null; }).filter(Boolean);
+    const shifts = [];
+    _jadwalDays.forEach(d=>{ (_jadwalSched[e.id+'_'+d]||[]).forEach(t=>{ shifts.push({ date:d, label:t.label, start:String(t.start_time).slice(0,5), end:String(t.end_time).slice(0,5), branch:(BRANCHES[t.branch_id]||t.branch_id) }); }); });
     const email = (e.email||'').trim();
     return { id:e.id, name:e.full_name, email:email, shifts:shifts, ok: KJ_EMAIL_RE.test(email) };
   });
   _kjWeekLabel = (document.getElementById('jadwal-week-label').textContent||'').trim() + ' ' + _jadwalDays[6].slice(0,4);
-  document.getElementById('kj-sub').textContent = (BRANCHES[jadwalBranch]||jadwalBranch) + ' · ' + _kjWeekLabel;
+  document.getElementById('kj-sub').textContent = 'Semua cabang · ' + _kjWeekLabel;
   const withShift = _kjRows.filter(r=>r.shifts.length), noShift = _kjRows.filter(r=>!r.shifts.length);
   let html = '';
   withShift.forEach(r=>{
@@ -5729,7 +5737,7 @@ async function openKirimJadwal(){
   if (!withShift.length) html = '<div class="pm2-sub" style="padding:10px 0">Belum ada shift yang diatur di minggu ini.</div>';
   document.getElementById('kj-list').innerHTML = html;
   document.getElementById('kj-note').innerHTML = (noShift.length ? 'Tanpa shift minggu ini (tidak dikirimi): '+noShift.map(r=>finEsc(r.name)).join(', ')+'.<br>' : '')
-    + 'Email dikirim dari akun Google toko, berisi tabel shift, file kalender (.ics), dan tombol Tambah ke Google Calendar. Kalau jadwal berubah lalu dikirim ulang, acara lama di kalender ikut diperbarui. Shift yang dihapus setelah terkirim tidak otomatis hilang dari kalender karyawan.';
+    + 'Email berisi semua shift minggu itu (Melur dan Delima), dikirim dari akun Google toko, lengkap dengan file kalender (.ics) dan tombol Tambah ke Google Calendar. Kalau jadwal berubah lalu dikirim ulang, acara lama di kalender ikut diperbarui. Shift yang dihapus setelah terkirim tidak otomatis hilang dari kalender karyawan.';
   kjUpdateCount();
   document.getElementById('kirim-jadwal-modal').classList.add('open');
 }
@@ -5745,7 +5753,7 @@ async function sendJadwal(){
   const pr = await getPrivateSettings();
   if (!pr || !pr.jadwal_script_url || !pr.jadwal_script_secret) return bad('Script jadwal belum dipasang di Pengaturan');
   btn.disabled = true; btn.textContent = 'Mengirim...'; msg.textContent = ''; msg.className = 'add-status';
-  const payload = { secret: pr.jadwal_script_secret, branch_name: BRANCHES[jadwalBranch]||jadwalBranch, week_label: _kjWeekLabel, sender: currentUser.nama,
+  const payload = { secret: pr.jadwal_script_secret, branch_name: [...new Set(sel.flatMap(r=>r.shifts.map(s=>s.branch)))].join(' & '), week_label: _kjWeekLabel, sender: currentUser.nama,
     recipients: sel.map(r=>({ user_id:r.id, name:r.name, email:r.email, shifts:r.shifts })) };
   try {
     const res = await fetch(pr.jadwal_script_url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
@@ -5762,29 +5770,48 @@ async function sendJadwal(){
   }
   btn.disabled = false; kjUpdateCount();
 }
-let _pickCtx=null;
-function openShiftPick(empId,empName,dateStr){
-  _pickCtx={empId,dateStr};
+let _pickCtx=null, _pickSet=new Set();
+async function openShiftPick(empId,empName,dateStr){
+  _pickCtx={empId,empName,dateStr};
   const lbl=fmtDateLabel(dateStr);
   document.getElementById('shift-modal-sub').textContent = `${empName} · ${lbl.d2}, ${lbl.d1}`;
-  let html='';
-  _jadwalTemplates.forEach(t=>{
-    const cls=inferShiftType(t.label);
-    html += `<div class="shift-pick-opt" onclick="pickShift(${t.id})"><span class="shift-chip ${cls}">${t.label}</span><span style="color:var(--text3);font-size:11px;margin-left:auto">${t.start_time?.slice(0,5)}-${t.end_time?.slice(0,5)}</span></div>`;
-  });
-  html += `<div class="shift-pick-opt" onclick="pickShift(null)"><span class="shift-chip libur">💤 Libur</span></div>`;
-  document.getElementById('shift-pick-list').innerHTML = html;
+  const m=document.getElementById('shift-pick-msg'); m.textContent=''; m.className='add-status';
+  _pickSet=new Set(); renderShiftPick();
   document.getElementById('shift-modal').classList.add('open');
+  const { data } = await sb.from('employee_schedules').select('shift_template_id').eq('user_id', empId).eq('date', dateStr);
+  _pickSet = new Set((data||[]).map(r=>r.shift_template_id));
+  renderShiftPick();
+}
+function renderShiftPick(){
+  const byBranch={}; _jadwalTemplates.forEach(t=>{ (byBranch[t.branch_id]=byBranch[t.branch_id]||[]).push(t); });
+  let html='';
+  Object.keys(BRANCHES).forEach(b=>{
+    const ts=byBranch[b]; if(!ts||!ts.length) return;
+    html += '<div class="pm2-sub" style="margin:6px 0 0;font-weight:700">'+finEsc(BRANCHES[b])+'</div>';
+    ts.forEach(t=>{
+      const on=_pickSet.has(t.id);
+      html += '<div class="shift-pick-opt'+(on?' on':'')+'" onclick="toggleShift('+t.id+')"><span class="shift-chip '+inferShiftType(t.label)+'">'+finEsc(t.label)+'</span><span style="color:var(--text3);font-size:11px;margin-left:auto">'+String(t.start_time).slice(0,5)+'-'+String(t.end_time).slice(0,5)+'</span><span class="pk-chk">'+(on?'✓':'')+'</span></div>';
+    });
+  });
+  html += '<div class="shift-pick-opt" onclick="clearPickDay()"><span class="shift-chip libur">💤 Libur (hapus semua shift hari ini)</span></div>';
+  document.getElementById('shift-pick-list').innerHTML = html;
 }
 function closeModalById(id){ document.getElementById(id).classList.remove('open'); }
-async function pickShift(shiftId){
-  const { empId, dateStr } = _pickCtx;
-  const { error } = await sb.rpc('upsert_employee_schedule', { p_user_id: empId, p_branch_id: jadwalBranch, p_date: dateStr, p_shift_template_id: shiftId });
-  closeModalById('shift-modal');
-  if (error) alert('Gagal menyimpan shift: '+error.message);
-  refreshJadwalViews();
+async function toggleShift(tid){
+  const c=_pickCtx, msg=document.getElementById('shift-pick-msg'); msg.textContent=''; msg.className='add-status';
+  const on=_pickSet.has(tid);
+  const { error } = on ? await sb.rpc('remove_employee_shift', { p_user_id:c.empId, p_date:c.dateStr, p_template_id:tid })
+                       : await sb.rpc('add_employee_shift', { p_user_id:c.empId, p_date:c.dateStr, p_template_id:tid });
+  if (error) { msg.textContent=error.message; msg.className='add-status err'; return; }
+  if (on) _pickSet.delete(tid); else _pickSet.add(tid);
+  renderShiftPick(); refreshJadwalViews();
 }
-
+async function clearPickDay(){
+  const c=_pickCtx, msg=document.getElementById('shift-pick-msg'); msg.textContent=''; msg.className='add-status';
+  const { error } = await sb.rpc('clear_employee_day', { p_user_id:c.empId, p_date:c.dateStr });
+  if (error) { msg.textContent=error.message; msg.className='add-status err'; return; }
+  _pickSet=new Set(); renderShiftPick(); refreshJadwalViews();
+}
 
 // ---- KALENDER JADWAL: tab Minggu / Bulan, atur per hari ----
 let jadwalTab='minggu', jadwalMonth=(function(){ const d=new Date(); d.setDate(1); d.setHours(0,0,0,0); return d; })(), _jadwalDayCtx=null;
@@ -5808,16 +5835,15 @@ async function renderJadwalMonth(){
   document.getElementById('jadwal-month-label').textContent = MONTHS_LONG[m]+' '+y;
   const start=getMonday(new Date(y,m,1)), lastDay=new Date(y,m+1,0), end=new Date(getMonday(lastDay).getTime()); end.setDate(end.getDate()+6);
   const cells=[]; for (let t=new Date(start); t<=end; t.setDate(t.getDate()+1)) cells.push(ymd(t));
-  const [{data:emps},{data:tmpls},{data:scheds}] = await Promise.all([
-    jadwalPeopleQuery(), jadwalTemplatesQuery(),
-    sb.from('employee_schedules').select('user_id,date,shift_template_id').eq('branch_id', jadwalBranch).gte('date',cells[0]).lte('date',cells[cells.length-1])
-  ]);
+  const [{data:emps},{data:tmpls},{data:scheds}] = await Promise.all([ jadwalPeopleQuery(), jadwalTemplatesQuery(), jadwalScheduleQuery(cells[0], cells[cells.length-1]) ]);
   _jadwalEmployees=emps||[]; _jadwalTemplates=tmpls||[];
   const tmplById={}; _jadwalTemplates.forEach(t=>{ tmplById[t.id]=t; });
-  const empById={}; _jadwalEmployees.forEach(e=>{ empById[e.id]=e; });
+  const map=jadwalBuildMap(scheds, tmplById);
   const byDate={};
-  (scheds||[]).forEach(s=>{ const e=empById[s.user_id], t=tmplById[s.shift_template_id]; if(!e||!t) return; (byDate[s.date]=byDate[s.date]||[]).push({ name:e.full_name||e.email||'-', label:t.label, start:String(t.start_time), type:inferShiftType(t.label) }); });
-  Object.keys(byDate).forEach(d=>byDate[d].sort((a,b)=>a.start.localeCompare(b.start)||a.name.localeCompare(b.name)));
+  cells.forEach(d=>{
+    const es=[]; _jadwalEmployees.forEach(e=>{ (map[e.id+'_'+d]||[]).filter(jadwalViewOk).forEach(t=>{ es.push({ name:e.full_name||e.email||'-', label:t.label, start:String(t.start_time), type:inferShiftType(t.label), br:BR_TAG(t.branch_id) }); }); });
+    es.sort((a,b)=>a.start.localeCompare(b.start)||a.name.localeCompare(b.name)); if (es.length) byDate[d]=es;
+  });
   const tbl=document.getElementById('jadwal-month');
   if (!_jadwalEmployees.length) { tbl.innerHTML='<tr><td style="padding:18px 12px;font-size:13px;color:var(--text2);height:auto;cursor:default">'+JADWAL_EMPTY+'</td></tr>'; return; }
   const todayStr=ymd(new Date());
@@ -5827,8 +5853,8 @@ async function renderJadwalMonth(){
     cells.slice(i,i+7).forEach(d=>{
       const es=byDate[d]||[], dm=Number(d.slice(5,7))-1;
       const cls=(dm!==m?'other ':'')+(d===todayStr?'today':'');
-      html+='<td class="'+cls.trim()+'" onclick=\'openJadwalDay('+jsArg(d)+')\'><div class="jm-d">'+Number(d.slice(8,10))+'</div>'
-        + es.slice(0,3).map(e=>'<div class="jm-e '+e.type+'">'+finEsc(jmShortName(e.name))+'<span class="jm-lbl"> '+finEsc(jmShortLabel(e.label))+'</span></div>').join('')
+      html+='<td class="'+cls.trim()+'" data-d="'+d+'" onclick=\'openJadwalDay('+jsArg(d)+')\'><div class="jm-d">'+Number(d.slice(8,10))+'</div>'
+        + es.slice(0,3).map(e=>'<div class="jm-e '+e.type+'">'+finEsc(jmShortName(e.name))+'<small class="jb">'+e.br+'</small><span class="jm-lbl"> '+finEsc(jmShortLabel(e.label))+'</span></div>').join('')
         + (es.length>3?'<div class="jm-more">+'+(es.length-3)+' lagi</div>':'') + '</td>';
     });
     html+='</tr>';
@@ -5840,23 +5866,28 @@ async function renderJadwalDay(){
   const dateStr=_jadwalDayCtx; if(!dateStr) return;
   const d=new Date(dateStr+'T00:00:00');
   document.getElementById('jd-title').textContent = DAYS_LONG[d.getDay()]+', '+d.getDate()+' '+MONTHS_LONG[d.getMonth()]+' '+d.getFullYear();
-  document.getElementById('jd-sub').textContent = BRANCHES[jadwalBranch]||jadwalBranch;
-  const { data } = await sb.from('employee_schedules').select('user_id,shift_template_id').eq('branch_id', jadwalBranch).eq('date', dateStr);
+  document.getElementById('jd-sub').textContent = jadwalView==='semua' ? 'Semua cabang' : (BRANCHES[jadwalView]||jadwalView);
+  const { data } = await sb.from('employee_schedules').select('user_id,date,shift_template_id,branch_id').eq('date', dateStr);
   const tmplById={}; _jadwalTemplates.forEach(t=>{ tmplById[t.id]=t; });
-  const empById={}; _jadwalEmployees.forEach(e=>{ empById[e.id]=e; });
-  const sidOf={}; (data||[]).forEach(s=>{ sidOf[s.user_id]=s.shift_template_id; });
+  const map=jadwalBuildMap(data, tmplById);
+  const shiftsOf=e=>(map[e.id+'_'+dateStr]||[]);
   let sum='';
-  _jadwalTemplates.forEach(t=>{
-    const names=_jadwalEmployees.filter(e=>sidOf[e.id]===t.id).map(e=>finEsc(e.full_name||e.email||'-'));
-    sum+='<div class="jd-group"><span class="shift-chip '+inferShiftType(t.label)+'">'+finEsc(t.label)+'</span> <span class="pm2-sub">'+String(t.start_time).slice(0,5)+'–'+String(t.end_time).slice(0,5)+'</span><div style="margin-top:4px">'+(names.length?names.join(', '):'<span class="pm2-sub">belum ada</span>')+'</div></div>';
+  Object.keys(BRANCHES).forEach(b=>{
+    if (jadwalView!=='semua' && jadwalView!==b) return;
+    const ts=_jadwalTemplates.filter(t=>t.branch_id===b); if(!ts.length) return;
+    sum+='<div class="pm2-sub" style="margin:8px 0 0;font-weight:700">'+finEsc(BRANCHES[b])+'</div>';
+    ts.forEach(t=>{
+      const names=_jadwalEmployees.filter(e=>shiftsOf(e).some(x=>x.id===t.id)).map(e=>finEsc(e.full_name||e.email||'-'));
+      sum+='<div class="jd-group"><span class="shift-chip '+inferShiftType(t.label)+'">'+finEsc(t.label)+'</span> <span class="pm2-sub">'+String(t.start_time).slice(0,5)+'–'+String(t.end_time).slice(0,5)+'</span><div style="margin-top:4px">'+(names.length?names.join(', '):'<span class="pm2-sub">belum ada</span>')+'</div></div>';
+    });
   });
-  const libur=_jadwalEmployees.filter(e=>!sidOf[e.id]).map(e=>finEsc(e.full_name||e.email||'-'));
+  const libur=_jadwalEmployees.filter(e=>!shiftsOf(e).some(jadwalViewOk)).map(e=>finEsc(e.full_name||e.email||'-'));
   sum+='<div class="jd-group"><span class="shift-chip libur">Belum diatur / libur</span><div style="margin-top:4px">'+(libur.length?libur.join(', '):'<span class="pm2-sub">-</span>')+'</div></div>';
   document.getElementById('jd-summary').innerHTML=sum;
   document.getElementById('jd-list').innerHTML=_jadwalEmployees.map(e=>{
-    const t=sidOf[e.id]?tmplById[sidOf[e.id]]:null;
+    const ts=shiftsOf(e);
     return '<div class="shift-pick-opt" onclick=\'openShiftPick('+jsArg(e.id)+','+jsArg(e.full_name||e.email||'')+','+jsArg(dateStr)+')\'><span style="flex:1;font-weight:600">'+finEsc(e.full_name||e.email||'-')+'</span>'
-      +(t?'<span class="shift-chip '+inferShiftType(t.label)+'">'+finEsc(t.label)+'</span>':'<span class="shift-chip none">belum diatur</span>')+'</div>';
+      +(ts.length?ts.map(t=>'<span class="shift-chip '+inferShiftType(t.label)+'">'+finEsc(t.label)+'<small class="jb">'+BR_TAG(t.branch_id)+'</small></span>').join(' '):'<span class="shift-chip none">belum diatur</span>')+'</div>';
   }).join('');
 }
 
