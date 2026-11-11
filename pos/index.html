@@ -1365,7 +1365,13 @@ function overStockWarn(p, after){ if(after > maxStok(p)) toast('⚠️ '+p.name+
 // ===== VARIAN PRODUK =====
 // Nama produk pakai tanda | → "Keripik Ani | Kecil | Bubuk" = induk | pilihan 1 | pilihan 2
 function vParts(p){ if(!p || !p.name || p.name.indexOf('|')<0) return null; const a=p.name.split('|').map(x=>x.trim()).filter(Boolean); return a.length>=2 ? a : null; }
-function dispName(p){ const a=vParts(p); return a ? a.join(' ') : p.name; }
+function dispName(p){
+  const a=vParts(p); if(!a) return p.name;
+  // buang kata dobel berurutan: "Capuccino | Capuccino" -> "Capuccino", "Capuccino | Capuccino Cokelat" -> "Capuccino Cokelat"
+  const w = a.join(' ').split(/\s+/), out = [];
+  w.forEach(x=>{ if(!out.length || out[out.length-1].toLowerCase()!==x.toLowerCase()) out.push(x); });
+  return out.join(' ');
+}
 let _vGroups = [], vSel = null;
 function openVariant(gi){
   const g = _vGroups[gi]; if(!g) return;
