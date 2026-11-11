@@ -1394,6 +1394,14 @@ body{ max-width:none; }
       <button class="add-btn" onclick="saveDriveUrl()">Simpan</button>
       <div class="add-status" id="drive-url-status"></div>
     </div>
+    <div class="section-label">Google Apps Script — Kirim Jadwal</div>
+    <div class="add-card">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:6px">Tempel URL Apps Script Jadwal (dipasang di akun Google toko). Kode rahasia sudah terisi otomatis dan harus sama dengan yang ada di script; jangan dibagikan. Dipakai di Jadwal Mingguan → Kirim jadwal. Tersimpan privat: hanya Super Admin dan Manager yang login yang bisa membacanya.</div>
+      <input class="form-input" id="set-jadwal-url" placeholder="https://script.google.com/macros/s/.../exec">
+      <input class="form-input" id="set-jadwal-secret" placeholder="Kode rahasia" autocomplete="off" style="margin-top:6px">
+      <button class="add-btn" onclick="saveJadwalScript()">Simpan</button>
+      <div class="add-status" id="jadwal-script-status"></div>
+    </div>
   </div>
 </div>
 
@@ -1512,6 +1520,7 @@ body{ max-width:none; }
       <button onclick="shiftWeek(1)">Minggu depan ›</button>
     </div>
     <button class="copy-week-btn" onclick="copyLastWeek()">📋 Copy jadwal minggu lalu ke minggu ini</button>
+    <button class="copy-week-btn" id="kirim-jadwal-btn" style="margin-top:8px" onclick="openKirimJadwal()">📧 Kirim jadwal minggu ini ke email karyawan</button>
     <div class="grid-wrap"><table class="jadwal-grid" id="jadwal-table"></table></div>
     <div class="note" style="font-size:11px;color:var(--text3);margin-top:10px">Tap salah satu sel buat ganti shift karyawan di hari itu.</div>
   </div>
@@ -1607,6 +1616,20 @@ body{ max-width:none; }
     <div class="modal-sub" id="shift-modal-sub">-</div>
     <div class="shift-pick" id="shift-pick-list"></div>
     <button class="modal-cancel" style="width:100%" onclick="closeModalById('shift-modal')">Tutup</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="kirim-jadwal-modal">
+  <div class="modal-sheet">
+    <div class="modal-title">Kirim jadwal ke email</div>
+    <div class="modal-sub" id="kj-sub">-</div>
+    <div id="kj-list" style="max-height:44vh;overflow:auto"></div>
+    <div class="fin-note" id="kj-note" style="margin:8px 0"></div>
+    <div class="add-status" id="kj-msg"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="modal-cancel" style="flex:1" onclick="closeModalById('kirim-jadwal-modal')">Tutup</button>
+      <button class="add-btn" style="flex:2" id="kj-send" onclick="sendJadwal()">📧 Kirim</button>
+    </div>
   </div>
 </div>
 
@@ -1931,7 +1954,6 @@ async function loadSettings() {
   if (!error&&data) data.forEach(r => {
     if (r.key==='threshold_sedikit_max') thresholdSedikit = parseInt(r.value)||3;
     if (r.key==='whatsapp_master') waMaster = r.value;
-    if (r.key==='drive_script_url') driveScriptUrl = r.value||'';
   });
 }
 async function loadUserPrefs() {
@@ -3297,7 +3319,7 @@ function finCompress(file,maxSide,q){
   });
 }
 async function finUploadReceipt(dataUrl,meta){
-  const res=await fetch(driveScriptUrl,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'upload',filename:meta.filename,mime:'image/jpeg',month:meta.month,data:dataUrl.split(',')[1]})});
+  const res=await fetch(await ensureDriveUrl(),{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action:'upload',filename:meta.filename,mime:'image/jpeg',month:meta.month,data:dataUrl.split(',')[1]})});
   const j=await res.json();
   if(j.status!=='ok') throw new Error(j.message||'upload gagal');
   return j;
@@ -3325,7 +3347,7 @@ async function saveExpense(){
   try{ const wantStok=!!(document.getElementById('exp-stok')&&document.getElementById('exp-stok').checked&&cat==='Bahan baku'); stokMsg=await syncExpenseStock(row.id,{item:item,qty:qty,unit:unit,expense_date:date},wantStok,expLinked); }catch(e){ stokMsg='Pengeluaran tersimpan, tapi stok bahan belum bisa diperbarui ('+e.message+')'; }
   let info='';
   if(expPhoto){
-    if(!driveScriptUrl){ info='Pengeluaran tersimpan. Foto belum diunggah karena Google Drive belum diatur di Pengaturan.'; }
+    if(!(await ensureDriveUrl())){ info='Pengeluaran tersimpan. Foto belum diunggah karena Google Drive belum diatur di Pengaturan.'; }
     else {
       try{
         msg.textContent='Mengunggah foto...'; msg.style.color='var(--text3)';
@@ -3349,13 +3371,48 @@ async function deleteExpense(id){
   loadKeuangan();
 }
 // ----- pengaturan Google Drive -----
-function loadDriveUrlSetting(){ const el=document.getElementById('set-drive-url'); if(el) el.value=driveScriptUrl||''; }
+// ===== PENGATURAN PRIVAT (hanya Super Admin & Manager yang login; anonim tidak bisa membaca) =====
+let _priv = null;
+async function getPrivateSettings(force){
+  if (_priv && !force) return _priv;
+  const { data, error } = await sb.from('private_settings').select('key,value');
+  if (error || !data) return null;
+  _priv = {}; data.forEach(r=>{ _priv[r.key] = r.value || ''; });
+  return _priv;
+}
+async function setPrivateSetting(key, value){
+  const res = await sb.from('private_settings').upsert({ key: key, value: value });
+  if (res && !res.error) { if (!_priv) _priv = {}; _priv[key] = value; }
+  return res;
+}
+async function ensureDriveUrl(){
+  if (!driveScriptUrl) { const p = await getPrivateSettings(); if (p) driveScriptUrl = p.drive_script_url || ''; }
+  return driveScriptUrl;
+}
+async function loadDriveUrlSetting(){
+  const p = await getPrivateSettings(); if (p) driveScriptUrl = p.drive_script_url || '';
+  const el = document.getElementById('set-drive-url'); if (el) el.value = driveScriptUrl || '';
+}
 async function saveDriveUrl(){
-  const v=document.getElementById('set-drive-url').value.trim(), el=document.getElementById('drive-url-status');
-  const { data:ex } = await sb.from('settings').select('key').eq('key','drive_script_url');
-  const res = (ex&&ex.length) ? await sb.from('settings').update({value:v}).eq('key','drive_script_url') : await sb.from('settings').insert({key:'drive_script_url',value:v});
-  if(res&&res.error){ el.textContent='Gagal: '+res.error.message; el.className='add-status err'; return; }
-  driveScriptUrl=v; el.textContent='✓ Tersimpan'; el.className='add-status ok'; setTimeout(()=>{el.textContent='';},1800);
+  const v = document.getElementById('set-drive-url').value.trim(), el = document.getElementById('drive-url-status');
+  const res = await setPrivateSetting('drive_script_url', v);
+  if (res && res.error) { el.textContent = 'Gagal: ' + res.error.message; el.className = 'add-status err'; return; }
+  driveScriptUrl = v; el.textContent = '✓ Tersimpan'; el.className = 'add-status ok'; setTimeout(()=>{ el.textContent = ''; }, 1800);
+}
+async function loadJadwalScriptSetting(){
+  const p = await getPrivateSettings();
+  const u = document.getElementById('set-jadwal-url'), s = document.getElementById('set-jadwal-secret');
+  if (u) u.value = (p && p.jadwal_script_url) || ''; if (s) s.value = (p && p.jadwal_script_secret) || '';
+}
+async function saveJadwalScript(){
+  const u = document.getElementById('set-jadwal-url').value.trim(), s = document.getElementById('set-jadwal-secret').value.trim(), el = document.getElementById('jadwal-script-status');
+  const bad = m => { el.textContent = m; el.className = 'add-status err'; };
+  if (u && !/^https:\/\/script\.google\.com\/macros\/s\/\S+\/exec$/.test(u)) return bad('URL harus dari Deploy → Web app dan berakhiran /exec');
+  if (u && !s) return bad('Isi kode rahasia (sama dengan yang ada di script)');
+  let r = await setPrivateSetting('jadwal_script_url', u);
+  if (!(r && r.error)) r = await setPrivateSetting('jadwal_script_secret', s);
+  if (r && r.error) return bad('Gagal: ' + r.error.message);
+  el.textContent = '✓ Tersimpan'; el.className = 'add-status ok'; setTimeout(()=>{ el.textContent = ''; }, 1800);
 }
 
 // ===== TARIK SEMUA (dengan koreksi jumlah sebelum ditarik) =====
@@ -3823,7 +3880,7 @@ function show(name) {
   if(name==='admin')loadUsers();
   if(name==='products')loadProductManagement();
   if(name==='faq')renderFAQ();
-  if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; loadSheetUrlSetting(); loadDriveUrlSetting(); }
+  if(name==='settings'){ document.getElementById('set-threshold').value=thresholdSedikit; document.getElementById('set-wa').value=waMaster; loadSheetUrlSetting(); loadDriveUrlSetting(); loadJadwalScriptSetting(); }
   window.scrollTo(0,0);
 }
 
@@ -5318,7 +5375,7 @@ async function upgradePinSession(nama, pin){
 function updateLoginBadge(){ try{ if(currentUser) renderSidebar(); renderPmLoginBanner(); }catch(_){} }
 function friendlyDbError(msg, hasSession){
   const m=String(msg==null?'':msg);
-  if (!/row-level security|42501|Hanya Super Admin|login Google/i.test(m)) return m;
+  if (!/row-level security|42501|permission denied|Hanya Super Admin|login Google/i.test(m)) return m;
   return hasSession ? 'Akun yang sedang login bukan master, jadi tidak boleh melakukan perubahan ini.'
                     : 'Perubahan ini butuh login Google dengan akun master. Kamu sedang masuk lewat PIN atau sesi Google sudah habis. Keluar, lalu masuk dengan tombol Google.';
 }
@@ -5534,19 +5591,20 @@ async function copyLastWeek(){
   if(error){ alert('Gagal copy: '+error.message); return; }
   renderJadwalGrid();
 }
-let _jadwalTemplates=[], _jadwalEmployees=[];
+let _jadwalTemplates=[], _jadwalEmployees=[], _jadwalSched={}, _jadwalDays=[], _kjRows=[], _kjWeekLabel='';
 async function renderJadwalGrid(){
   const monday = jadwalWeekStart;
   const days = [...Array(7)].map((_,i)=>{ const d=new Date(monday.getTime()+i*86400000); return ymd(d); });
   document.getElementById('jadwal-week-label').textContent = `${fmtDateLabel(days[0]).d1} – ${fmtDateLabel(days[6]).d1}`;
 
   const [{data:emps}, {data:tmpls}, {data:scheds}] = await Promise.all([
-    sb.from('profiles').select('id,full_name').eq('branch_id', jadwalBranch).in('role',['karyawan','manager']).order('full_name'),
+    sb.from('profiles').select('id,full_name,email').eq('branch_id', jadwalBranch).in('role',['karyawan','manager']).order('full_name'),
     sb.from('shift_templates').select('*').eq('branch_id', jadwalBranch).eq('is_active',true).order('start_time'),
     sb.from('employee_schedules').select('user_id,date,shift_template_id').eq('branch_id', jadwalBranch).gte('date',days[0]).lte('date',days[6])
   ]);
   _jadwalEmployees = emps||[]; _jadwalTemplates = tmpls||[];
   const schedMap = {}; (scheds||[]).forEach(s=>{ schedMap[s.user_id+'_'+s.date]=s.shift_template_id; });
+  _jadwalSched = schedMap; _jadwalDays = days;
   const tmplById = {}; (tmpls||[]).forEach(t=>tmplById[t.id]=t);
 
   const tbl=document.getElementById('jadwal-table');
@@ -5564,6 +5622,66 @@ async function renderJadwalGrid(){
     html += '</tr>';
   });
   tbl.innerHTML = html;
+}
+// ---- KIRIM JADWAL KE EMAIL (Apps Script di akun Google toko) ----
+const KJ_EMAIL_RE = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+async function openKirimJadwal(){
+  const msg = document.getElementById('kj-msg'); msg.textContent = ''; msg.className = 'add-status';
+  if (!_jadwalDays.length) await renderJadwalGrid();
+  const pr = await getPrivateSettings();
+  if (!pr) { alert(friendlyDbError('permission denied', authHasSession)); return; }
+  if (!pr.jadwal_script_url || !pr.jadwal_script_secret) { alert('Script jadwal belum dipasang. Buka Pengaturan → "Google Apps Script — Kirim Jadwal" dan tempel URL-nya.'); return; }
+  const tmplById = {}; _jadwalTemplates.forEach(t=>{ tmplById[t.id]=t; });
+  _kjRows = _jadwalEmployees.map(e=>{
+    const shifts = _jadwalDays.map(d=>{ const sid=_jadwalSched[e.id+'_'+d]; const t=sid?tmplById[sid]:null; return t ? { date:d, label:t.label, start:String(t.start_time).slice(0,5), end:String(t.end_time).slice(0,5) } : null; }).filter(Boolean);
+    const email = (e.email||'').trim();
+    return { id:e.id, name:e.full_name, email:email, shifts:shifts, ok: KJ_EMAIL_RE.test(email) };
+  });
+  _kjWeekLabel = (document.getElementById('jadwal-week-label').textContent||'').trim() + ' ' + _jadwalDays[6].slice(0,4);
+  document.getElementById('kj-sub').textContent = (BRANCHES[jadwalBranch]||jadwalBranch) + ' · ' + _kjWeekLabel;
+  const withShift = _kjRows.filter(r=>r.shifts.length), noShift = _kjRows.filter(r=>!r.shifts.length);
+  let html = '';
+  withShift.forEach(r=>{
+    html += '<label class="mini-row" style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border)'+(r.ok?'':';opacity:.6')+'">'
+      + '<input type="checkbox" id="kj-chk-'+r.id+'"'+(r.ok?' checked':' disabled')+' onchange="kjUpdateCount()">'
+      + '<span style="flex:1"><b>'+finEsc(r.name)+'</b><br><span class="pm2-sub">'+(r.ok?finEsc(r.email):'⚠️ tanpa email, tidak bisa dikirim')+'</span></span>'
+      + '<span class="pm2-sub">'+r.shifts.length+' shift</span></label>';
+  });
+  if (!withShift.length) html = '<div class="pm2-sub" style="padding:10px 0">Belum ada shift yang diatur di minggu ini.</div>';
+  document.getElementById('kj-list').innerHTML = html;
+  document.getElementById('kj-note').innerHTML = (noShift.length ? 'Tanpa shift minggu ini (tidak dikirimi): '+noShift.map(r=>finEsc(r.name)).join(', ')+'.<br>' : '')
+    + 'Email dikirim dari akun Google toko, berisi tabel shift, file kalender (.ics), dan tombol Tambah ke Google Calendar. Kalau jadwal berubah lalu dikirim ulang, acara lama di kalender ikut diperbarui. Shift yang dihapus setelah terkirim tidak otomatis hilang dari kalender karyawan.';
+  kjUpdateCount();
+  document.getElementById('kirim-jadwal-modal').classList.add('open');
+}
+function kjUpdateCount(){
+  const n = _kjRows.filter(r=>r.ok && r.shifts.length && (document.getElementById('kj-chk-'+r.id)||{}).checked).length;
+  const b = document.getElementById('kj-send'); b.textContent = '📧 Kirim ('+n+')'; b.disabled = n===0;
+}
+async function sendJadwal(){
+  const msg = document.getElementById('kj-msg'), btn = document.getElementById('kj-send');
+  const bad = m => { msg.textContent = m; msg.className = 'add-status err'; };
+  const sel = _kjRows.filter(r=>r.ok && r.shifts.length && (document.getElementById('kj-chk-'+r.id)||{}).checked);
+  if (!sel.length) return bad('Pilih minimal satu karyawan');
+  const pr = await getPrivateSettings();
+  if (!pr || !pr.jadwal_script_url || !pr.jadwal_script_secret) return bad('Script jadwal belum dipasang di Pengaturan');
+  btn.disabled = true; btn.textContent = 'Mengirim...'; msg.textContent = ''; msg.className = 'add-status';
+  const payload = { secret: pr.jadwal_script_secret, branch_name: BRANCHES[jadwalBranch]||jadwalBranch, week_label: _kjWeekLabel, sender: currentUser.nama,
+    recipients: sel.map(r=>({ user_id:r.id, name:r.name, email:r.email, shifts:r.shifts })) };
+  try {
+    const res = await fetch(pr.jadwal_script_url, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify(payload) });
+    const j = await res.json();
+    if (j && j.ok) {
+      const fl = j.failed||[];
+      msg.textContent = '✓ Terkirim ke '+j.sent+' karyawan'+(fl.length ? '. Gagal: '+fl.map(f=>f.email+' ('+f.error+')').join('; ') : '');
+      msg.className = 'add-status '+(fl.length?'err':'ok');
+    } else {
+      bad('Gagal: '+((j&&j.error)==='unauthorized' ? 'kode rahasia tidak cocok dengan yang ada di script (cek Pengaturan dan isi script)' : ((j&&j.error)||'jawaban tidak dikenal')));
+    }
+  } catch(e) {
+    bad('Permintaan sudah dikirim, tapi hasilnya tidak bisa dipastikan dari sini. Cek kotak Terkirim di Gmail toko.');
+  }
+  btn.disabled = false; kjUpdateCount();
 }
 let _pickCtx=null;
 function openShiftPick(empId,empName,dateStr){
