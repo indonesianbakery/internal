@@ -424,6 +424,17 @@ body.font-xl{zoom:1.25;}
 .pp-mv-t.sisa{background:var(--out-bg);color:var(--out);}
 .pp-toggle{width:100%;margin-top:16px;padding:10px;border-radius:10px;border:1px dashed var(--g3);background:transparent;color:var(--g);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
 .pp-catat{margin-top:10px;}
+.pp-rak{text-align:center;font-size:13px;color:var(--text2);}
+.pp-rak b{font-size:24px;color:var(--text);margin-left:6px;font-family:'DM Mono',monospace;}
+.pp-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0;}
+.pp-act{border:1.5px solid var(--border);background:#fff;border-radius:10px;padding:11px 4px;font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;}
+.pp-act.active{border-color:var(--g);background:var(--g-bg);color:var(--g);}
+.pp-q{text-align:center;font-size:13px;color:var(--text2);margin-top:4px;}
+.pp-step{display:flex;align-items:center;justify-content:center;gap:12px;margin:10px 0 6px;}
+.pp-step button{width:50px;height:50px;border-radius:12px;border:1.5px solid var(--border);background:#fff;font-size:22px;color:var(--g);cursor:pointer;}
+.pp-n{width:84px;text-align:center;font-size:30px;font-weight:700;border:none;background:transparent;font-family:'DM Mono',monospace;color:var(--text);}
+.pp-prev{text-align:center;font-size:15px;font-weight:700;color:var(--g);}
+.pp-why{text-align:center;font-size:11px;color:var(--text3);margin-top:4px;line-height:1.4;}
 .ta-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
 .ta-info{flex:1;min-width:0;}
 .ta-info b{display:block;font-size:14px;}
@@ -2239,14 +2250,14 @@ function ovRowHtml(n, draggable=false, child=false) {
 }
 
 // ===== PROFIL PRODUK (tap nama di Beranda) =====
-let ppName = null, ppSisaTouched = false, ppInput = {iProduksi:0,iRetur:0,iSisa:0};
+let ppName = null, ppAction = 'masuk', ppN = 0, ppInput = {iProduksi:0,iRetur:0,iSisa:0};
 function ppFmtJam(ts){ try{ return new Intl.DateTimeFormat('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(ts)); }catch(e){ return ts; } }
 function closeProdProfile(){ document.getElementById('prod-profile-modal').classList.remove('open'); }
 async function openProdProfile(name){
   const prod = products.find(p=>p.name===name);
   if(!prod || !stockNow[name]) return;
   ppName = name;
-  ppInput = { iProduksi:0, iRetur:0, iSisa: stockNow[name].now||0 }; ppSisaTouched = false;
+  ppAction = 'masuk'; ppN = 0; ppApply();
   document.getElementById('pp-body').innerHTML = '<div class="loading"><div class="spinner"></div>Memuat...</div>';
   document.getElementById('prod-profile-modal').classList.add('open');
   const [bRes, mRes] = await Promise.all([
@@ -2269,6 +2280,9 @@ function renderProdProfile(prod, batches, moves){
     +'<div><small>Retur</small><b>'+(s.retur||0)+'</b></div>'
     +'<div><small>Di rak</small><b>'+s.now+'</b></div>'
     +'<div><small>Terjual</small><b>'+sold+'</b></div></div>';
+  if (canEdit()) {
+    h += '<button class="pp-toggle" onclick="ppToggleCatat()">✏️ Catat stok produk ini</button><div class="pp-catat" id="pp-catat" style="display:none"></div>';
+  }
   if (EXPIRY_ON) {
   h += '<div class="pp-sec">Batch masuk</div>';
   if(!batches.length) h += '<div class="pp-empty">Belum ada catatan batch</div>';
@@ -2288,9 +2302,6 @@ function renderProdProfile(prod, batches, moves){
   h += '<div class="pp-sec">Riwayat terbaru</div>';
   if(!moves.length) h += '<div class="pp-empty">Belum ada riwayat</div>';
   else h += moves.map(m=>'<div class="pp-mv"><span class="pp-mv-t '+m.type+'">'+(typeLbl[m.type]||m.type)+'</span><b>'+m.qty+'</b><small>'+ppFmtJam(m.created_at)+' · '+(m.user_name||'-')+'</small></div>').join('');
-  if (canEdit()) {
-    h += '<button class="pp-toggle" onclick="ppToggleCatat()">✏️ Catat stok produk ini</button><div class="pp-catat" id="pp-catat" style="display:none"></div>';
-  }
   h += '<button class="pp-close" onclick="closeProdProfile()">Tutup</button>';
   document.getElementById('pp-body').innerHTML = h;
 }
@@ -2301,23 +2312,38 @@ function ppToggleCatat(){
   el.style.display = open ? '' : 'none';
   if(open) ppRenderCatat();
 }
-function ppAdj(f,d){ ppSet(f,(ppInput[f]||0)+d); }
-function ppSet(f,v){
-  let x = Math.max(0,parseInt(v)||0);
-  if(f==='iRetur') x = Math.min(x, stockNow[ppName].now||0); // retur tidak boleh lebih dari stok yang ada
-  ppInput[f] = x;
-  if (f==='iSisa') ppSisaTouched = true;
-  else if (!ppSisaTouched) ppInput.iSisa = Math.max(0,(stockNow[ppName].now||0)+(ppInput.iProduksi||0)-(ppInput.iRetur||0));
-  ppRenderCatat();
+// Catat stok di profil produk: satu aksi, satu angka. Tersimpan sama seperti sebelumnya (masuk / retur / sisa).
+const PP_ACT = {
+  masuk:{ q:'Berapa roti yang masuk?', why:'Roti baru matang atau datang dari cabang lain. Tercatat sebagai Masuk.' },
+  keluar:{ q:'Berapa roti yang keluar?', why:'Dikembalikan, ditarik, atau dibuang. Tercatat sebagai Retur. Penjualan tidak perlu diisi, sudah otomatis dari POS.' },
+  hitung:{ q:'Berapa roti yang ada di rak sekarang?', why:'Hitung langsung di rak, hasilnya jadi angka resmi. Tercatat sebagai Sisa.' }
+};
+function ppApply(){
+  const now = (stockNow[ppName] && stockNow[ppName].now) || 0;
+  let n = Math.max(0, parseInt(ppN)||0);
+  if (ppAction==='keluar') n = Math.min(n, now);   // tidak boleh keluar lebih dari isi rak
+  ppN = n;
+  if (ppAction==='masuk') ppInput = { iProduksi:n, iRetur:0, iSisa:now+n };
+  else if (ppAction==='keluar') ppInput = { iProduksi:0, iRetur:n, iSisa:now-n };
+  else ppInput = { iProduksi:0, iRetur:0, iSisa:n };
 }
+function ppPick(a){ ppAction=a; ppN = (a==='hitung') ? ((stockNow[ppName]&&stockNow[ppName].now)||0) : 0; ppApply(); ppRenderCatat(); }
+function ppStep(d){ ppN=(parseInt(ppN)||0)+d; ppApply(); ppRenderCatat(); }
+function ppSetN(v){ ppN=parseInt(v)||0; ppApply(); ppRenderCatat(); }
 function ppRenderCatat(){
   const el = document.getElementById('pp-catat'); if(!el) return;
-  const s = stockNow[ppName];
-  const tersedia = Math.max(0,(s.now||0)+(ppInput.iProduksi||0)-(ppInput.iRetur||0));
-  const selisih = (ppInput.iSisa||0) - tersedia; const terjualPOS = s.terjualToday||0;
-  const fld = (f,lbl,cls)=>'<div class="cfield"><div class="cflbl '+cls+'">'+lbl+'</div><div class="mini-qc"><button class="mini-qb" onclick="ppAdj(\''+f+'\',-1)">\u2212</button><input class="mini-qn" type="number" value="'+(ppInput[f]||0)+'" onchange="ppSet(\''+f+'\',this.value)"><button class="mini-qb" onclick="ppAdj(\''+f+'\',1)">+</button></div></div>';
-  el.innerHTML = '<div class="catat-grid">'+fld('iProduksi','🥖 Masuk','masuk')+fld('iRetur','↩️ Retur','retur')+fld('iSisa','📤 Sisa','sisa')+'</div>'
-    +'<div class="catat-foot"><span>Tersedia: <b>'+tersedia+'</b></span><span class="cf-sep">·</span><span class="cf-terjual">Terjual POS: <b>'+terjualPOS+'</b></span>'+(selisih!==0?'<span class="cf-sep">·</span><span style="color:var(--y);font-weight:600">Selisih: <b>'+(selisih>0?'+':'')+selisih+'</b></span>':'')+'</div>'
+  const now = (stockNow[ppName] && stockNow[ppName].now) || 0, a = PP_ACT[ppAction];
+  const btn = (k,lbl)=>'<button class="pp-act'+(ppAction===k?' active':'')+'" onclick="ppPick(\''+k+'\')">'+lbl+'</button>';
+  let extra = '';
+  if (ppAction==='keluar' && now===0) extra = '<div class="pp-why">Rak sudah kosong, tidak ada yang bisa dikeluarkan.</div>';
+  else if (ppAction==='keluar' && ppN>=now) extra = '<div class="pp-why">Maksimal sebanyak isi rak ('+now+').</div>';
+  if (ppAction==='hitung' && ppN!==now) extra = '<div class="pp-why">Beda '+(ppN>now?'+':'')+(ppN-now)+' dari catatan sistem, akan tercatat sebagai koreksi.</div>';
+  el.innerHTML = '<div class="pp-rak">Di rak sekarang <b>'+now+'</b></div>'
+    +'<div class="pp-acts">'+btn('masuk','Roti masuk')+btn('keluar','Roti keluar')+btn('hitung','Hitung rak')+'</div>'
+    +'<div class="pp-q">'+a.q+'</div>'
+    +'<div class="pp-step"><button onclick="ppStep(-1)" aria-label="Kurangi">\u2212</button><input class="pp-n" type="number" inputmode="numeric" min="0" value="'+ppN+'" onchange="ppSetN(this.value)"><button onclick="ppStep(1)" aria-label="Tambah">+</button></div>'
+    +'<div class="pp-prev">Di rak: '+now+' \u2192 '+ppInput.iSisa+'</div>'
+    +'<div class="pp-why">'+a.why+'</div>'+extra
     +'<button class="save-btn save-in" id="pp-save" style="width:100%;margin-top:10px" onclick="ppSave()">\uD83D\uDCBE Simpan</button>'
     +'<div id="pp-msg" style="font-size:12px;text-align:center;margin-top:6px"></div>';
 }
