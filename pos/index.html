@@ -693,6 +693,17 @@ function switchLoginTab(tab){
 function pinNext(el,next){ if(el.value.length===1&&next<=3) document.getElementById('p'+next).focus(); }
 function getPin(){ return ['p0','p1','p2','p3'].map(id=>document.getElementById(id).value).join(''); }
 
+// Login PIN -> minta sesi resmi ke server (Edge Function pin-session). Gagal = tetap jalan mode PIN biasa.
+async function upgradePinSession(nama, pin){
+  try{
+    if(!sb.functions || !sb.functions.invoke) return false;
+    const { data, error } = await sb.functions.invoke('pin-session', { body: { nama, pin } });
+    if(error || !data || !data.session || !data.token_hash) return false;
+    let r = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'email' });
+    if(r && r.error) r = await sb.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
+    return !!(r && !r.error);
+  }catch(_){ return false; }
+}
 async function loginPin(){
   const nama = document.getElementById('pin-nama').value.trim();
   const pin = getPin();
@@ -702,12 +713,13 @@ async function loginPin(){
   if(pin.length<4){ errEl.textContent='PIN harus 4 digit'; return; }
   try{
     const { data: rows, error } = await sb.rpc('verify_pin', { p_nama: nama, p_pin: pin });
-    if(error){ errEl.textContent='Gagal — '+error.message; return; }
+    if(error){ errEl.textContent = /PIN_TERKUNCI/.test(error.message) ? error.message.replace(/^.*PIN_TERKUNCI:\s*/,'') : 'Gagal — '+error.message; return; }
     if(!rows||!rows.length){ errEl.textContent='Nama atau PIN salah'; return; }
     const row = rows[0];
     const role = row.role||'karyawan';
     if(role==='pending'){ errEl.textContent='Akun belum di-approve'; return; }
     currentUser = { nama: row.nama, role, branch_id: row.branch_id, id: row.id||null, mode:'pin' };
+    await upgradePinSession(nama, pin); // sesi resmi dari server (kalau tersedia buat role ini)
     afterLogin();
   }catch(e){ errEl.textContent='Koneksi gagal, coba lagi'; }
 }
@@ -728,7 +740,8 @@ async function checkSession(retry){
     document.getElementById('pending-email').textContent = user.email;
     show('screen-pending'); return;
   }
-  if(profile.role==='master'||profile.role==='manager'){
+  if(currentUser) return; // sudah login (misal dari PIN), jangan diulang
+  if(profile.role==='master'||profile.role==='manager'||profile.role==='karyawan'){
     currentUser = { nama: profile.full_name||user.email, email:user.email, role:profile.role, branch_id:profile.branch_id, id:user.id, mode:'google' };
     afterLogin();
   } else {
@@ -1055,11 +1068,11 @@ function tickClock(){
 setInterval(tickClock,1000); tickClock();
 
 function logoutPos(){
-  const wasGoogle = currentUser && currentUser.mode==='google';
+
   cart = []; discountTotal = 0; currentUser = null; currentBranch = null; currentShift = null; txMode = null; renderTxBanner();
   document.getElementById('pin-nama').value='';
   ['p0','p1','p2','p3'].forEach(id=>document.getElementById(id).value='');
-  if(wasGoogle) sb.auth.signOut();
+  sb.auth.signOut(); // keluar dari sesi resmi juga (Google maupun PIN)
   show('screen-login');
 }
 
@@ -1779,6 +1792,8 @@ function showReceipt(){
 
 // ===== HALAMAN STRUK DIGITAL (dibuka pembeli dari QR, tanpa login) =====
 async function openPublicReceipt(tok){
+  // QR lama (link ke POS) dialihkan ke halaman struk terpisah
+  location.replace(PUBLIC_RECEIPT_URL + encodeURIComponent(tok)); return;
   document.body.classList.add('public-receipt');
   document.querySelectorAll('#screen-login,#screen-branch,#screen-pos,#screen-pending').forEach(x=>x.classList.add('hidden'));
   const { data, error } = await sb.rpc('get_public_receipt', { p_token: tok });
@@ -1806,7 +1821,7 @@ function rcWrap(t){ t=rcClean(t); const out=[]; while(t.length>RC_W){ let i=t.la
 const LOGO_W = 256, LOGO_H = 118;
 const LOGO_B64 = 'AAAAAAAAAAAAAAAAAAAP/+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//gAAf/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/gAAAP/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/4AAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+AAAAAP+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwAAAAAB/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/gAAAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AAAAAf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP+AAAAD/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAP/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAf/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAA//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAH8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAfgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAB/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/4A/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//AAAAD//4H/gAAAAAAAAAAAAAAAAH4AAAAAAAAAAA//8AAAAf4f4//AAAAAAAAAAAAAAAAA/wAAAAAAAAAAA/+AAAAB/AP/48AAAAAAAAAAAAAAAAD/AAAAAAAAAAAB/wAAAAH4AP/DwAAAAAAAAAAAAAAAAP8AAAAAAAAAAAD/AAAAAfgAP8PAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAP8AAAAB8AAf/4AAAAAAAAAAAAAAAAD/AAAAAAAAAAAA/wAAAADgAB//AAAAAAAAAAAAAAAAAH4AAAAAAAAAAAD/AAAAAAAAH/4AAAAAAAAAAAAAAAAAGAAAAAAAAAAAAP8AAAAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAB/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AAYHAAAcH8AAeAAA4HAAAOAAAcAABgAHAGABwOAAAP8AHz/gAP+fwAf/AAPn/gAH/gAP/YAfAD/g8APH/AAA/wB///AB///AH//AB///AB//gD//wH8A//vwD//+AAD/Af//+Af//8A/z/Af//+AP5/Afx/B/wH///A///8AAP8D///4B/h/wH8D8H///4B+D+D+B8P/A/wf8P///wAA/wf/A/wP8D/A/gP4f/B/gPwH4P4Dw/8D+A/w/+B/AAD/AP8D/A/gH8D+Afwf4D+B/Afw/gHA/wf4B/A/wH+AAP8A/wH8H+Afwf4B/A/gP4H8B/H/gOD/B/AH8B/Af4AA/wD/AfwfwB/B/AH+D+A/gf//8P/gQP8H8AfwH8B/gAD/AP8B/B/AH8H8Af4P4D+D///w//wA/w/wB/AfwH+AAP8A/wH8H8AfwfwA/g/gP4P///D//4D/D/AH8B/Af4AA/wD/AfwfwB/B/AD+D+A/g/wAAH//wP8P8AfwH8B/gAD/AP8B/B/AH8H8AP4P4D+D/AAAP//g/w/wB/AfwH+AAP8A/wH8H8AfwfwA/g/gP4P8AAAP/+D/D/AH8B/Af4AA/wD/AfwfwB/B/AH+D+A/g/wAAAH/8P8P8AfwH8B/gAD/AP8B/B/AH8H8Af4P4D+B/AAhgD/w/wfwB/AfwH+AAP8A/wH8H+Afwf4B/A/gP4H8ADnAD/D/B/AH8B/Af4AA/wD/AfwP4B/A/gH8D+A/gf4AeeAH8P8H+AfwH8B/gAD/AP8B/A/wP8D+A/gP4D+A/gDx8Afg/wP4D/AfwH+AAf8A/wH8B/h/wH8D+A/gP8B/A+D4B+D/A/wf8B/Af4AD/8H/A/4H///gP4/wH/B/4D//wP8fwf+B///+P+B/gA//9//P/4P///gf/8B//P/wH/+A//+D/8D///7/+H+AD//z/8//gP+f+Af/gH/8//AH/wDP/wP/wD/z/P/4f4AAAAAAAAAAHhAAAPgAAAAAAAD4AADwAAAAB4BgAAB/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf4DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/geAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+D8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfh/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/P8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//gAAAAAAAAAAAAAAAf4DgYc/5/HBgAAAAAAAAAAAAD/4AAAAAAAAAAAAAAAB/weDjz/n+MOAAAAAAAAAAAAAB8AAAAAAAAAAAAAAAAGHB8OOOAYc4wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYcOw5w4Bgx3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/w7j+D/GDH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+DOP4P8YcPgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAccc8/w4B/gcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABg5/z3DgH8BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGDv/OOOAY4HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf8wO4c/5hwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/nAZg7/mHBwAAAAAAAAAAAAAAAA=';
 // ===== QR STRUK DIGITAL =====
-const PUBLIC_RECEIPT_URL = 'https://indonesianbakery.github.io/internal/pos/?struk=';
+const PUBLIC_RECEIPT_URL = 'https://indonesianbakery.github.io/struk/?t=';
 function receiptQrUrl(){
   const isShift = (document.getElementById('rc-title').textContent||'').includes('Shift');
   return (!isShift && !PUBLIC_TOKEN && lastReceiptData && lastReceiptData.token) ? PUBLIC_RECEIPT_URL + lastReceiptData.token : null;
