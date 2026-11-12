@@ -289,6 +289,10 @@ body.pl-mode #cart-bar{background:#1565C0;}
 #pos-meta.can-switch{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
 #sheet-branch.open{align-items:center;padding:16px;}
 #sheet-branch .sheet{border-radius:20px;max-width:520px;}
+body.public-receipt .sheet-overlay#sheet-receipt{background:var(--bg);align-items:flex-start;}
+body.public-receipt #sheet-receipt .sheet{max-height:none;min-height:100vh;border-radius:0;}
+body.public-receipt #sheet-receipt .sheet-close, body.public-receipt #rc-next, body.public-receipt #btn-edit-tx,
+body.public-receipt #btn-thermal, body.public-receipt #btn-ble, body.public-receipt #sheet-receipt button[onclick="window.print()"]{display:none !important;}
 </style>
 </head>
 <body>
@@ -628,12 +632,14 @@ body.pl-mode #cart-bar{background:#1565C0;}
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
 // ============================================================
 // KONEKSI SUPABASE PRODUCTION (database toko asli / LIVE)
 // ============================================================
 const SUPABASE_URL = 'https://usfehuwxyvqvjhveeoxx.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZmVodXd4eXZxdmpodmVlb3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDg1MzcsImV4cCI6MjA5NjkyNDUzN30.8zEUKF1qcBUXyGu3a50k2v92UbdXKbZ2xhJnb2blobY';
+const PUBLIC_TOKEN = new URLSearchParams(location.search).get('struk');
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' }
 });
@@ -712,6 +718,7 @@ async function loginGoogle(){
 }
 
 async function checkSession(retry){
+  if(PUBLIC_TOKEN) return;
   const { data:{session} } = await sb.auth.getSession();
   if(!session) return;
   const user = session.user;
@@ -1667,7 +1674,8 @@ async function _confirmPayment(){
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     const wasMode = txMode;
-    lastReceiptData = { items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
+    const { data: tkr } = await sb.from('pos_transactions').select('receipt_token').eq('id', data).maybeSingle();
+    lastReceiptData = { token: tkr ? tkr.receipt_token : null, items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
       ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: custName || (wasMode && wasMode.customer) || null };
     closeSheet('sheet-payment');
     showReceipt();
@@ -1729,7 +1737,7 @@ function lihatStruk(id){
     subtotal: Number(r.subtotal), discountTotal: Number(r.discount_total), grand: Number(r.grand_total),
     payMethod: r.payment_method, cashReceived: r.cash_received!=null?Number(r.cash_received):null,
     change: r.cash_change!=null?Number(r.cash_change):null,
-    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true, customer: r.customer_name || null
+    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true, customer: r.customer_name || null, token: r.receipt_token || null
   };
   closeSheet('sheet-riwayat');
   showReceipt();
@@ -1757,7 +1765,37 @@ function showReceipt(){
   if(r.change!=null) html += `<div class="rc-row"><span>Kembali</span><span>${rp(r.change)}</span></div>`;
   html += `<hr><div style="text-align:center;">Terima kasih! 🍞</div>`;
   document.getElementById('receipt-body').innerHTML = html;
+  const qurl = receiptQrUrl();
+  if(qurl && typeof qrcode!=='undefined'){
+    const body = document.getElementById('receipt-body');
+    const box = document.createElement('div'); box.className='rc-qr'; box.style.cssText='text-align:center;margin-top:10px;';
+    const cv = document.createElement('canvas'); cv.width = cv.height = 300; cv.style.cssText='width:130px;height:130px;';
+    drawQrTo(cv.getContext('2d'), qurl, 0, 0, 300);
+    box.appendChild(cv); body.appendChild(box);
+    const cap = document.createElement('div'); cap.className='rc-qr-cap'; cap.style.cssText='text-align:center;font-size:11px;'; cap.textContent='Scan untuk struk digital'; body.appendChild(cap);
+  }
   openSheet('sheet-receipt');
+}
+
+// ===== HALAMAN STRUK DIGITAL (dibuka pembeli dari QR, tanpa login) =====
+async function openPublicReceipt(tok){
+  document.body.classList.add('public-receipt');
+  document.querySelectorAll('#screen-login,#screen-branch,#screen-pos,#screen-pending').forEach(x=>x.classList.add('hidden'));
+  const { data, error } = await sb.rpc('get_public_receipt', { p_token: tok });
+  if(error || !data){ document.body.innerHTML = '<div style="padding:60px 24px;text-align:center;font-family:DM Sans,sans-serif;color:#6B4A52;">🍞<br><br>Struk tidak ditemukan.<br>Coba scan ulang QR di struk ya.</div>'; return; }
+  currentUser = { nama: data.cashier_name, role: 'public' };
+  currentBranch = data.branch_id;
+  lastReceiptData = {
+    items: (data.items||[]).map(i=>({ name:i.product_name, qty:i.qty, price:Number(i.unit_price), item_discount:Number(i.item_discount)||0, is_gift:!!i.is_gift })),
+    subtotal:Number(data.subtotal), discountTotal:Number(data.discount_total), grand:Number(data.grand_total),
+    payMethod:data.payment_method, cashReceived:data.cash_received!=null?Number(data.cash_received):null,
+    change:data.cash_change!=null?Number(data.cash_change):null, txId:data.id, ts:new Date(data.created_at),
+    cashier:data.cashier_name, customer:data.customer_name||null, token:null
+  };
+  showReceipt();
+  document.getElementById('rc-title').textContent = '🧾 Struk Digital';
+  document.getElementById('rc-sub').textContent = 'Indonesian Bakery · ' + (BRANCHES[data.branch_id]||'');
+  document.getElementById('btn-pdf').textContent = '📄 Download / Bagikan PDF';
 }
 // ===== PRINT THERMAL 58mm via RawBT (Android) =====
 const RC_W = 32;
@@ -1767,15 +1805,47 @@ function rcLR(l,r){ l=rcClean(l); r=rcClean(r); const sp=RC_W-l.length-r.length;
 function rcWrap(t){ t=rcClean(t); const out=[]; while(t.length>RC_W){ let i=t.lastIndexOf(' ',RC_W); if(i<=0) i=RC_W; out.push(t.slice(0,i)); t=t.slice(i).trim(); } if(t) out.push(t); return out.join('\n'); }
 const LOGO_W = 256, LOGO_H = 118;
 const LOGO_B64 = 'AAAAAAAAAAAAAAAAAAAP/+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//gAAf/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH/gAAAP/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/4AAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+AAAAAP+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAB8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAHwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAfAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD8AAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPwAAAAAB/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/gAAAAAP4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/gAAAAD/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AAAAAf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP+AAAAD/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4AAAAP/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAf/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAA//wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAH/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAH8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAA/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAB+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAPwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAA+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAAfgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAAD8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH4AAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB+AAAAAB/4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf///////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB///////+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH///////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf/////4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfgADgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP/4A/wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP//AAAAD//4H/gAAAAAAAAAAAAAAAAH4AAAAAAAAAAA//8AAAAf4f4//AAAAAAAAAAAAAAAAA/wAAAAAAAAAAA/+AAAAB/AP/48AAAAAAAAAAAAAAAAD/AAAAAAAAAAAB/wAAAAH4AP/DwAAAAAAAAAAAAAAAAP8AAAAAAAAAAAD/AAAAAfgAP8PAAAAAAAAAAAAAAAAA/wAAAAAAAAAAAP8AAAAB8AAf/4AAAAAAAAAAAAAAAAD/AAAAAAAAAAAA/wAAAADgAB//AAAAAAAAAAAAAAAAAH4AAAAAAAAAAAD/AAAAAAAAH/4AAAAAAAAAAAAAAAAAGAAAAAAAAAAAAP8AAAAAAAAfwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/wAAAAAAAB/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/AAYHAAAcH8AAeAAA4HAAAOAAAcAABgAHAGABwOAAAP8AHz/gAP+fwAf/AAPn/gAH/gAP/YAfAD/g8APH/AAA/wB///AB///AH//AB///AB//gD//wH8A//vwD//+AAD/Af//+Af//8A/z/Af//+AP5/Afx/B/wH///A///8AAP8D///4B/h/wH8D8H///4B+D+D+B8P/A/wf8P///wAA/wf/A/wP8D/A/gP4f/B/gPwH4P4Dw/8D+A/w/+B/AAD/AP8D/A/gH8D+Afwf4D+B/Afw/gHA/wf4B/A/wH+AAP8A/wH8H+Afwf4B/A/gP4H8B/H/gOD/B/AH8B/Af4AA/wD/AfwfwB/B/AH+D+A/gf//8P/gQP8H8AfwH8B/gAD/AP8B/B/AH8H8Af4P4D+D///w//wA/w/wB/AfwH+AAP8A/wH8H8AfwfwA/g/gP4P///D//4D/D/AH8B/Af4AA/wD/AfwfwB/B/AD+D+A/g/wAAH//wP8P8AfwH8B/gAD/AP8B/B/AH8H8AP4P4D+D/AAAP//g/w/wB/AfwH+AAP8A/wH8H8AfwfwA/g/gP4P8AAAP/+D/D/AH8B/Af4AA/wD/AfwfwB/B/AH+D+A/g/wAAAH/8P8P8AfwH8B/gAD/AP8B/B/AH8H8Af4P4D+B/AAhgD/w/wfwB/AfwH+AAP8A/wH8H+Afwf4B/A/gP4H8ADnAD/D/B/AH8B/Af4AA/wD/AfwP4B/A/gH8D+A/gf4AeeAH8P8H+AfwH8B/gAD/AP8B/A/wP8D+A/gP4D+A/gDx8Afg/wP4D/AfwH+AAf8A/wH8B/h/wH8D+A/gP8B/A+D4B+D/A/wf8B/Af4AD/8H/A/4H///gP4/wH/B/4D//wP8fwf+B///+P+B/gA//9//P/4P///gf/8B//P/wH/+A//+D/8D///7/+H+AD//z/8//gP+f+Af/gH/8//AH/wDP/wP/wD/z/P/4f4AAAAAAAAAAHhAAAPgAAAAAAAD4AADwAAAAB4BgAAB/gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf4DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/geAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD+D8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4PwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAfh/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/P8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD//gAAAAAAAAAAAAAAAf4DgYc/5/HBgAAAAAAAAAAAAD/4AAAAAAAAAAAAAAAB/weDjz/n+MOAAAAAAAAAAAAAB8AAAAAAAAAAAAAAAAGHB8OOOAYc4wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYcOw5w4Bgx3AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/w7j+D/GDH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAH+DOP4P8YcPgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAccc8/w4B/gcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABg5/z3DgH8BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGDv/OOOAY4HAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAf8wO4c/5hwcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB/nAZg7/mHBwAAAAAAAAAAAAAAAA=';
+// ===== QR STRUK DIGITAL =====
+const PUBLIC_RECEIPT_URL = 'https://indonesianbakery.github.io/internal/pos/?struk=';
+function receiptQrUrl(){
+  const isShift = (document.getElementById('rc-title').textContent||'').includes('Shift');
+  return (!isShift && !PUBLIC_TOKEN && lastReceiptData && lastReceiptData.token) ? PUBLIC_RECEIPT_URL + lastReceiptData.token : null;
+}
+function qrRaster(text, scale){
+  if(typeof qrcode==='undefined') return null;
+  const q = qrcode(0,'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), quiet = 2, size = (n+quiet*2)*scale, W = Math.ceil(size/8)*8, wB = W/8;
+  const data = new Uint8Array(wB*size);
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++){
+    const mx = Math.floor(x/scale)-quiet, my = Math.floor(y/scale)-quiet;
+    if(mx>=0 && my>=0 && mx<n && my<n && q.isDark(my,mx)) data[y*wB+(x>>3)] |= (0x80>>(x&7));
+  }
+  return { w:W, h:size, wB, data };
+}
+function drawQrTo(ctx, text, x, y, px){
+  const q = qrcode(0,'M'); q.addData(text); q.make();
+  const n = q.getModuleCount(), m = px/(n+4);
+  ctx.fillStyle='#fff'; ctx.fillRect(x,y,px,px); ctx.fillStyle='#000';
+  for(let r=0;r<n;r++) for(let c=0;c<n;c++) if(q.isDark(r,c)) ctx.fillRect(Math.round(x+(c+2)*m), Math.round(y+(r+2)*m), Math.ceil(m), Math.ceil(m));
+}
 function buildReceiptBytes(){
   const raw = atob(LOGO_B64);
   const img = new Uint8Array(raw.length); for(let i=0;i<raw.length;i++) img[i]=raw.charCodeAt(i);
   const wB = LOGO_W/8;
   const head = [0x1B,0x40, 0x1B,0x61,0x01, 0x1D,0x76,0x30,0x00, wB&255, wB>>8, LOGO_H&255, LOGO_H>>8];
   const tail = [0x0A, 0x1B,0x61,0x00];
-  const text = new TextEncoder().encode(buildReceiptText());
-  const out = new Uint8Array(head.length + img.length + tail.length + text.length);
-  let o=0; out.set(head,o); o+=head.length; out.set(img,o); o+=img.length; out.set(tail,o); o+=tail.length; out.set(text,o);
+  const url = receiptQrUrl();
+  const qr = url ? qrRaster(url, 5) : null;
+  const text = new TextEncoder().encode(qr ? buildReceiptText().replace(/\n+$/,'\n') : buildReceiptText());
+  let qrBytes = new Uint8Array(0);
+  if(qr){
+    const h1 = [0x0A, 0x1B,0x61,0x01, 0x1D,0x76,0x30,0x00, qr.wB&255, qr.wB>>8, qr.h&255, qr.h>>8];
+    const cap = new TextEncoder().encode('\nScan untuk struk digital\n\n\n\n');
+    qrBytes = new Uint8Array(h1.length + qr.data.length + cap.length + 3);
+    let k=0; qrBytes.set(h1,k); k+=h1.length; qrBytes.set(qr.data,k); k+=qr.data.length; qrBytes.set(cap,k); k+=cap.length; qrBytes.set([0x1B,0x61,0x00],k);
+  }
+  const out = new Uint8Array(head.length + img.length + tail.length + text.length + qrBytes.length);
+  let o=0; out.set(head,o); o+=head.length; out.set(img,o); o+=img.length; out.set(tail,o); o+=tail.length; out.set(text,o); o+=text.length; out.set(qrBytes,o);
   return out;
 }
 function bytesToB64(u8){ let s=''; for(let i=0;i<u8.length;i+=8192) s+=String.fromCharCode.apply(null, u8.subarray(i,i+8192)); return btoa(s); }
@@ -1786,6 +1856,7 @@ function buildReceiptText(){
     if(el.tagName==='HR'){ lines.push('-'.repeat(RC_W)); return; }
     if(el.classList.contains('rc-hd')){ el.innerHTML.split(/<br\s*\/?>|<\/b>/i).forEach(part=>{ const d=document.createElement('div'); d.innerHTML=part; const t=d.textContent; if(rcClean(t) && rcClean(t).toLowerCase()!=='indonesian bakery') lines.push(rcCenter(t)); }); return; }
     if(el.classList.contains('rc-row')){ const sp=el.querySelectorAll('span'); const sub=el.classList.contains('rc-sub'); const L=(sub?'  ':'')+rcClean(sp[0]?sp[0].textContent:''); const R=rcClean(sp[1]?sp[1].textContent:''); const gap=RC_W-L.length-R.length; lines.push(gap>=1 ? L+' '.repeat(gap)+R : rcLR(L,R)); return; }
+    if(el.classList.contains('rc-qr') || el.classList.contains('rc-qr-cap')) return;
     if(el.classList.contains('rc-item')){ lines.push(rcWrap(el.textContent)); return; }
     if(el.classList.contains('rc-gap')){ lines.push('','',''); return; }
     const t = el.textContent; if(rcClean(t)) lines.push(el.style.textAlign==='center'?rcCenter(t):rcWrap(t));
@@ -1840,7 +1911,8 @@ function renderReceiptCanvas(){
   const fs = Math.floor(20*S*(W-PAD*2)/(cw*32));
   const lh = Math.round(fs*1.35);
   const logoW = LOGO_W*S, logoH = LOGO_H*S;
-  c.width = W; c.height = PAD + logoH + 12*S + lines.length*lh + PAD;
+  const qrUrl = receiptQrUrl(); const qrPx = qrUrl && typeof qrcode!=='undefined' ? 200*S : 0;
+  c.width = W; c.height = PAD + logoH + 12*S + lines.length*lh + (qrPx ? qrPx + lh*2 : 0) + PAD;
   ctx.fillStyle = '#fff'; ctx.fillRect(0,0,c.width,c.height);
   // logo dari bitmap struk
   const raw = atob(LOGO_B64), id = ctx.createImageData(LOGO_W, LOGO_H), wB = LOGO_W/8;
@@ -1855,6 +1927,7 @@ function renderReceiptCanvas(){
   ctx.fillStyle = '#000'; ctx.font = 'bold '+fs+'px "Courier New", monospace'; ctx.textBaseline = 'top';
   let y = PAD + logoH + 12*S;
   lines.forEach(l=>{ ctx.fillText(l, PAD, y); y += lh; });
+  if(qrPx){ y += lh*0.5; drawQrTo(ctx, qrUrl, (W-qrPx)/2, y, qrPx); y += qrPx; ctx.fillStyle='#000'; const cap='Scan untuk struk digital'; ctx.fillText(cap, (W-ctx.measureText(cap).width)/2, y+lh*0.3); }
   // jadikan hitam-putih murni biar tajam di printer thermal (gak abu-abu/pudar)
   const img = ctx.getImageData(0,0,c.width,c.height), d = img.data;
   for(let i=0;i<d.length;i+=4){ const v = (d[i]*0.3+d[i+1]*0.59+d[i+2]*0.11) < 170 ? 0 : 255; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
@@ -1885,6 +1958,10 @@ function printThermal(){
   location.href = 'intent:base64,' + b64 + '#Intent;scheme=rawbt;package=ru.a402d.rawbtprinter;end;';
 }
 function closeReceiptSheet(){ closeSheet('sheet-receipt'); renderProducts(); if(currentUser && currentBranch && !currentShift) openShiftOpenSheet(); }
+
+// buka halaman struk digital kalau link-nya dari QR
+if(PUBLIC_TOKEN) window.addEventListener('DOMContentLoaded', ()=>openPublicReceipt(PUBLIC_TOKEN));
+if(PUBLIC_TOKEN && document.readyState!=='loading') openPublicReceipt(PUBLIC_TOKEN);
 </script>
 </body>
 </html>
