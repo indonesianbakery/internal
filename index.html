@@ -5171,9 +5171,18 @@ async function toggleSalesDay(idx, dateStr){
     const habis = sisa===0;
     const masukKosong = sisaRows.length>0 && prod===0;
     if(masukKosong) adaMasukKosong=true;
-    perProd.push({name:p.name, terjual, tersedia, sisa, habis, masukKosong});
+    perProd.push({id:p.id, name:p.name, terjual, tersedia, sisa, habis, masukKosong});
   });
   perProd.sort((a,b)=>b.terjual-a.terjual);
+  // cocokkan dengan POS: terjual menurut hitungan fisik vs tercatat di POS (per roti, lewat ID produk)
+  const { data: posT } = await sb.from('pos_transactions').select('pos_transaction_items(product_id,product_name,qty)')
+    .eq('branch_id',br).gte('created_at',dateStr+'T00:00:00+07:00').lte('created_at',dateStr+'T23:59:59+07:00');
+  const posQty={}, posName={}; let adaPos=false;
+  (posT||[]).forEach(t=>(t.pos_transaction_items||[]).forEach(i=>{ adaPos=true; const k=i.product_id; posQty[k]=(posQty[k]||0)+(i.qty||0); posName[k]=i.product_name; }));
+  perProd.forEach(x=>{ x.pos=posQty[x.id]||0; x.dibandingkan=(x.sisa!==null); x.selisih=x.terjual-x.pos; });
+  const belumHitung=[]; // terjual di POS tapi belum ada hitungan fisik (sisa) hari itu
+  perProd.filter(x=>!x.dibandingkan&&x.pos>0).forEach(x=>belumHitung.push({name:x.name,pos:x.pos}));
+  Object.keys(posQty).forEach(k=>{ if(!perProd.some(x=>String(x.id)===String(k))){ const pr=products.find(p=>String(p.id)===String(k)); belumHitung.push({name:pr?pr.name:(posName[k]||'(produk)'),pos:posQty[k]}); } });
   const habisList=perProd.filter(x=>x.habis);
   let html='';
   if(adaMasukKosong){
@@ -5182,6 +5191,24 @@ async function toggleSalesDay(idx, dateStr){
   if(habisList.length){
     html+='<div style="font-size:11px;font-weight:700;color:var(--r);margin-bottom:6px">🔴 Habis hari ini ('+habisList.length+')</div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px">'+habisList.map(x=>'<span style="font-size:11px;background:var(--r-bg);color:var(--r);padding:3px 9px;border-radius:20px;font-weight:600">'+dn(x.name)+'</span>').join('')+'</div>';
+  }
+  if(adaPos){
+    const dibanding=perProd.filter(x=>x.dibandingkan&&(x.terjual||x.pos));
+    const beda=dibanding.filter(x=>x.selisih!==0);
+    html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">🧾 Cocokkan Roti vs POS</div>';
+    html+=beda.length
+      ? '<div style="background:var(--r-bg);color:var(--r);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:6px">'+beda.length+' roti tidak cocok dengan POS</div>'
+      : '<div style="background:var(--g-bg);color:var(--g);font-size:11px;padding:8px 10px;border-radius:8px;margin-bottom:6px">✅ Semua yang sudah dihitung cocok dengan POS</div>';
+    html+='<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);padding:2px 0"><span>Roti</span><span>Fisik · POS · Selisih</span></div>';
+    html+=dibanding.map(x=>{
+      const c=x.selisih===0?'var(--g)':'var(--r)';
+      const lbl=x.selisih===0?'✓':(x.selisih>0?'-'+x.selisih+' blm di POS':'+'+(-x.selisih)+' lebih');
+      return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+finEsc(dn(x.name))+'</span><span style="font-family:DM Mono,monospace">'+x.terjual+' · '+x.pos+' · <b style="color:'+c+'">'+lbl+'</b></span></div>';
+    }).join('');
+    if(belumHitung.length){
+      html+='<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">Belum ada hitungan fisik (sisa) hari ini, jadi belum bisa dicocokkan: '+belumHitung.map(x=>finEsc(dn(x.name))+' (POS '+x.pos+')').join(', ')+'.</div>';
+    }
+    html+='<div style="height:10px"></div>';
   }
   html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Rincian per roti</div>';
   html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️ masuk?</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
