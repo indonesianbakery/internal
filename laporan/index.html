@@ -38,6 +38,11 @@ h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);m
 .top{margin:10px 0 0;padding:0;list-style:none;font-size:13px}
 .top li{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--bd)}
 .top li b{font-variant-numeric:tabular-nums}
+.lh{border-color:#F0C9C5;background:#FFF8F7}
+.lh h2{color:var(--zr)}
+.lh .nm2{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #F3DAD7;font-size:14px}
+.lh .nm2 b{color:var(--zr);font-variant-numeric:tabular-nums;white-space:nowrap}
+.lhok{border-color:#BFE0CC;background:#F3FAF6;color:var(--ok);font-size:14px}
 .note{font-size:12px;color:var(--t2);background:var(--gbg);border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.35}
 details{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:10px;overflow:hidden}
 summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;gap:8px;font-weight:600}
@@ -92,6 +97,13 @@ function posCard(pos,title){
   c.appendChild(el('div','note','Hanya transaksi yang tercatat di POS. Penjualan sebenarnya di toko bisa berbeda.'));
   return c;
 }
+function larisCard(l){
+  if(!l||!l.total)return null;
+  if(!l.habis||!l.habis.length){var o=el('div','card lhok','Semua '+l.total+' produk terlaris ('+l.days+' hari) masih ada stok.');return o;}
+  var c=el('div','card lh');c.appendChild(el('h2','','Terlaris tapi habis · top '+l.total+', '+l.days+' hari'));
+  l.habis.forEach(function(h){var r=el('div','nm2');r.appendChild(el('span','',dn(h[0])));r.appendChild(el('b','','terjual '+h[1]));c.appendChild(r);});
+  return c;
+}
 function group(rows,ci){var m={},o=[];rows.forEach(function(r){var k=r[ci]||'Lainnya';if(!m[k]){m[k]=[];o.push(k);}m[k].push(r);});return {m:m,o:o};}
 function renderStok(){
   var P=D.payload,thr=P.thr==null?2:P.thr,items=P.items||[];app.textContent='';
@@ -101,6 +113,7 @@ function renderStok(){
     var b=el('button','tile '+t[0]+(S.f===t[0]?' on':''));b.appendChild(el('span','n',String(t[2])));b.appendChild(el('span','l',t[1]));
     b.onclick=function(){S.f=(S.f===t[0])?'all':t[0];renderStok();};tiles.appendChild(b);});
   app.appendChild(tiles);
+  var lc=larisCard(P.laris);if(lc)app.appendChild(lc);
   if(P.pos!==undefined)app.appendChild(posCard(P.pos,'Penjualan POS hari ini'));
   var q=el('input','search');q.type='search';q.placeholder='Cari roti…';q.value=S.q;q.setAttribute('aria-label','Cari roti');
   q.oninput=function(){S.q=q.value;renderStok();var n=document.querySelector('.search');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};

@@ -3994,11 +3994,16 @@ async function fetchPosDay(dateStr){
 const WA_POS_NOTE = '_ℹ️ Hanya transaksi yang tercatat di POS. Penjualan sebenarnya di toko bisa berbeda._';
 function waPosBlock(pos, judul){
   if (!pos) return '';
-  if (!pos.trx) return '━━━━━━━━━━━━━━\n🛒 *'+judul+'*\nBelum ada transaksi tercatat di POS.\n_ℹ️ Penjualan sebenarnya di toko bisa berbeda._';
+  if (!pos.trx) return '━━━━━━━━━━━━━━\n■ *'+judul+'*\nBelum ada transaksi tercatat di POS.\n_ℹ️ Penjualan sebenarnya di toko bisa berbeda._';
   const pay=['cash','qris','transfer','debit','gofood','lain'].filter(k=>pos.byPay[k]>0).map(k=>(WA_PAY[k]||'Lainnya')+' '+waRp(pos.byPay[k]));
   const top=Object.keys(pos.top).sort((a,b)=>pos.top[b]-pos.top[a]||a.localeCompare(b)).slice(0,5).map(k=>waName(k)+' '+pos.top[k]);
-  return '━━━━━━━━━━━━━━\n🛒 *'+judul+'*\n💰 *'+waRp(pos.total)+'*\n🧾 '+pos.trx+' transaksi · '+pos.pcs+' pcs'
-    +(pay.length?'\n💳 '+pay.join(' · '):'')+(top.length?'\n🏆 Terlaris: '+top.join(' · '):'')+'\n'+WA_POS_NOTE;
+  return '━━━━━━━━━━━━━━\n■ *'+judul+'*\nTotal *'+waRp(pos.total)+'*\nTransaksi '+pos.trx+' · '+pos.pcs+' pcs'
+    +(pay.length?'\nBayar: '+pay.join(' · '):'')+(top.length?'\nTerlaris: '+top.join(' · '):'')+'\n'+WA_POS_NOTE;
+}
+function waLarisBlock(l){
+  if (!l || !l.total) return '';
+  if (!l.habis.length) return '✅ Semua '+l.total+' produk terlaris ('+l.days+' hari) masih ada stok.';
+  return '❗ *Terlaris tapi habis* (top '+l.total+', '+l.days+' hari)\n'+l.habis.map(x=>'- '+waName(x.name)+' (terjual '+x.qty+')').join('\n');
 }
 // o: { cabang, tglLong, jam, items:[{cat,name,now}], thr, pos }
 function waStockText(o){
@@ -4006,8 +4011,9 @@ function waStockText(o){
   o.items.forEach(i=>{ (i.now===0?zero:(i.now<=o.thr?low:ok)).push(i); });
   const grp=(arr,qty)=>{ const by={}, order=[]; arr.forEach(i=>{ if(!by[i.cat]){ by[i.cat]=[]; order.push(i.cat); } by[i.cat].push(i); });
     return order.map(cn=>'_'+cn+'_\n'+by[cn].map(i=>'- '+waName(i.name)+(qty?' : '+i.now:'')).join('\n')).join('\n\n'); };
-  let t='📦 *LAPORAN STOK*\n📍 '+o.cabang+'\n🗓 '+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n'
+  let t='■ *LAPORAN STOK*\nCabang: '+o.cabang+'\n'+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n'
     +'✅ '+ok.length+' cukup · ⚠️ '+low.length+' sedikit · ❌ '+zero.length+' habis';
+  const lb=waLarisBlock(o.laris); if (lb) t+='\n\n'+lb;
   if (ok.length) t+='\n\n✅ *Jumlah* (lebih dari '+o.thr+')\n'+grp(ok,true);
   if (low.length) t+='\n\n⚠️ *Sisa Sedikit* ('+o.thr+' atau kurang)\n'+grp(low,true);
   if (zero.length) t+='\n\n❌ *Habis*\n'+grp(zero,false);
@@ -4018,9 +4024,9 @@ function waStockText(o){
 function waDayText(o){
   let tm=0,tt=0,ts=0,tr=0; const byCat={}, order=[];
   o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; const k=r.kategori||'Lainnya'; if(!byCat[k]){ byCat[k]=[]; order.push(k); } byCat[k].push(r); });
-  let t='📊 *LAPORAN HARIAN*\n📍 '+o.cabang+'\n🗓 '+o.tglLong;
+  let t='■ *LAPORAN HARIAN*\nCabang: '+o.cabang+'\n'+o.tglLong;
   const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
-  t+='\n\n━━━━━━━━━━━━━━\n📋 *RINGKASAN STOK*\n🥖 Masuk '+tm+' pcs\n📦 Sisa '+ts+' pcs'+(tr?'\n↩️ Retur '+tr+' pcs':'')+'\n💰 Terjual (hitungan fisik) '+tt+' pcs';
+  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (hitungan fisik) '+tt+' pcs';
   order.forEach(cn=>{
     const lines=byCat[cn].filter(r=>r.terjual>0||r.masuk>0).map(r=>'- '+waName(r.name)+' : masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', *terjual '+r.terjual+'*');
     if (lines.length) t+='\n\n_'+cn+'_\n'+lines.join('\n');
@@ -4028,19 +4034,28 @@ function waDayText(o){
   return t;
 }
 // ---- pesan ringkas + link ke halaman lengkap (potret laporan disimpan di database, dibuka dengan kode acak)
-function waLinkFooter(url){ return '\n\n🔗 *Lihat daftar lengkap:*\n'+url; }
+function waLinkFooter(url){ return '\n\n➜ *Lihat daftar lengkap:*\n'+url; }
 function waStockShort(o){
   let ok=0,low=0,zero=0; o.items.forEach(i=>{ if(i.now===0)zero++; else if(i.now<=o.thr)low++; else ok++; });
-  let t='📦 *LAPORAN STOK*\n📍 '+o.cabang+'\n🗓 '+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n✅ '+ok+' cukup · ⚠️ '+low+' sedikit · ❌ '+zero+' habis';
+  let t='■ *LAPORAN STOK*\nCabang: '+o.cabang+'\n'+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n✅ '+ok+' cukup · ⚠️ '+low+' sedikit · ❌ '+zero+' habis';
+  const lb=waLarisBlock(o.laris); if (lb) t+='\n\n'+lb;
   const pb=waPosBlock(o.pos,'PENJUALAN POS HARI INI'); if (pb) t+='\n\n'+pb;
   return t+waLinkFooter(o.link);
 }
 function waDayShort(o){
   let tm=0,tt=0,ts=0,tr=0; o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; });
-  let t='📊 *LAPORAN HARIAN*\n📍 '+o.cabang+'\n🗓 '+o.tglLong;
+  let t='■ *LAPORAN HARIAN*\nCabang: '+o.cabang+'\n'+o.tglLong;
   const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
-  t+='\n\n━━━━━━━━━━━━━━\n📋 *RINGKASAN STOK*\n🥖 Masuk '+tm+' pcs\n📦 Sisa '+ts+' pcs'+(tr?'\n↩️ Retur '+tr+' pcs':'')+'\n💰 Terjual (hitungan fisik) '+tt+' pcs';
+  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (hitungan fisik) '+tt+' pcs';
   return t+waLinkFooter(o.link);
+}
+// top 20 terlaris (POS, 7 hari terakhir) yang stoknya sekarang 0
+async function fetchLarisHabis(){
+  const { data, error } = await sb.rpc('get_top_sellers', { p_branch_id:branch, p_days:7, p_limit:20 });
+  if (error || !data || !data.length) return null;
+  const habis=[];
+  data.forEach(r=>{ const p=products.find(x=>x.id===r.product_id); if (p && isOn(p) && stockNow[p.name]!==undefined && stockNow[p.name].now===0) habis.push({ name:p.name, qty:Number(r.qty) }); });
+  return { days:7, total:data.length, habis:habis };
 }
 function waPosPayload(pos){
   if (!pos) return null;
@@ -4068,8 +4083,9 @@ async function sendStokWA(ev){
     categories.forEach(cat=>{ products.filter(p=>p.category_id===cat.id && isOn(p) && stockNow[p.name]!==undefined).sort((a,b)=>dn(a.name).localeCompare(dn(b.name))).forEach(p=>items.push({cat:cat.name,name:p.name,now:stockNow[p.name].now})); });
     const base = { cabang:BRANCHES[branch], tglLong:waDateLong(todayStr), jam:jam, items:items, thr:thresholdSedikit };
     let pos=null; try { pos = await fetchPosDay(todayStr); } catch(_) {}
-    let token=null; try { token = await createReportSnapshot('stok', todayStr, { kind:'stok', cabang:base.cabang, tgl:base.tglLong, jam:jam, thr:thresholdSedikit, items:items.map(i=>[i.cat,i.name,i.now]), pos:waPosPayload(pos) }); } catch(_) {}
-    const text = token ? waStockShort({ ...base, pos:pos, link:reportUrl(token) }) : waStockText({ ...base, pos:pos });   // cadangan: teks lengkap bila potret gagal dibuat
+    let laris=null; try { laris = await fetchLarisHabis(); } catch(_) {}
+    let token=null; try { token = await createReportSnapshot('stok', todayStr, { kind:'stok', cabang:base.cabang, tgl:base.tglLong, jam:jam, thr:thresholdSedikit, items:items.map(i=>[i.cat,i.name,i.now]), pos:waPosPayload(pos), laris:laris?{days:laris.days,total:laris.total,habis:laris.habis.map(x=>[x.name,x.qty])}:null }); } catch(_) {}
+    const text = token ? waStockShort({ ...base, pos:pos, laris:laris, link:reportUrl(token) }) : waStockText({ ...base, pos:pos, laris:laris });   // cadangan: teks lengkap bila potret gagal dibuat
     waGo(win, waLink(text));
   } finally { _waBusy = false; if (link) link.style.opacity=''; }
 }
