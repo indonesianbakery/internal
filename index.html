@@ -1884,8 +1884,8 @@ async function loginPin() {
     const role = row.role||'karyawan';
     if (role==='pending') { errEl.textContent='Akun belum di-approve'; return; }
     currentUser = { nama: row.nama, role, branch_id: row.branch_id, mode:'pin', id: row.id||null, username: row.username||null };
+    await upgradePinSession(nama, pin); // sesi aman dari server untuk semua role (gagal = tetap mode PIN)
     afterLogin();
-    if (role==='master') upgradePinSession(nama, pin); // sesi aman dari server (tanpa menunggu; gagal = tetap mode PIN)
   } catch(e){ errEl.textContent='Koneksi gagal, coba lagi'; }
 }
 
@@ -1904,7 +1904,7 @@ async function checkSession(retry) {
     document.getElementById('pending-email').textContent = user.email;
     show('pending'); return;
   }
-  if (profile.role==='master'||profile.role==='manager') {
+  if (profile.role==='master'||profile.role==='manager'||profile.role==='karyawan') {
     currentUser = { nama: profile.full_name||user.email, email:user.email, role:profile.role, branch_id:profile.branch_id, mode:'google', id:user.id, username:profile.username };
     afterLogin();
   } else {
