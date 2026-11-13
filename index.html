@@ -334,6 +334,9 @@ body.font-xl{zoom:1.25;}
 .prod-manage-row{background:white;border:1.5px solid var(--border);border-radius:var(--rad-sm);padding:12px;margin-bottom:8px;display:flex;flex-direction:column;align-items:stretch;gap:10px;}
 .prod-manage-row-inactive{background:#EDEAEA;border-color:#D8D3D3;}
 .bp-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);margin-top:8px;cursor:pointer;}
+.br-chip{flex:1;padding:10px 6px;border-radius:10px;border:1.5px solid var(--border);background:#fff;color:var(--text3);font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;}
+.br-chip.on{border-color:var(--g);background:var(--g-bg);color:var(--g);}
+.br-chip.part{border-color:var(--y);background:var(--y-bg);color:var(--y);}
 .bp-toggle input{width:16px;height:16px;accent-color:var(--g);}
 .bp-box{margin:8px 0 2px;padding:8px 10px;border-radius:10px;background:var(--g-light);border:1px dashed var(--g3);}
 .bp-title{font-size:11px;font-weight:700;color:var(--g);margin-bottom:4px;}
@@ -1193,6 +1196,7 @@ body{ max-width:none; }
       <button class="add-btn" style="flex:1;min-width:120px" onclick="bulkEditHarga()">💰 Edit Harga</button>
       <button class="add-btn" id="bulk-shelf-btn" style="flex:1;min-width:120px;background:var(--y-bg);color:var(--y)" onclick="bulkEditShelf()">⏰ Shelf Life</button>
       <button class="mini-btn" style="flex:1" onclick="bulkToggleActive(false)">Nonaktifkan</button>
+      <div style="flex-basis:100%;display:flex;gap:6px;align-items:center"><select id="bulk-branch" class="kor-input" style="flex:1.2;padding:6px 8px"></select><button class="mini-btn" style="flex:1" onclick="bulkBranchActive(true)">Jual di cabang ini</button><button class="mini-btn" style="flex:1" onclick="bulkBranchActive(false)">Tidak jual</button></div>
       <button class="del-btn" style="flex:1" onclick="bulkDelete()">🗑️ Hapus</button>
     </div>
   </div>
@@ -1824,6 +1828,10 @@ const BRANCHES = { melur: 'Jl. Melur', delima: 'Jl. Delima' };
 let currentUser = null;
 let branch = 'melur';
 let products = [];      // {id,name,category_id,is_active}
+let branchOff = {};     // cabang -> Set id produk yang TIDAK dijual di cabang itu
+function isOffHere(p){ return !!(branchOff[branch] && branchOff[branch].has(p.id)); }
+function isOn(p){ return p.is_active!==false && !isOffHere(p); }
+function pruneStockNow(){ products.forEach(p=>{ if (isOffHere(p)) delete stockNow[p.name]; }); }
 let categories = [];    // {id,name,sort_order}
 let stockNow = {};      // { name: {now, masuk, sisa} }
 let inputVals = {};     // { name: qty } untuk layar input
@@ -2035,6 +2043,9 @@ async function loadProducts() {
   const { data: bp } = await sb.from('product_branch_prices').select('*');
   branchPrices = {};
   (bp||[]).forEach(r=>{ if(!branchPrices[r.product_id]) branchPrices[r.product_id]={}; branchPrices[r.product_id][r.branch_id]=Number(r.price); });
+  { const { data: bo, error: boe } = await sb.from('product_branch_inactive').select('product_id,branch_id');
+    if (!boe && bo) { branchOff = {}; bo.forEach(r=>{ (branchOff[r.branch_id]=branchOff[r.branch_id]||new Set()).add(r.product_id); }); } }
+  pruneStockNow();
 }
 function priceFor(p, b){ const bp=branchPrices[p.id]; return (bp && bp[b]!=null) ? bp[b] : (p.cost_price||0); }
 async function loadSettings() {
@@ -2070,7 +2081,7 @@ function initManualOrder() {
   manualCatOrder = categories.map(c=>c.id);
   manualItemOrder = {};
   categories.forEach(c => {
-    manualItemOrder[c.id] = products.filter(p=>p.category_id===c.id && p.is_active!==false).map(p=>p.name);
+    manualItemOrder[c.id] = products.filter(p=>p.category_id===c.id && isOn(p)).map(p=>p.name);
   });
 }
 async function saveUserPrefs() {
@@ -2104,6 +2115,7 @@ async function loadStockNow() {
       };
     });
   }
+  pruneStockNow();
   renderOverview();
 }
 
@@ -2172,7 +2184,7 @@ function renderOverview(filter='') {
     const nameInCat = (cat) => {
       let arr = sortMode==='manual' && manualItemOrder[cat.id]
         ? manualItemOrder[cat.id].filter(n=>stockNow[n]!==undefined)
-        : products.filter(p=>p.category_id===cat.id && p.is_active!==false).map(p=>p.name).filter(n=>stockNow[n]!==undefined);
+        : products.filter(p=>p.category_id===cat.id && isOn(p)).map(p=>p.name).filter(n=>stockNow[n]!==undefined);
       arr = arr.filter(n=>n.toLowerCase().includes(filter.toLowerCase()));
       if (ovFilter!=='all') arr = arr.filter(n=>statusOf(stockNow[n].now)===ovFilter);
       return arr;
@@ -2449,8 +2461,16 @@ async function openInput(mode) {
   renderInput();
 }
 async function catatActivate(id, name){
-  const { error } = await sb.from('products').update({is_active:true}).eq('id',id);
-  if (error){ alert('Gagal mengaktifkan: '+error.message); return; }
+  const p0 = products.find(x=>x.id===id);
+  if (p0 && p0.is_active===false) {
+    const { error } = await sb.from('products').update({is_active:true}).eq('id',id);
+    if (error){ alert('Gagal mengaktifkan: '+error.message); return; }
+  }
+  if (p0 && isOffHere(p0)) {
+    const { error: e2 } = await sb.rpc('set_product_branch_active',{p_product_ids:[id],p_branch_id:branch,p_active:true});
+    if (e2){ alert('Gagal mengaktifkan di cabang ini: '+e2.message); return; }
+    branchOff[branch].delete(id);
+  }
   const p = products.find(x=>x.id===id);
   if (p) p.is_active = true;
   if (!stockNow[name]) stockNow[name] = { now:0, produksi:0, stokKemarin:0, retur:0, masuk:0, terjualToday:0 };
@@ -2464,7 +2484,7 @@ function renderInput(filter='') {
   const wrap = document.getElementById('input-list');
   let html = '';
   categories.forEach(cat => {
-    const prods = products.filter(p=>p.category_id===cat.id && p.name.toLowerCase().includes(filter.toLowerCase()) && (p.is_active!==false ? (stockNow[p.name]!==undefined && inputVisible(p,filter)) : filter.length>0));
+    const prods = products.filter(p=>p.category_id===cat.id && p.name.toLowerCase().includes(filter.toLowerCase()) && (isOn(p) ? (stockNow[p.name]!==undefined && inputVisible(p,filter)) : filter.length>0));
     if (!prods.length) return;
     html += '<div class="cat-header">'+cat.name+'</div>';
     const _ordered=[]; groupVariants(prods.map(p=>p.name)).forEach(g=>g.forEach(nm=>_ordered.push(prods.find(p=>p.name===nm))));
@@ -2475,9 +2495,10 @@ function renderInput(filter='') {
       const _v=isVar(n);
       if(_v){ const _par=nameParts(n).parent; if(_par!==_lastParent){ html+='<div class="grp-head"><span>'+_par+'</span></div>'; _lastParent=_par; } } else _lastParent=null;
       const label=_v?dnOpts(n):n;
-      if (p.is_active===false) {
-        html += '<div class="catat-row catat-row-inactive"><div class="catat-name">'+label+' <span class="inactive-badge">nonaktif</span></div>'
-          +'<button class="mini-btn" style="margin-top:8px" onclick="catatActivate('+p.id+',\''+esc+'\')">\u2713 Aktifkan & catat stok</button></div>';
+      if (!isOn(p)) {
+        const globalOff = p.is_active===false;
+        html += '<div class="catat-row catat-row-inactive"><div class="catat-name">'+label+' <span class="inactive-badge">'+(globalOff?'nonaktif':'tidak dijual di '+finEsc(BRANCHES[branch]||branch))+'</span></div>'
+          +'<button class="mini-btn" style="margin-top:8px" onclick="catatActivate('+p.id+',\''+esc+'\')">\u2713 '+(globalOff?'Aktifkan':'Jual di '+finEsc(BRANCHES[branch]||branch))+' & catat stok</button></div>';
         return;
       }
       // tersedia = kemarin + masuk - retur; terjual = tersedia - sisa (sisa = input manual, angka final)
@@ -2513,7 +2534,7 @@ function inputVisible(p, filter){ return !!filter || inputShowAll || inputHasAct
 function setInputShowAll(v){ inputShowAll = v; renderInputTools(); renderInput(document.getElementById('input-search').value); }
 function renderInputTools(){
   const el = document.getElementById('input-tools'); if (!el) return;
-  const act = products.filter(p=>p.is_active!==false && stockNow[p.name]!==undefined);
+  const act = products.filter(p=>isOn(p) && stockNow[p.name]!==undefined);
   const vis = act.filter(inputHasActivity).length;
   const note = (inputMode==='tutup' && !inputShowAll && act.length-vis>0) ? '<div class="fin-note" style="margin:-2px 0 8px">'+(act.length-vis)+' produk stok 0 disembunyikan, otomatis dicatat 0 saat simpan.</div>' : '';
   const prev = document.getElementById('input-activity');
@@ -2528,7 +2549,7 @@ async function loadInputActivity(){
   const lbl = {masuk:'Masuk',retur:'Retur',sisa:'Sisa / hitungan'};
   const jam = ts => new Date(ts).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
   const rows = Object.values(groups).sort((a,b)=>a.last<b.last?-1:1);
-  const nAct = products.filter(p=>p.is_active!==false).length;
+  const nAct = products.filter(p=>isOn(p)).length;
   const closed = rows.find(g=>g.t==='sisa' && g.prods.size>=Math.max(1,Math.round(nAct*0.6)));
   let h = '';
   if (rows.length) h += '<div class="act-box"><div class="act-title">📋 Sudah dicatat hari ini ('+finEsc(BRANCHES[branch]||branch)+')</div>'+rows.map(g=>'<div class="act-row"><b>'+lbl[g.t]+'</b> · '+finEsc(g.u)+' · '+jam(g.last)+' · '+g.prods.size+' produk</div>').join('')+'</div>';
@@ -3699,7 +3720,7 @@ function renderKirimList(filter='') {
   const wrap = document.getElementById('kirim-list');
   let html = '';
   categories.forEach(cat => {
-    const prods = products.filter(p=>p.category_id===cat.id && p.is_active!==false && p.name.toLowerCase().includes(filter.toLowerCase()));
+    const prods = products.filter(p=>p.category_id===cat.id && isOn(p) && p.name.toLowerCase().includes(filter.toLowerCase()));
     if (!prods.length) return;
     html += '<div class="cat-header">'+cat.name+'</div>';
     prods.forEach(p => {
@@ -3909,7 +3930,7 @@ async function buildDayReport(dateStr){
   const all=movs||[];
   const out=[];
   products.forEach(p=>{
-    if(p.is_active===false) return;
+    if(!isOn(p)) return;
     const masuk=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const retur=all.filter(m=>m.product_id===p.id&&m.type==='retur'&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const sisaRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date===dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
@@ -3941,26 +3962,120 @@ async function exportDayExcel(dateStr){
 }
 
 async function sendDayWA(dateStr){
+  const win = waPreopen();
   const rows=await buildDayReport(dateStr);
-  if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
-  let pesan='*Laporan Harian '+fmtTglID(dateStr)+'*\nCabang: '+BRANCHES[branch]+'\n';
-  let tm=0,tt=0;
-  const byCat={};
-  rows.forEach(r=>{ if(!byCat[r.kategori])byCat[r.kategori]=[]; byCat[r.kategori].push(r); });
-  Object.keys(byCat).forEach(cat=>{
-    pesan+='\n*'+cat+'*\n';
-    byCat[cat].forEach(r=>{ pesan+=dn(r.name)+': masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', terjual *'+r.terjual+'*\n'; tm+=r.masuk; tt+=r.terjual; });
-  });
-  pesan+='\n_Total masuk: '+tm+' | Total terjual: '+tt+'_';
-  window.open('https://wa.me/'+waMaster+'?text='+encodeURIComponent(pesan),'_blank');
+  if(!rows.length){ if (win) win.close(); alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
+  let pos=null; try { pos = await fetchPosDay(dateStr); } catch(_) {}
+  const base = { cabang:BRANCHES[branch], tglLong:waDateLong(dateStr), rows:rows, pos:pos };
+  let token=null; try { token = await createReportSnapshot('harian', dateStr, { kind:'harian', cabang:base.cabang, tgl:base.tglLong, rows:rows.map(r=>[r.kategori,r.name,r.masuk,r.retur,r.sisa,r.terjual]), pos:waPosPayload(pos) }); } catch(_) {}
+  const pesan = token ? waDayShort({ ...base, link:reportUrl(token) }) : waDayText(base);
+  waGo(win, waLink(pesan));
 }
 
+// ===== LAPORAN WHATSAPP (rapi: Jumlah / Sisa Sedikit / Habis + penjualan POS) =====
+const WA_PAY = { cash:'Tunai', qris:'QRIS', transfer:'Transfer', debit:'Debit', gofood:'GoFood' };
+const WA_MON = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const WA_DAY = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+function waName(n){ return String(n).split('|').map(x=>x.trim()).join(' '); }   // nama varian polos (hemat panjang tautan)
+function waRp(n){ return 'Rp'+Math.round(Number(n)||0).toLocaleString('id-ID'); }
+function waDateLong(dateStr){ const p=String(dateStr).split('-').map(Number); const d=new Date(p[0],p[1]-1,p[2]); return WA_DAY[d.getDay()]+', '+p[2]+' '+WA_MON[p[1]-1]+' '+p[0]; }
+function waLink(text){ return 'https://wa.me/'+waMaster+'?text='+encodeURIComponent(text); }
+async function fetchPosDay(dateStr){
+  const { data, error } = await sb.from('pos_transactions').select('grand_total,payment_method,pos_transaction_items(product_id,product_name,qty,is_gift)')
+    .eq('branch_id',branch).gte('created_at',dateStr+'T00:00:00+07:00').lte('created_at',dateStr+'T23:59:59+07:00').limit(2000);
+  if (error) return null;
+  const pos={ trx:0, total:0, pcs:0, byPay:{}, top:{} };
+  (data||[]).forEach(t=>{
+    const g=Number(t.grand_total)||0; pos.trx++; pos.total+=g; const m=t.payment_method||'lain'; pos.byPay[m]=(pos.byPay[m]||0)+g;
+    (t.pos_transaction_items||[]).forEach(i=>{ if(i.is_gift) return; pos.pcs+=i.qty||0; const k=i.product_name||'?'; pos.top[k]=(pos.top[k]||0)+(i.qty||0); });
+  });
+  return pos;
+}
+const WA_POS_NOTE = '_ℹ️ Hanya transaksi yang tercatat di POS. Penjualan sebenarnya di toko bisa berbeda._';
+function waPosBlock(pos, judul){
+  if (!pos) return '';
+  if (!pos.trx) return '━━━━━━━━━━━━━━\n🛒 *'+judul+'*\nBelum ada transaksi tercatat di POS.\n_ℹ️ Penjualan sebenarnya di toko bisa berbeda._';
+  const pay=['cash','qris','transfer','debit','gofood','lain'].filter(k=>pos.byPay[k]>0).map(k=>(WA_PAY[k]||'Lainnya')+' '+waRp(pos.byPay[k]));
+  const top=Object.keys(pos.top).sort((a,b)=>pos.top[b]-pos.top[a]||a.localeCompare(b)).slice(0,5).map(k=>waName(k)+' '+pos.top[k]);
+  return '━━━━━━━━━━━━━━\n🛒 *'+judul+'*\n💰 *'+waRp(pos.total)+'*\n🧾 '+pos.trx+' transaksi · '+pos.pcs+' pcs'
+    +(pay.length?'\n💳 '+pay.join(' · '):'')+(top.length?'\n🏆 Terlaris: '+top.join(' · '):'')+'\n'+WA_POS_NOTE;
+}
+// o: { cabang, tglLong, jam, items:[{cat,name,now}], thr, pos }
+function waStockText(o){
+  const ok=[], low=[], zero=[];
+  o.items.forEach(i=>{ (i.now===0?zero:(i.now<=o.thr?low:ok)).push(i); });
+  const grp=(arr,qty)=>{ const by={}, order=[]; arr.forEach(i=>{ if(!by[i.cat]){ by[i.cat]=[]; order.push(i.cat); } by[i.cat].push(i); });
+    return order.map(cn=>'_'+cn+'_\n'+by[cn].map(i=>'- '+waName(i.name)+(qty?' : '+i.now:'')).join('\n')).join('\n\n'); };
+  let t='📦 *LAPORAN STOK*\n📍 '+o.cabang+'\n🗓 '+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n'
+    +'✅ '+ok.length+' cukup · ⚠️ '+low.length+' sedikit · ❌ '+zero.length+' habis';
+  if (ok.length) t+='\n\n✅ *Jumlah* (lebih dari '+o.thr+')\n'+grp(ok,true);
+  if (low.length) t+='\n\n⚠️ *Sisa Sedikit* ('+o.thr+' atau kurang)\n'+grp(low,true);
+  if (zero.length) t+='\n\n❌ *Habis*\n'+grp(zero,false);
+  const pb=waPosBlock(o.pos,'PENJUALAN POS HARI INI'); if (pb) t+='\n\n'+pb;
+  return t;
+}
+// o: { cabang, tglLong, rows:[{name,kategori,masuk,retur,sisa,terjual}], pos }
+function waDayText(o){
+  let tm=0,tt=0,ts=0,tr=0; const byCat={}, order=[];
+  o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; const k=r.kategori||'Lainnya'; if(!byCat[k]){ byCat[k]=[]; order.push(k); } byCat[k].push(r); });
+  let t='📊 *LAPORAN HARIAN*\n📍 '+o.cabang+'\n🗓 '+o.tglLong;
+  const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
+  t+='\n\n━━━━━━━━━━━━━━\n📋 *RINGKASAN STOK*\n🥖 Masuk '+tm+' pcs\n📦 Sisa '+ts+' pcs'+(tr?'\n↩️ Retur '+tr+' pcs':'')+'\n💰 Terjual (hitungan fisik) '+tt+' pcs';
+  order.forEach(cn=>{
+    const lines=byCat[cn].filter(r=>r.terjual>0||r.masuk>0).map(r=>'- '+waName(r.name)+' : masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', *terjual '+r.terjual+'*');
+    if (lines.length) t+='\n\n_'+cn+'_\n'+lines.join('\n');
+  });
+  return t;
+}
+// ---- pesan ringkas + link ke halaman lengkap (potret laporan disimpan di database, dibuka dengan kode acak)
+function waLinkFooter(url){ return '\n\n🔗 *Lihat daftar lengkap:*\n'+url; }
+function waStockShort(o){
+  let ok=0,low=0,zero=0; o.items.forEach(i=>{ if(i.now===0)zero++; else if(i.now<=o.thr)low++; else ok++; });
+  let t='📦 *LAPORAN STOK*\n📍 '+o.cabang+'\n🗓 '+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n✅ '+ok+' cukup · ⚠️ '+low+' sedikit · ❌ '+zero+' habis';
+  const pb=waPosBlock(o.pos,'PENJUALAN POS HARI INI'); if (pb) t+='\n\n'+pb;
+  return t+waLinkFooter(o.link);
+}
+function waDayShort(o){
+  let tm=0,tt=0,ts=0,tr=0; o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; });
+  let t='📊 *LAPORAN HARIAN*\n📍 '+o.cabang+'\n🗓 '+o.tglLong;
+  const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
+  t+='\n\n━━━━━━━━━━━━━━\n📋 *RINGKASAN STOK*\n🥖 Masuk '+tm+' pcs\n📦 Sisa '+ts+' pcs'+(tr?'\n↩️ Retur '+tr+' pcs':'')+'\n💰 Terjual (hitungan fisik) '+tt+' pcs';
+  return t+waLinkFooter(o.link);
+}
+function waPosPayload(pos){
+  if (!pos) return null;
+  return { trx:pos.trx, total:pos.total, pcs:pos.pcs, byPay:pos.byPay, top:Object.keys(pos.top).sort((a,b)=>pos.top[b]-pos.top[a]||a.localeCompare(b)).slice(0,5).map(k=>[k,pos.top[k]]) };
+}
+async function createReportSnapshot(kind, dateStr, payload){
+  const { data, error } = await sb.rpc('create_report_snapshot', { p_kind:kind, p_branch_id:branch, p_report_date:dateStr, p_payload:payload, p_user:(currentUser&&currentUser.nama)||null });
+  if (error || !data || typeof data!=='string') return null;
+  return data;
+}
+function reportUrl(token){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'laporan/#'+token; }
+// buka jendela WhatsApp SEKARANG (di dalam ketukan, agar tidak diblokir Safari), isinya diisi setelah data siap
+function waPreopen(){ try { return window.open('about:blank','_blank'); } catch(_) { return null; } }
+function waGo(win,url){ if (win && !win.closed) { win.location.href = url; } else { window.location.href = url; } }
+let _waBusy = false;
+async function sendStokWA(ev){
+  if (ev && ev.preventDefault) ev.preventDefault();
+  if (_waBusy) return; _waBusy = true;
+  const link=document.getElementById('dash-wa-link'); if (link) link.style.opacity='.6';
+  const win = waPreopen();
+  try {
+    const todayStr = new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+    const jam = new Date().toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'});
+    const items=[];
+    categories.forEach(cat=>{ products.filter(p=>p.category_id===cat.id && isOn(p) && stockNow[p.name]!==undefined).sort((a,b)=>dn(a.name).localeCompare(dn(b.name))).forEach(p=>items.push({cat:cat.name,name:p.name,now:stockNow[p.name].now})); });
+    const base = { cabang:BRANCHES[branch], tglLong:waDateLong(todayStr), jam:jam, items:items, thr:thresholdSedikit };
+    let pos=null; try { pos = await fetchPosDay(todayStr); } catch(_) {}
+    let token=null; try { token = await createReportSnapshot('stok', todayStr, { kind:'stok', cabang:base.cabang, tgl:base.tglLong, jam:jam, thr:thresholdSedikit, items:items.map(i=>[i.cat,i.name,i.now]), pos:waPosPayload(pos) }); } catch(_) {}
+    const text = token ? waStockShort({ ...base, pos:pos, link:reportUrl(token) }) : waStockText({ ...base, pos:pos });   // cadangan: teks lengkap bila potret gagal dibuat
+    waGo(win, waLink(text));
+  } finally { _waBusy = false; if (link) link.style.opacity=''; }
+}
 function buildWaReport() {
-  const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-  const now=new Date(); const tgl=now.getDate()+' '+bulan[now.getMonth()]+' '+now.getFullYear();
-  let pesan='*Laporan Stock '+tgl+'*\nCabang: '+BRANCHES[branch]+'\n';
-  categories.forEach(cat=>{ const items=products.filter(p=>p.category_id===cat.id && p.is_active!==false && stockNow[p.name]!==undefined); if(!items.length)return; pesan+='\n*'+cat.name+'*\n'; items.forEach(p=>{ pesan+=p.name+' - '+stockNow[p.name].now+'\n'; }); });
-  const link=document.getElementById('dash-wa-link'); link.href='https://wa.me/'+waMaster+'?text='+encodeURIComponent(pesan); link.style.display='block';
+  const link=document.getElementById('dash-wa-link'); if (!link) return;
+  link.href='#'; link.removeAttribute('target'); link.onclick=sendStokWA; link.style.display='block';
 }
 
 // ===== ROUTER =====
@@ -4043,6 +4158,7 @@ function toggleProdSelect() {
   prodSelected.clear();
   document.getElementById('prod-select-btn').textContent = prodSelectMode ? 'Selesai' : 'Pilih';
   document.getElementById('prod-action-bar').style.display = prodSelectMode ? '' : 'none';
+  if (prodSelectMode) fillBulkBranch();
   renderProdManageList();
 }
 
@@ -4373,6 +4489,20 @@ async function bulkEditShelf() {
   await loadProducts(); toggleProdSelect();
 }
 
+async function setBranchActive(ids, branchId, active){
+  const { error } = await sb.rpc('set_product_branch_active',{p_product_ids:ids,p_branch_id:branchId,p_active:active});
+  if (error) { alert('Gagal: '+error.message); return false; }
+  await loadProducts(); await loadStockNow();
+  return true;
+}
+async function pdBranch(b,on){ if (await setBranchActive([pmDetailId],b,on)) { renderProdManageList(); refreshPmDetail(); } }
+async function ppBranch(b,on){ const { ps } = parentVariants(pmParentKey); if (await setBranchActive(ps.map(p=>p.id),b,on)) { renderProdManageList(); refreshPmDetail(); } }
+function fillBulkBranch(){ const s=document.getElementById('bulk-branch'); if(s && !s.options.length) s.innerHTML=Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+finEsc(BRANCHES[b])+'</option>').join(''); }
+async function bulkBranchActive(on){
+  if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
+  const b=document.getElementById('bulk-branch').value;
+  if (await setBranchActive([...prodSelected], b, on)) toggleProdSelect();
+}
 async function bulkToggleActive(active) {
   if (!prodSelected.size) { alert('Pilih produk dulu'); return; }
   const ids = [...prodSelected];
@@ -4501,7 +4631,8 @@ function pmGroupKey(cid,parent){ return (cid==null?'':cid)+'|'+parent; }
 function pmToggleGroup(key){ if(pmOpenGroups.has(key)) pmOpenGroups.delete(key); else pmOpenGroups.add(key); renderProdManageList(); }
 function pmRowHtml(p,child){
   const off = p.is_active===false;
-  const sub = [hasBranchPrice(p.id)?'harga beda per cabang':null, EXPIRY_ON?'⏰ '+(p.shelf_life_days||2)+' hari':null].filter(Boolean).join(' · ');
+  const offB = Object.keys(BRANCHES).filter(b=>branchOff[b]&&branchOff[b].has(p.id)).map(b=>BRANCHES[b]);
+  const sub = [hasBranchPrice(p.id)?'harga beda per cabang':null, offB.length?'tidak dijual di '+offB.join(', '):null, EXPIRY_ON?'⏰ '+(p.shelf_life_days||2)+' hari':null].filter(Boolean).join(' · ');
   return '<div class="pm2-row'+(off?' pm2-off':'')+(child?' pm2-child':'')+'" onclick="openProdDetail('+p.id+')"><div class="pm2-main"><div class="pm2-name">'+finEsc(child?dnOpts(p.name):dn(p.name))+(off?' <span class="inactive-badge">nonaktif</span>':'')+'</div><div class="pm2-sub">'+sub+'</div></div><div class="pm2-price">'+(p.cost_price>0?fmtRp(p.cost_price):'—')+'</div><span class="pm2-chev">›</span></div>';
 }
 function pmRowsHtml(cp,isMaster,filter){
@@ -4549,6 +4680,8 @@ function renderProdDetail(){
     +(p.hpp!=null?'<div class="fin-note" style="margin:4px 0 0">Modal terakhir '+fmtRp(Math.round(Number(p.hpp)))+'/pcs'+(p.cost_price>0?' · margin '+Math.round((p.cost_price-p.hpp)/p.cost_price*100)+'%':'')+'</div>':'')
     +'<label class="bp-toggle"><input type="checkbox" '+(bpOn?'checked ':'')+'onchange="toggleBranchPrice('+p.id+',this.checked).then(refreshPmDetail)"> Harga beda per cabang</label>'+(bpOn?branchPriceBox(p):'')
     +(EXPIRY_ON?'<div class="pd-sec">Lama simpan</div><div class="pd-row"><input class="kor-input mono" type="number" min="1" max="30" value="'+(p.shelf_life_days||2)+'" style="width:90px" onchange="updateShelfLife('+p.id+',this.value,this)"><span class="pm-pcs">hari</span><span class="price-save-status" id="shelf-status-'+p.id+'"></span></div>':'')
+    +'<div class="pd-sec">Dijual di cabang</div><div class="pd-row" style="gap:8px">'+Object.keys(BRANCHES).map(b=>{ const on=!(branchOff[b]&&branchOff[b].has(p.id)); return '<button class="br-chip'+(on?' on':'')+'" onclick="pdBranch(\''+b+'\','+(!on)+')">'+finEsc(BRANCHES[b])+(on?' ✓':' ✗')+'</button>'; }).join('')+'</div>'
+    +'<div class="pm2-sub" style="margin-top:4px">✗ = produk ini tidak muncul di Beranda, Catat Stok, dan laporan cabang itu. Riwayat stoknya tetap aman.</div>'
     +'<div class="pd-sec">Status</div><div class="pd-row"><button class="'+(p.is_active===false?'mini-btn':'del-btn')+'" onclick="pdToggle()">'+(p.is_active===false?'Aktifkan':'Nonaktifkan')+'</button><button class="del-btn" onclick="pdDelete()">🗑️ Hapus</button></div>'
     +(typeof moveDataButtonHtml==='function'?moveDataButtonHtml():'')
     +'<button class="pp-close" onclick="closeProdDetail()">Selesai</button>';
@@ -4587,6 +4720,7 @@ function renderParentDetail(){
     +ps.map(p=>'<div class="pd-row" style="margin-bottom:6px"><div style="flex:1;font-size:13px;font-weight:600;'+(p.is_active===false?'color:#8A8484':'')+'" onclick="openProdDetail('+p.id+')">'+finEsc(dnOpts(p.name))+(p.is_active===false?' <span class="inactive-badge">nonaktif</span>':'')+' ›</div><span class="pm-rp">Rp</span><input class="mini-input" type="number" min="0" value="'+(p.cost_price||0)+'" style="width:84px" onchange="updateProductPrice('+p.id+',this.value,this)"><span class="price-save-status" id="price-status-'+p.id+'"></span></div>').join('')
     +'<div class="pd-sec">Tambah varian</div><div class="var-row"><input class="form-input" id="pp-o1" placeholder="Pilihan 1 (mis. Kecil)"><input class="form-input" id="pp-o2" placeholder="Pilihan 2 (mis. Bubuk)"><input class="form-input" id="pp-pr" type="number" min="0" placeholder="Harga" style="width:90px"></div>'
     +'<div><button class="mini-btn" onclick="ppAddVariant()">+ Tambah varian</button> <span id="pp-add-status" class="price-save-status"></span></div>'
+    +'<div class="pd-sec">Dijual di cabang <small style="font-weight:400;color:var(--text3)">(semua varian)</small></div><div class="pd-row" style="gap:8px">'+Object.keys(BRANCHES).map(b=>{ const nOff=ps.filter(p=>branchOff[b]&&branchOff[b].has(p.id)).length; const st=nOff===0?'on':(nOff===ps.length?'off':'part'); return '<button class="br-chip'+(st==='on'?' on':'')+(st==='part'?' part':'')+'" onclick="ppBranch(\''+b+'\','+(st!=='on')+')">'+finEsc(BRANCHES[b])+(st==='on'?' ✓':st==='off'?' ✗':' sebagian')+'</button>'; }).join('')+'</div>'
     +'<div class="pd-sec">Status</div><div class="pd-row"><button class="del-btn" onclick="ppSetActive(false)">Nonaktifkan semua</button><button class="mini-btn" onclick="ppSetActive(true)">Aktifkan semua</button></div>'
     +'<button class="pp-close" onclick="closeProdDetail()">Selesai</button>';
   document.getElementById('pm-detail-body').innerHTML = h;

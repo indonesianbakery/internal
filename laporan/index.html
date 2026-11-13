@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#7B2D3A">
+<title>Laporan · Indonesian Bakery</title>
+<style>
+:root{--g:#7B2D3A;--g2:#9B3F52;--gbg:#F9EEF0;--bg:#F6F2F3;--card:#fff;--text:#2B1A1E;--t2:#6F5A5F;--t3:#A08C91;--bd:#E8DDE0;--ok:#2E7D4F;--okbg:#E6F4EC;--lo:#B26A00;--lobg:#FFF1D6;--zr:#B3261E;--zrbg:#FBE4E2}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.4;padding-bottom:max(24px,env(safe-area-inset-bottom))}
+header{background:var(--g);color:#fff;padding:max(14px,env(safe-area-inset-top)) 18px 16px}
+header .brand{font-size:12px;opacity:.8;letter-spacing:.4px;text-transform:uppercase}
+header h1{margin:4px 0 2px;font-size:22px;font-weight:700}
+header .sub{font-size:13px;opacity:.9}
+main{max-width:720px;margin:0 auto;padding:14px 14px 0}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.tiles.four{grid-template-columns:repeat(2,1fr)}
+@media(min-width:520px){.tiles.four{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--card);border:1.5px solid var(--bd);border-radius:12px;padding:10px 6px;text-align:center;cursor:pointer;font-family:inherit}
+.tile .n{font-size:24px;font-weight:700;display:block}
+.tile .l{font-size:11px;color:var(--t2);text-transform:uppercase;letter-spacing:.3px}
+.tile.ok .n{color:var(--ok)}.tile.lo .n{color:var(--lo)}.tile.zr .n{color:var(--zr)}
+.tile.on{border-color:var(--g);background:var(--gbg)}
+.tile.static{cursor:default}
+.search{width:100%;padding:12px 14px;border:1.5px solid var(--bd);border-radius:12px;font-size:16px;font-family:inherit;background:#fff;margin-bottom:10px;outline:none}
+.search:focus{border-color:var(--g)}
+.bar{display:flex;justify-content:space-between;align-items:center;margin:2px 2px 8px;font-size:12px;color:var(--t2)}
+.bar button{background:none;border:none;color:var(--g);font-weight:600;font-size:12px;font-family:inherit;padding:4px;cursor:pointer}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin:0 0 8px}
+.pos .big{font-size:28px;font-weight:700;color:var(--g)}
+.pos .row{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--t2);margin-top:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.chip{background:var(--gbg);color:var(--g);border-radius:999px;padding:4px 10px;font-size:12px;font-weight:600}
+.top{margin:10px 0 0;padding:0;list-style:none;font-size:13px}
+.top li{display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--bd)}
+.top li b{font-variant-numeric:tabular-nums}
+.note{font-size:12px;color:var(--t2);background:var(--gbg);border-radius:8px;padding:8px 10px;margin-top:10px;line-height:1.35}
+details{background:var(--card);border:1px solid var(--bd);border-radius:14px;margin-bottom:10px;overflow:hidden}
+summary{list-style:none;cursor:pointer;padding:13px 14px;display:flex;align-items:center;gap:8px;font-weight:600}
+summary::-webkit-details-marker{display:none}
+summary::before{content:"▸";color:var(--t3);transition:transform .15s;font-size:12px}
+details[open] summary::before{transform:rotate(90deg)}
+summary .cn{flex:1}
+.badge{font-size:11px;font-weight:700;border-radius:999px;padding:2px 8px}
+.badge.lo{background:var(--lobg);color:var(--lo)}.badge.zr{background:var(--zrbg);color:var(--zr)}.badge.ok{background:var(--okbg);color:var(--ok)}
+.items{border-top:1px solid var(--bd)}
+.it{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)}
+.it:last-child{border-bottom:none}
+.it .nm{flex:1;min-width:0;word-break:break-word}
+.pill{min-width:36px;text-align:center;font-weight:700;border-radius:8px;padding:3px 8px;font-variant-numeric:tabular-nums}
+.pill.ok{background:var(--okbg);color:var(--ok)}.pill.lo{background:var(--lobg);color:var(--lo)}.pill.zr{background:var(--zrbg);color:var(--zr)}
+.dt{font-size:12px;color:var(--t2);margin-top:2px}
+.sold{font-size:20px;font-weight:700;color:var(--g);min-width:34px;text-align:right}
+.msg{text-align:center;padding:46px 22px;color:var(--t2)}
+.msg h3{margin:10px 0 6px;color:var(--text);font-size:18px}
+.msg button{margin-top:14px;background:var(--g);color:#fff;border:none;border-radius:10px;padding:11px 22px;font-size:15px;font-weight:600;font-family:inherit}
+.sk{height:64px;border-radius:14px;background:linear-gradient(90deg,#eee 0%,#f7f7f7 50%,#eee 100%);background-size:200% 100%;animation:sh 1.2s infinite;margin-bottom:10px}
+@keyframes sh{to{background-position:-200% 0}}
+footer{text-align:center;color:var(--t3);font-size:11px;padding:10px 20px 0}
+.empty{text-align:center;color:var(--t2);padding:24px 8px;font-size:14px}
+</style>
+</head>
+<body>
+<header><div class="brand">Indonesian Bakery</div><h1 id="ttl">Laporan</h1><div class="sub" id="sub">&nbsp;</div></header>
+<main id="app"><div class="sk"></div><div class="sk"></div><div class="sk"></div></main>
+<footer id="ft"></footer>
+<script>
+var SB_URL='https://usfehuwxyvqvjhveeoxx.supabase.co', SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzZmVodXd4eXZxdmpodmVlb3h4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNDg1MzcsImV4cCI6MjA5NjkyNDUzN30.8zEUKF1qcBUXyGu3a50k2v92UbdXKbZ2xhJnb2blobY';
+var MON=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'], DAY=['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+var PAY={cash:'Tunai',qris:'QRIS',transfer:'Transfer',debit:'Debit',gofood:'GoFood',lain:'Lainnya'};
+var app=document.getElementById('app'), D=null, S={q:'',f:'all',open:null};
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+function dn(n){var p=String(n).split('|').map(function(x){return x.trim();});return p.length>1?p[0]+' — '+p.slice(1).join(' · '):p[0];}
+function rp(n){return 'Rp'+Math.round(Number(n)||0).toLocaleString('id-ID');}
+function fmtDate(s){if(!s)return '';var p=String(s).split('-').map(Number);var d=new Date(p[0],p[1]-1,p[2]);return DAY[d.getDay()]+', '+p[2]+' '+MON[p[1]-1]+' '+p[0];}
+function stamp(iso){try{return new Date(iso).toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).replace(',','');}catch(e){return '';}}
+function cls(now,thr){return now===0?'zr':(now<=thr?'lo':'ok');}
+function message(icon,title,text,retry){app.textContent='';var m=el('div','msg');m.appendChild(el('div','',icon));m.appendChild(el('h3','',title));m.appendChild(el('div','',text));if(retry){var b=el('button','','Coba lagi');b.onclick=load;m.appendChild(b);}app.appendChild(m);}
+function posCard(pos,title){
+  var c=el('div','card pos');c.appendChild(el('h2','',title));
+  if(!pos){c.appendChild(el('div','dt','Data POS tidak tersedia.'));return c;}
+  if(!pos.trx){c.appendChild(el('div','dt','Belum ada transaksi tercatat di POS.'));c.appendChild(el('div','note','Penjualan sebenarnya di toko bisa berbeda.'));return c;}
+  c.appendChild(el('div','big',rp(pos.total)));
+  var r=el('div','row');r.appendChild(el('span','',pos.trx+' transaksi'));r.appendChild(el('span','',pos.pcs+' pcs'));c.appendChild(r);
+  var ks=Object.keys(pos.byPay||{}).filter(function(k){return pos.byPay[k]>0;});
+  if(ks.length){var ch=el('div','chips');ks.forEach(function(k){ch.appendChild(el('span','chip',(PAY[k]||k)+' '+rp(pos.byPay[k])));});c.appendChild(ch);}
+  if(pos.top&&pos.top.length){var ul=el('ul','top');pos.top.forEach(function(t){var li=el('li');li.appendChild(el('span','',dn(t[0])));li.appendChild(el('b','',String(t[1])));ul.appendChild(li);});c.appendChild(el('div','dt','Terlaris'));c.appendChild(ul);}
+  c.appendChild(el('div','note','Hanya transaksi yang tercatat di POS. Penjualan sebenarnya di toko bisa berbeda.'));
+  return c;
+}
+function group(rows,ci){var m={},o=[];rows.forEach(function(r){var k=r[ci]||'Lainnya';if(!m[k]){m[k]=[];o.push(k);}m[k].push(r);});return {m:m,o:o};}
+function renderStok(){
+  var P=D.payload,thr=P.thr==null?2:P.thr,items=P.items||[];app.textContent='';
+  var cnt={ok:0,lo:0,zr:0};items.forEach(function(i){cnt[cls(i[2],thr)]++;});
+  var tiles=el('div','tiles');
+  [['ok','Cukup',cnt.ok],['lo','Sedikit',cnt.lo],['zr','Habis',cnt.zr]].forEach(function(t){
+    var b=el('button','tile '+t[0]+(S.f===t[0]?' on':''));b.appendChild(el('span','n',String(t[2])));b.appendChild(el('span','l',t[1]));
+    b.onclick=function(){S.f=(S.f===t[0])?'all':t[0];renderStok();};tiles.appendChild(b);});
+  app.appendChild(tiles);
+  if(P.pos!==undefined)app.appendChild(posCard(P.pos,'Penjualan POS hari ini'));
+  var q=el('input','search');q.type='search';q.placeholder='Cari roti…';q.value=S.q;q.setAttribute('aria-label','Cari roti');
+  q.oninput=function(){S.q=q.value;renderStok();var n=document.querySelector('.search');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+  app.appendChild(q);
+  var needle=S.q.trim().toLowerCase();
+  var vis=items.filter(function(i){return (S.f==='all'||cls(i[2],thr)===S.f)&&(!needle||dn(i[1]).toLowerCase().indexOf(needle)>=0);});
+  var bar=el('div','bar');bar.appendChild(el('span','',vis.length+' dari '+items.length+' produk'));
+  var tg=el('button','',(S.open===false||(S.open===null&&items.length>60&&!needle&&S.f==='all'))?'Buka semua':'Tutup semua');
+  tg.onclick=function(){var allOpen=!(S.open===false||(S.open===null&&items.length>60&&!needle&&S.f==='all'));S.open=!allOpen;renderStok();};bar.appendChild(tg);app.appendChild(bar);
+  if(!vis.length){app.appendChild(el('div','empty','Tidak ada produk yang cocok.'));return;}
+  var g=group(vis,0),defOpen=(S.open===null)?(items.length<=60||!!needle||S.f!=='all'):S.open;
+  g.o.forEach(function(cn){
+    var rows=g.m[cn],d=el('details');if(defOpen)d.open=true;
+    var s=el('summary');s.appendChild(el('span','cn',cn));
+    var lo=rows.filter(function(r){return cls(r[2],thr)==='lo';}).length,zr=rows.filter(function(r){return r[2]===0;}).length;
+    if(lo)s.appendChild(el('span','badge lo',lo+' sedikit'));if(zr)s.appendChild(el('span','badge zr',zr+' habis'));
+    if(!lo&&!zr)s.appendChild(el('span','badge ok',rows.length+' cukup'));
+    d.appendChild(s);var box=el('div','items');
+    rows.slice().sort(function(a,b){return a[2]-b[2]||dn(a[1]).localeCompare(dn(b[1]));}).forEach(function(r){var it=el('div','it');it.appendChild(el('span','nm',dn(r[1])));it.appendChild(el('span','pill '+cls(r[2],thr),String(r[2])));box.appendChild(it);});
+    d.appendChild(box);app.appendChild(d);});
+}
+function renderHarian(){
+  var P=D.payload,rows=P.rows||[];app.textContent='';var tm=0,ts=0,tr=0,tt=0;
+  rows.forEach(function(r){tm+=r[2];tr+=r[3];ts+=r[4];tt+=r[5];});
+  var tiles=el('div','tiles four');[['Terjual',tt],['Masuk',tm],['Sisa',ts],['Retur',tr]].forEach(function(t){var b=el('div','tile static');b.appendChild(el('span','n',String(t[1])));b.appendChild(el('span','l',t[0]));tiles.appendChild(b);});
+  app.appendChild(tiles);
+  app.appendChild(posCard(P.pos,'Penjualan POS'));
+  var q=el('input','search');q.type='search';q.placeholder='Cari roti…';q.value=S.q;q.setAttribute('aria-label','Cari roti');
+  q.oninput=function(){S.q=q.value;renderHarian();var n=document.querySelector('.search');if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length);}};
+  app.appendChild(q);
+  var needle=S.q.trim().toLowerCase(),vis=rows.filter(function(r){return (r[2]>0||r[5]>0)&&(!needle||dn(r[1]).toLowerCase().indexOf(needle)>=0);});
+  if(!vis.length){app.appendChild(el('div','empty','Tidak ada roti yang cocok.'));return;}
+  var g=group(vis,0);
+  g.o.forEach(function(cn){var rs=g.m[cn],d=el('details');d.open=true;var s=el('summary');s.appendChild(el('span','cn',cn));var sold=0;rs.forEach(function(r){sold+=r[5];});s.appendChild(el('span','badge ok','terjual '+sold));d.appendChild(s);
+    var box=el('div','items');rs.slice().sort(function(a,b){return b[5]-a[5]||dn(a[1]).localeCompare(dn(b[1]));}).forEach(function(r){var it=el('div','it');var l=el('div','nm');l.appendChild(el('div','',dn(r[1])));l.appendChild(el('div','dt','masuk '+r[2]+' · sisa '+r[4]+(r[3]?' · retur '+r[3]:'')));it.appendChild(l);it.appendChild(el('span','sold',String(r[5])));box.appendChild(it);});
+    d.appendChild(box);app.appendChild(d);});
+}
+function show(){
+  var P=D.payload||{},cab=P.cabang||'',tgl=P.tgl||fmtDate(D.report_date);
+  document.getElementById('ttl').textContent=D.kind==='harian'?'Laporan Harian':'Laporan Stok';
+  document.getElementById('sub').textContent=[cab,tgl,P.jam].filter(Boolean).join(' · ');
+  document.title=(D.kind==='harian'?'Laporan Harian':'Laporan Stok')+' · '+cab;
+  document.getElementById('ft').textContent='Potret data saat dibuat'+(D.created_at?' ('+stamp(D.created_at)+')':'')+'. Link berlaku 60 hari. Indonesian Bakery.';
+  if(D.kind==='harian')renderHarian();else renderStok();
+}
+function token(){var h=(location.hash||'').replace(/^#/,'');if(!h){var m=/[?&]t=([^&]+)/.exec(location.search||'');h=m?decodeURIComponent(m[1]):'';}return h.trim();}
+function load(){
+  var t=token();S={q:'',f:'all',open:null};
+  if(!/^[0-9a-f]{32}$/i.test(t)){message('🔗','Link tidak lengkap','Buka laporan lewat link yang dikirim di WhatsApp.');return;}
+  app.textContent='';for(var i=0;i<3;i++)app.appendChild(el('div','sk'));
+  fetch(SB_URL+'/rest/v1/rpc/get_report_snapshot',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})})
+  .then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
+  .then(function(j){if(!j||!j.payload){message('⌛','Laporan tidak ditemukan','Link ini tidak valid atau sudah lebih dari 60 hari.');return;}D=j;show();})
+  .catch(function(){message('📡','Tidak bisa memuat','Periksa koneksi internet, lalu coba lagi.',true);});
+}
+window.addEventListener('hashchange',load);
+load();
+</script>
+</body>
+</html>
