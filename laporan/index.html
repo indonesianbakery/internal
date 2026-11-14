@@ -137,8 +137,8 @@ function renderStok(){
 }
 function renderHarian(){
   var P=D.payload,rows=P.rows||[];app.textContent='';var tm=0,ts=0,tr=0,tt=0;
-  rows.forEach(function(r){tm+=r[2];tr+=r[3];ts+=r[4];tt+=r[5];});
-  var tiles=el('div','tiles four');[['Terjual',tt],['Masuk',tm],['Sisa',ts],['Retur',tr]].forEach(function(t){var b=el('div','tile static');b.appendChild(el('span','n',String(t[1])));b.appendChild(el('span','l',t[0]));tiles.appendChild(b);});
+  rows.forEach(function(r){tm+=r[2];tr+=r[3];ts+=(r[4]||0);tt+=r[5];});
+  var tiles=el('div','tiles four');[['Terjual POS',tt],['Masuk',tm],['Sisa dihitung',ts],['Retur',tr]].forEach(function(t){var b=el('div','tile static');b.appendChild(el('span','n',String(t[1])));b.appendChild(el('span','l',t[0]));tiles.appendChild(b);});
   app.appendChild(tiles);
   app.appendChild(posCard(P.pos,'Penjualan POS'));
   var q=el('input','search');q.type='search';q.placeholder='Cari roti…';q.value=S.q;q.setAttribute('aria-label','Cari roti');
@@ -148,8 +148,9 @@ function renderHarian(){
   if(!vis.length){app.appendChild(el('div','empty','Tidak ada roti yang cocok.'));return;}
   var g=group(vis,0);
   g.o.forEach(function(cn){var rs=g.m[cn],d=el('details');d.open=true;var s=el('summary');s.appendChild(el('span','cn',cn));var sold=0;rs.forEach(function(r){sold+=r[5];});s.appendChild(el('span','badge ok','terjual '+sold));d.appendChild(s);
-    var box=el('div','items');rs.slice().sort(function(a,b){return b[5]-a[5]||dn(a[1]).localeCompare(dn(b[1]));}).forEach(function(r){var it=el('div','it');var l=el('div','nm');l.appendChild(el('div','',dn(r[1])));l.appendChild(el('div','dt','masuk '+r[2]+' · sisa '+r[4]+(r[3]?' · retur '+r[3]:'')));it.appendChild(l);it.appendChild(el('span','sold',String(r[5])));box.appendChild(it);});
+    var box=el('div','items');rs.slice().sort(function(a,b){return b[5]-a[5]||dn(a[1]).localeCompare(dn(b[1]));}).forEach(function(r){var it=el('div','it');var l=el('div','nm');l.appendChild(el('div','',dn(r[1])));l.appendChild(el('div','dt','masuk '+r[2]+' · '+(r[4]===null||r[4]===undefined?'sisa belum dihitung':'sisa '+r[4])+(r[3]?' · retur '+r[3]:'')));it.appendChild(l);it.appendChild(el('span','sold',String(r[5])));box.appendChild(it);});
     d.appendChild(box);app.appendChild(d);});
+  app.appendChild(el('div','empty','Terjual = penjualan yang tercatat di POS. Sisa hanya dari roti yang dihitung fisik pada hari itu.'));
 }
 function show(){
   var P=D.payload||{},cab=P.cabang||'',tgl=P.tgl||fmtDate(D.report_date);

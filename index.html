@@ -1158,6 +1158,7 @@ body{ max-width:none; }
       <button class="nav-btn-card" onclick="openItemHistory()"><span class="nbc-ic">📋</span><span class="nbc-txt"><span class="nbc-t1">Riwayat Item (Spreadsheet)</span><span class="nbc-t2">Lihat & edit semua catatan stok per baris</span></span><span class="nbc-arrow">›</span></button>
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <button class="add-btn" style="flex:1;background:#1D6F42" onclick="exportProductsExcel()">⬇️ Export Excel</button>
+        <button class="add-btn" style="flex:1;background:#8A5A00" onclick="exportBranchMenuExcel()">⬇️ Menu per cabang</button>
         <button class="add-btn" style="flex:1;background:var(--b)" onclick="document.getElementById('xlsx-file-input').click()">⬆️ Update via Excel</button>
         <input type="file" id="xlsx-file-input" accept=".xlsx,.xls" style="display:none" onchange="handleExcelUpload(this)">
       </div>
@@ -3934,17 +3935,13 @@ async function buildDayReport(dateStr){
     const masuk=all.filter(m=>m.product_id===p.id&&(m.type==='produksi'||m.type==='masuk')&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const retur=all.filter(m=>m.product_id===p.id&&m.type==='retur'&&m.movement_date===dateStr).reduce((s,m)=>s+m.qty,0);
     const sisaRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date===dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
-    const sisa=sisaRows.length?sisaRows[0].qty:0;
+    const sisa=sisaRows.length?sisaRows[0].qty:null;   // null = tidak dihitung fisik hari itu
     const kemRows=all.filter(m=>m.product_id===p.id&&m.type==='sisa'&&m.movement_date<dateStr).sort((a,b)=>b.created_at.localeCompare(a.created_at));
     const kemarin=kemRows.length?kemRows[0].qty:0;
-    if(masuk===0&&kemarin===0&&sisa===0&&retur===0) return;
-    // tersedia = kemarin + masuk - retur; kalau sisa > tersedia (masuk lupa diisi), pakai sisa sbg minimum
-    const sisaRecorded = sisaRows.length>0;
-    const tersedia=Math.max(0, kemarin+masuk-retur, sisa);
-    const terjual=Math.max(0,tersedia-sisa);
-    // tandai kalau ada sisa tercatat tapi roti masuk belum diisi (data ga lengkap)
-    const masukKosong = sisaRecorded && masuk===0;
-    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual, masukKosong});
+    // terjual = HANYA yang tercatat POS (tidak lagi ditebak dari kemarin+masuk-sisa)
+    const terjual=all.filter(m=>m.product_id===p.id&&m.type==='terjual'&&m.movement_date===dateStr).reduce((s,m)=>s+Math.abs(m.qty),0);
+    if(masuk===0&&sisa===null&&retur===0&&terjual===0) return;
+    out.push({name:p.name, kategori:(categories.find(c=>c.id===p.category_id)||{}).name||'', kemarin, masuk, retur, sisa, terjual});
   });
   return out;
 }
@@ -3953,7 +3950,7 @@ function fmtTglID(dateStr){ const bulan=['Jan','Feb','Mar','Apr','Mei','Jun','Ju
 async function exportDayExcel(dateStr){
   const rows=await buildDayReport(dateStr);
   if(!rows.length){ alert('Tidak ada data untuk '+fmtTglID(dateStr)); return; }
-  const data=rows.map(r=>({Produk:r.name, Kategori:r.kategori, 'Stok Kemarin':r.kemarin, 'Roti Masuk':r.masuk, Retur:r.retur, Sisa:r.sisa, Terjual:r.terjual}));
+  const data=rows.map(r=>({Produk:r.name, Kategori:r.kategori, 'Stok Kemarin':r.kemarin, 'Roti Masuk':r.masuk, Retur:r.retur, Sisa:(r.sisa===null?'':r.sisa), 'Terjual (POS)':r.terjual}));
   const ws=XLSX.utils.json_to_sheet(data);
   ws['!cols']=[{wch:22},{wch:14},{wch:12},{wch:11},{wch:8},{wch:8},{wch:9}];
   const wb=XLSX.utils.book_new();
@@ -4023,10 +4020,10 @@ function waStockText(o){
 // o: { cabang, tglLong, rows:[{name,kategori,masuk,retur,sisa,terjual}], pos }
 function waDayText(o){
   let tm=0,tt=0,ts=0,tr=0; const byCat={}, order=[];
-  o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; const k=r.kategori||'Lainnya'; if(!byCat[k]){ byCat[k]=[]; order.push(k); } byCat[k].push(r); });
+  o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=(r.sisa||0); tr+=r.retur; const k=r.kategori||'Lainnya'; if(!byCat[k]){ byCat[k]=[]; order.push(k); } byCat[k].push(r); });
   let t='■ *LAPORAN HARIAN*\nCabang: '+o.cabang+'\n'+o.tglLong;
   const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
-  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (hitungan fisik) '+tt+' pcs';
+  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa (dihitung) '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (tercatat POS) '+tt+' pcs';
   order.forEach(cn=>{
     const lines=byCat[cn].filter(r=>r.terjual>0||r.masuk>0).map(r=>'- '+waName(r.name)+' : masuk '+r.masuk+', sisa '+r.sisa+(r.retur?', retur '+r.retur:'')+', *terjual '+r.terjual+'*');
     if (lines.length) t+='\n\n_'+cn+'_\n'+lines.join('\n');
@@ -4043,10 +4040,10 @@ function waStockShort(o){
   return t+waLinkFooter(o.link);
 }
 function waDayShort(o){
-  let tm=0,tt=0,ts=0,tr=0; o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=r.sisa; tr+=r.retur; });
+  let tm=0,tt=0,ts=0,tr=0; o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=(r.sisa||0); tr+=r.retur; });
   let t='■ *LAPORAN HARIAN*\nCabang: '+o.cabang+'\n'+o.tglLong;
   const pb=waPosBlock(o.pos,'PENJUALAN POS'); if (pb) t+='\n\n'+pb;
-  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (hitungan fisik) '+tt+' pcs';
+  t+='\n\n━━━━━━━━━━━━━━\n■ *RINGKASAN STOK*\nMasuk '+tm+' pcs\nSisa (dihitung) '+ts+' pcs'+(tr?'\nRetur '+tr+' pcs':'')+'\nTerjual (tercatat POS) '+tt+' pcs';
   return t+waLinkFooter(o.link);
 }
 // top 20 terlaris (POS, 7 hari terakhir) yang stoknya sekarang 0
@@ -4224,6 +4221,31 @@ function exportProductsExcel(){
   XLSX.utils.book_append_sheet(wb, wg, 'Petunjuk');
   const today = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, 'produk-indonesianbakery-'+today+'.xlsx');
+}
+
+function exportBranchMenuExcel(){
+  const bn = Object.keys(BRANCHES);
+  const ok = p => p.is_active!==false;
+  const rows = products.slice().sort((a,b)=>{
+    const ca=(categories.find(c=>c.id===a.category_id)||{}).name||'', cb=(categories.find(c=>c.id===b.category_id)||{}).name||'';
+    return ca.localeCompare(cb)||a.name.localeCompare(b.name);
+  }).map(p=>{
+    const cat = categories.find(c=>c.id===p.category_id);
+    const o = { Kategori:cat?cat.name:'', Produk:p.name.split(' | ').join(' - ') };
+    bn.forEach(b=>{ o[BRANCHES[b]] = !ok(p) ? 'Nonaktif (semua)' : ((branchOff[b]&&branchOff[b].has(p.id)) ? 'Tidak dijual' : 'Aktif'); });
+    o['Status global'] = ok(p) ? 'aktif' : 'nonaktif';
+    return o;
+  });
+  const sum = [['Cabang','Aktif','Tidak aktif']].concat(bn.map(b=>{
+    const a = products.filter(p=>ok(p)&&!(branchOff[b]&&branchOff[b].has(p.id))).length;
+    return [BRANCHES[b], a, products.length-a];
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:18},{wch:38}].concat(bn.map(()=>({wch:18}))).concat([{wch:14}]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Menu per cabang');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), 'Ringkasan');
+  XLSX.writeFile(wb, 'menu-per-cabang-'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 function exportSalesExcel(){
