@@ -1060,6 +1060,7 @@ body{ max-width:none; }
       <button class="add-btn" style="flex:1;background:#1D6F42" onclick="exportSalesExcel()">⬇️ Excel</button>
       <button class="add-btn" style="flex:1;background:#0B57D0" onclick="sheetSendSales()">📤 Sinkron sekarang</button>
     </div>
+    <div style="margin-bottom:6px;font-size:12px;color:var(--text2)">Kirim ke Sheet untuk: <select class="sheet-br-sel" onchange="sheetBrSet(this.value)" style="font-size:12px;padding:7px 8px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit"></select></div>
     <div class="fin-note sheet-note" id="sheet-note-sales" style="margin:0 0 10px;min-height:16px"></div>
     <div id="sales-summary"></div>
     <div class="section-label">Rincian per Hari</div>
@@ -1398,7 +1399,7 @@ body{ max-width:none; }
       <button class="period-btn" data-p="bulan" onclick="setFinPeriod('bulan')">Bulan ini</button>
     </div>
     <select class="form-input" id="fin-branch" onchange="loadKeuangan()" style="margin-bottom:10px"></select>
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="mini-btn" onclick="sheetSendFin()">📤 Sinkron sekarang</button><span class="fin-note sheet-note" id="sheet-note-fin" style="margin:0"></span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap"><select class="sheet-br-sel" onchange="sheetBrSet(this.value)" style="font-size:12px;padding:7px 8px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2);font-family:inherit"></select><button class="mini-btn" onclick="sheetSendFin()">📤 Sinkron sekarang</button><span class="fin-note sheet-note" id="sheet-note-fin" style="margin:0"></span></div>
     <div class="period-row" id="fin-tab-row">
       <button class="period-btn active" data-t="ringkasan" onclick="setFinTab('ringkasan')">Ringkasan</button>
       <button class="period-btn" data-t="penjualan" onclick="setFinTab('penjualan')">Penjualan</button>
@@ -2772,7 +2773,7 @@ function finLabel(ds){ return new Date(ds+'T00:00:00+07:00').toLocaleDateString(
 function finBranches(){ const v=document.getElementById('fin-branch').value; return v==='all' ? Object.keys(BRANCHES) : [v]; }
 
 function openKeuangan(){
-  show('keuangan');
+  show('keuangan'); try{ sheetBrRender(); }catch(_){}
   const sel=document.getElementById('fin-branch');
   sel.innerHTML=Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+BRANCHES[b]+'</option>').join('')+'<option value="all">Semua cabang</option>';
   sel.value=branch;
@@ -5247,7 +5248,7 @@ async function deleteKoreksi(id){
 
 // ===== LAPORAN PENJUALAN (estimasi, mockup) =====
 let salesPeriod = 7;
-function openSalesReport(){ show('salesreport'); loadSalesReport(); }
+function openSalesReport(){ show('salesreport'); try{ sheetBrRender(); }catch(_){} loadSalesReport(); }
 function setSalesPeriod(d,el){ salesPeriod=d; document.querySelectorAll('#screen-salesreport .period-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); loadSalesReport(); }
 async function fetchPosPcs(days){
   const out={};
@@ -5589,18 +5590,42 @@ function sheetAuto(w){
   if(!getSheetUrl()) return;
   if(w==='fin') sheetSendFin(true); else sheetSendSales(true);
 }
-function sheetSendFin(auto){
-  const d=finData; if(!d){ const e=document.getElementById('sheet-note-fin'); if(e) e.textContent='Data belum dimuat.'; return; }
-  const cab = d.brs.length>1 ? 'Semua cabang' : (BRANCHES[d.brs[0]]||d.brs[0]);
-  const Ex={}; (d.expRows||[]).forEach(r=>{ Ex[r.expense_date]=(Ex[r.expense_date]||0)+Number(r.amount||0); });
-  const days=[...new Set([...Object.keys(d.P),...Object.keys(d.S),...Object.keys(Ex)])].sort();
-  const rows=days.map(t=>{ const p=d.P[t]||{}; return [t,cab,p.total||0,p.cash||0,p.qris||0,p.transfer||0,p.n||0,d.S[t]||0,Ex[t]||0]; });
-  sheetPush('Keuangan',['Tanggal','Cabang','Penjualan POS','POS Tunai','POS QRIS','POS Transfer','Jumlah Transaksi','Setoran (untung bersih)','Pengeluaran'],2,rows,'sheet-note-fin',auto);
+// pilihan cabang untuk Sheet: 'all' (dua-duanya) / id cabang. Tersimpan di perangkat ini.
+function sheetBrGet(){ let v='all'; try{ v=localStorage.getItem('ib_sheet_br')||'all'; }catch(_){} return (v==='all'||BRANCHES[v])?v:'all'; }
+function sheetBrList(){ const v=sheetBrGet(); return v==='all'?Object.keys(BRANCHES):[v]; }
+function sheetBrSet(v){ try{ localStorage.setItem('ib_sheet_br',v); }catch(_){} sheetBrRender(); }
+function sheetBrRender(){
+  const v=sheetBrGet(), opts='<option value="all">Dua-duanya</option>'+Object.keys(BRANCHES).map(b=>'<option value="'+b+'">'+BRANCHES[b]+' saja</option>').join('');
+  document.querySelectorAll('.sheet-br-sel').forEach(e=>{ e.innerHTML=opts; e.value=v; });
 }
-function sheetSendSales(auto){
-  const cab=BRANCHES[branch]||branch;
-  const rows=(window._lastSalesDaily||[]).map(r=>[r.d,cab,r.produksi||0,r.sisa||0,r.terjual||0]);
-  sheetPush('Penjualan',['Tanggal','Cabang','Roti Masuk','Sisa','Terjual (POS)'],2,rows,'sheet-note-sales',auto);
+async function sheetSendFin(auto){
+  const note=document.getElementById('sheet-note-fin');
+  try{
+    const brs=sheetBrList(), {from,to}=finRange();
+    const [dep,pos,exp]=await Promise.all([
+      sb.from('daily_deposits').select('deposit_date,branch_id,net_profit').in('branch_id',brs).gte('deposit_date',from).lte('deposit_date',to),
+      finFetchPos(from,to,brs),
+      sb.from('expenses').select('expense_date,branch_id,amount').gte('expense_date',from).lte('expense_date',to).limit(5000)
+    ]);
+    const M={}; const cell=(d,b)=>{ const k=d+'|'+b; return M[k]||(M[k]={d:d,b:b,tot:0,cash:0,qris:0,tr:0,n:0,set:0,exp:0}); };
+    ((dep&&dep.data)||[]).forEach(r=>{ cell(r.deposit_date,r.branch_id).set+=Number(r.net_profit||0); });
+    (pos.rows||[]).forEach(t=>{ const d=new Date(t.created_at).toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'}), c=cell(d,t.branch_id), amt=Number(t.grand_total)||0, m=(t.payment_method||'').toLowerCase(); c.tot+=amt; c.n++; if(m==='cash')c.cash+=amt; else if(m==='qris')c.qris+=amt; else if(m==='transfer')c.tr+=amt; });
+    ((exp&&exp.data)||[]).forEach(r=>{ const b=r.branch_id||'umum'; if(b!=='umum'&&!brs.includes(b)) return; if(b==='umum'&&brs.length<Object.keys(BRANCHES).length) return; cell(r.expense_date,b).exp+=Number(r.amount||0); });
+    const rows=Object.values(M).sort((x,y)=>x.d.localeCompare(y.d)||String(x.b).localeCompare(String(y.b))).map(c=>[c.d,BRANCHES[c.b]||'Umum',c.tot,c.cash,c.qris,c.tr,c.n,c.set,c.exp]);
+    sheetPush('Keuangan',['Tanggal','Cabang','Penjualan POS','POS Tunai','POS QRIS','POS Transfer','Jumlah Transaksi','Setoran (untung bersih)','Pengeluaran'],2,rows,'sheet-note-fin',auto);
+  }catch(e){ if(!auto&&note) note.textContent='⚠️ Gagal menyiapkan data.'; }
+}
+async function sheetSendSales(auto){
+  const note=document.getElementById('sheet-note-sales');
+  try{
+    const brs=sheetBrList(), pcs=await fetchPosPcs(salesPeriod), rows=[];
+    for(const b of brs){
+      const { data } = await sb.rpc('get_daily_summary',{p_branch_id:b,p_days:salesPeriod});
+      (data||[]).forEach(r=>rows.push([r.d,BRANCHES[b],r.produksi||0,r.sisa||0,(pcs[b]&&pcs[b][r.d])||0]));
+    }
+    rows.sort((x,y)=>String(x[0]).localeCompare(String(y[0]))||String(x[1]).localeCompare(String(y[1])));
+    sheetPush('Penjualan',['Tanggal','Cabang','Roti Masuk','Sisa','Terjual (POS)'],2,rows,'sheet-note-sales',auto);
+  }catch(e){ if(!auto&&note) note.textContent='⚠️ Gagal menyiapkan data.'; }
 }
 
 function saveSheetUrl(){
