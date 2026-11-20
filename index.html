@@ -5571,8 +5571,11 @@ function sendToSheet(row){
 }
 
 // kirim tabel ke Google Sheet (tab bernama). Baris dengan kunci sama ditimpa, bukan ditambah.
+const _sheetLast={};
 function sheetPush(tab, headers, keyCols, rows, noteId, auto){
   const url=getSheetUrl(), el=document.getElementById(noteId);
+  // otomatis: lewati kalau isi sama sudah dikirim dalam 5 menit (hindari kiriman ganda)
+  if(auto){ const sig=JSON.stringify(rows), L=_sheetLast[tab]; if(L&&L.sig===sig&&Date.now()-L.t<300000) return; _sheetLast[tab]={sig:sig,t:Date.now()}; }
   const say=t=>{ if(el) el.textContent=t; };
   if(!url){ if(!auto) say('Google Sheet belum diaktifkan (atur di Pengaturan).'); return; }
   if(!rows.length){ if(!auto) say('Tidak ada data untuk dikirim.'); return; }
