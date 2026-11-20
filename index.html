@@ -5385,13 +5385,13 @@ async function toggleSalesDay(idx, dateStr){
     if(masukKosong) adaMasukKosong=true;
     perProd.push({id:p.id, name:p.name, terjual, tersedia, sisa, habis, masukKosong});
   });
-  perProd.sort((a,b)=>b.terjual-a.terjual);
+  
   // cocokkan dengan POS: terjual menurut hitungan fisik vs tercatat di POS (per roti, lewat ID produk)
   const { data: posT } = await sb.from('pos_transactions').select('pos_transaction_items(product_id,product_name,qty)')
     .eq('branch_id',br).gte('created_at',dateStr+'T00:00:00+07:00').lte('created_at',dateStr+'T23:59:59+07:00');
   const posQty={}, posName={}; let adaPos=false;
   (posT||[]).forEach(t=>(t.pos_transaction_items||[]).forEach(i=>{ adaPos=true; const k=i.product_id; posQty[k]=(posQty[k]||0)+(i.qty||0); posName[k]=i.product_name; }));
-  perProd.forEach(x=>{ x.pos=posQty[x.id]||0; x.dibandingkan=(x.sisa!==null); x.selisih=x.terjual-x.pos; });
+  perProd.forEach(x=>{ x.pos=posQty[x.id]||0; x.dibandingkan=(x.sisa!==null&&!x.masukKosong); x.selisih=x.terjual-x.pos; });
   const belumHitung=[]; // terjual di POS tapi belum ada hitungan fisik (sisa) hari itu
   perProd.filter(x=>!x.dibandingkan&&x.pos>0).forEach(x=>belumHitung.push({name:x.name,pos:x.pos}));
   Object.keys(posQty).forEach(k=>{ if(!perProd.some(x=>String(x.id)===String(k))){ const pr=products.find(p=>String(p.id)===String(k)); belumHitung.push({name:pr?pr.name:(posName[k]||'(produk)'),pos:posQty[k]}); } });
@@ -5418,12 +5418,14 @@ async function toggleSalesDay(idx, dateStr){
       return '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+finEsc(dn(x.name))+'</span><span style="font-family:DM Mono,monospace">'+x.terjual+' · '+x.pos+' · <b style="color:'+c+'">'+lbl+'</b></span></div>';
     }).join('');
     if(belumHitung.length){
-      html+='<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">Belum ada hitungan fisik (sisa) hari ini, jadi belum bisa dicocokkan: '+belumHitung.map(x=>finEsc(dn(x.name))+' (POS '+x.pos+')').join(', ')+'.</div>';
+      html+='<div style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">Belum bisa dicocokkan (belum ada catatan masuk + sisa hari ini): '+belumHitung.map(x=>finEsc(dn(x.name))+' (POS '+x.pos+')').join(', ')+'.</div>';
     }
     html+='<div style="height:10px"></div>';
   }
   html+='<div style="font-size:11px;font-weight:700;color:var(--text2);margin-bottom:6px">Rincian per roti</div>';
-  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+x.name+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+(x.masukKosong?' <span style="color:#9A6700;font-size:10px">⚠️ masuk?</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">terjual <b style="color:var(--g)">'+x.terjual+'</b> / '+x.tersedia+'</span></div>').join('');
+  perProd.sort((a,b)=>(b.pos||0)-(a.pos||0)||a.name.localeCompare(b.name));
+  html+='<div style="font-size:10px;color:var(--text3);margin:-2px 0 4px;line-height:1.4">Sisa = hitungan stok (bisa jadi koreksi saja). Terjual = yang tercatat di POS.</div>';
+  html+=perProd.map(x=>'<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)"><span>'+finEsc(dn(x.name))+(x.habis?' <span style="color:var(--r);font-size:10px">habis</span>':'')+'</span><span style="font-family:DM Mono,monospace;color:var(--text2)">'+(x.sisa===null?'':'sisa '+x.sisa+' · ')+'POS <b style="color:var(--g)">'+(x.pos||0)+'</b></span></div>').join('');
   if(!perProd.length) html='<div style="font-size:12px;color:var(--text3)">Tidak ada aktivitas hari ini</div>';
   detail.innerHTML=html;
   detail.style.display='block';
