@@ -269,6 +269,10 @@ body.font-xl{zoom:1.25;}
 .period-row{display:flex;gap:6px;margin-bottom:8px;}
 .period-btn{flex:1;padding:9px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer;transition:.15s;}
 .period-btn:hover{border-color:var(--g3);}
+.uang-tabs{display:flex;gap:6px;padding:8px 16px 0;}
+.uang-tabs:empty{display:none;}
+.uang-tabs button{flex:1;padding:9px 4px;border-radius:10px;border:1px solid var(--border);background:var(--surface);font-family:inherit;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;}
+.uang-tabs button.active{background:var(--g);border-color:var(--g);color:#fff;}
 .period-btn.active{background:var(--g);border-color:var(--g);color:white;}
 .rank-card{background:white;border:1.5px solid var(--border);border-radius:var(--rad);padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;}
 .rank-num{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;flex-shrink:0;}
@@ -1043,6 +1047,7 @@ body{ max-width:none; }
     <button class="back-btn" onclick="show('overview')">← Kembali</button>
     <span class="sub-title">💰 Laporan Penjualan</span>
   </div>
+  <div class="uang-tabs"></div>
   <div style="background:var(--y-bg);color:var(--y);font-size:12px;padding:10px 16px;font-weight:500;border-bottom:1px solid var(--border)">
     ⚠️ Angka ini <b>estimasi</b> (dihitung dari produksi − sisa). Belum tentu akurat, cuma buat gambaran kasar.
   </div>
@@ -1051,7 +1056,11 @@ body{ max-width:none; }
       <button class="period-btn active" onclick="setSalesPeriod(7,this)">7 hari</button>
       <button class="period-btn" onclick="setSalesPeriod(30,this)">30 hari</button>
     </div>
-    <button class="add-btn" style="width:100%;background:#1D6F42;margin-bottom:12px" onclick="exportSalesExcel()">⬇️ Export Laporan ke Excel</button>
+    <div style="display:flex;gap:8px;margin-bottom:6px">
+      <button class="add-btn" style="flex:1;background:#1D6F42" onclick="exportSalesExcel()">⬇️ Excel</button>
+      <button class="add-btn" style="flex:1;background:#0B57D0" onclick="sheetSendSales()">📤 Sinkron sekarang</button>
+    </div>
+    <div class="fin-note sheet-note" id="sheet-note-sales" style="margin:0 0 10px;min-height:16px"></div>
     <div id="sales-summary"></div>
     <div class="section-label">Rincian per Hari</div>
     <div id="sales-daily"><div class="loading"><div class="spinner"></div></div></div>
@@ -1294,6 +1303,7 @@ body{ max-width:none; }
     <button class="back-btn" onclick="show('overview')">← Kembali</button>
     <span class="sub-title">💵 Setoran Harian</span>
   </div>
+  <div class="uang-tabs"></div>
   <div class="sub-body">
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <div style="flex:1">
@@ -1380,6 +1390,7 @@ body{ max-width:none; }
     <button class="back-btn" onclick="show('overview')">← Kembali</button>
     <span class="sub-title">🧾 Keuangan</span>
   </div>
+  <div class="uang-tabs"></div>
   <div class="sub-body">
     <div class="period-row" id="fin-period-row">
       <button class="period-btn active" data-p="7" onclick="setFinPeriod('7')">7 hari</button>
@@ -1387,6 +1398,7 @@ body{ max-width:none; }
       <button class="period-btn" data-p="bulan" onclick="setFinPeriod('bulan')">Bulan ini</button>
     </div>
     <select class="form-input" id="fin-branch" onchange="loadKeuangan()" style="margin-bottom:10px"></select>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><button class="mini-btn" onclick="sheetSendFin()">📤 Sinkron sekarang</button><span class="fin-note sheet-note" id="sheet-note-fin" style="margin:0"></span></div>
     <div class="period-row" id="fin-tab-row">
       <button class="period-btn active" data-t="ringkasan" onclick="setFinTab('ringkasan')">Ringkasan</button>
       <button class="period-btn" data-t="penjualan" onclick="setFinTab('penjualan')">Penjualan</button>
@@ -2827,6 +2839,7 @@ async function loadKeuangan(){
   finData={from,to,brs,S,P,E,totS,totP,totE,expRows,totExp,nDays,
     cov:{s:Object.keys(S).length,p:Object.keys(P).length,e:Object.keys(E).filter(d=>E[d]>0).length}, posErr:pos.error||null};
   finRenderRingkasan(); finRenderPenjualan(); finRenderPengeluaran();
+  try{ sheetAuto('fin'); }catch(_){}
 }
 
 function finRenderRingkasan(){
@@ -5250,6 +5263,7 @@ async function loadSalesReport(){
   const totalOmzet = Math.round(totalTerjual * avgPrice * sellMul);
   const avgPerDay = rows.length ? Math.round(totalTerjual/rows.length) : 0;
 
+  try{ sheetAuto('sales'); }catch(_){}
   // ringkasan utama
   document.getElementById('sales-summary').innerHTML =
     '<div class="ft-card" style="margin:0 0 12px;overflow:hidden"><div class="ft-eyebrow">Estimasi '+salesPeriod+' hari · '+BRANCHES[branch]+'</div>'
@@ -5539,6 +5553,36 @@ function sendToSheet(row){
     .catch(()=>{ if(noteEl) noteEl.textContent='⚠️ Gagal kirim ke Sheet (data tetap aman di app)'; });
 }
 
+// kirim tabel ke Google Sheet (tab bernama). Baris dengan kunci sama ditimpa, bukan ditambah.
+function sheetPush(tab, headers, keyCols, rows, noteId, auto){
+  const url=getSheetUrl(), el=document.getElementById(noteId);
+  const say=t=>{ if(el) el.textContent=t; };
+  if(!url){ if(!auto) say('Google Sheet belum diaktifkan (atur di Pengaturan).'); return; }
+  if(!rows.length){ if(!auto) say('Tidak ada data untuk dikirim.'); return; }
+  say('Mengirim '+rows.length+' baris...');
+  fetch(url,{ method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({ sheet:tab, headers:headers, keyCols:keyCols, rows:rows, oleh:(currentUser&&currentUser.nama)||'' }) })
+    .then(()=>say((auto?'✓ Otomatis sinkron ke tab "':'✓ Terkirim ke tab "')+tab+'" ('+rows.length+' baris)'))
+    .catch(()=>say('⚠️ Gagal kirim ke Sheet. Data di app tetap aman.'));
+}
+// sinkron otomatis: tiap data dimuat, kirim diam-diam bila Sheet aktif (baris sama ditimpa)
+function sheetAuto(w){
+  if(!getSheetUrl()) return;
+  if(w==='fin') sheetSendFin(true); else sheetSendSales(true);
+}
+function sheetSendFin(auto){
+  const d=finData; if(!d){ const e=document.getElementById('sheet-note-fin'); if(e) e.textContent='Data belum dimuat.'; return; }
+  const cab = d.brs.length>1 ? 'Semua cabang' : (BRANCHES[d.brs[0]]||d.brs[0]);
+  const Ex={}; (d.expRows||[]).forEach(r=>{ Ex[r.expense_date]=(Ex[r.expense_date]||0)+Number(r.amount||0); });
+  const days=[...new Set([...Object.keys(d.P),...Object.keys(d.S),...Object.keys(Ex)])].sort();
+  const rows=days.map(t=>{ const p=d.P[t]||{}; return [t,cab,p.total||0,p.cash||0,p.qris||0,p.transfer||0,p.n||0,d.S[t]||0,Ex[t]||0]; });
+  sheetPush('Keuangan',['Tanggal','Cabang','Penjualan POS','POS Tunai','POS QRIS','POS Transfer','Jumlah Transaksi','Setoran (untung bersih)','Pengeluaran'],2,rows,'sheet-note-fin',auto);
+}
+function sheetSendSales(auto){
+  const cab=BRANCHES[branch]||branch;
+  const rows=(window._lastSalesDaily||[]).map(r=>[r.d,cab,r.produksi||0,r.sisa||0,r.terjual||0]);
+  sheetPush('Penjualan',['Tanggal','Cabang','Roti Masuk','Sisa','Terjual (estimasi)'],2,rows,'sheet-note-sales',auto);
+}
+
 function saveSheetUrl(){
   const v=document.getElementById('set-sheet-url').value.trim();
   const el=document.getElementById('sheet-url-status');
@@ -5555,13 +5599,12 @@ const SB_NAV = [
   {section:'Utama'},
   {scr:'overview', ic:'🏠', label:'Beranda', roles:['master','manager','karyawan']},
   {scr:'dashboard', ic:'📊', label:'Dashboard', roles:['master','manager']},
-  {scr:'salesreport', ic:'💰', label:'Laporan Penjualan', roles:['master'], fn:'openSalesReport'},
-  {scr:'keuangan', ic:'🧾', label:'Keuangan', roles:['master','manager'], fn:'openKeuangan'},
+  {scr:'keuangan', ic:'🧾', label:'Penjualan & Keuangan', roles:['master','manager'], fn:'openKeuangan'},
   {scr:'bahan', ic:'🧂', label:'Stok Bahan', roles:['master','manager'], fn:'openBahan'},
   {scr:'masuk', ic:'📥', label:'Barang Masuk', roles:['master','manager'], fn:'openMasuk'},
   {scr:'shelf', ic:'🏷️', label:'Kedaluwarsa', roles:['master','manager','karyawan'], fn:'openShelfReport'},
   {section:'Operasional'},
-  {scr:'setoran', ic:'💵', label:'Setoran Harian', roles:['master','manager','karyawan'], fn:'openSetoran'},
+  {scr:'setoran', ic:'💵', label:'Setoran Harian', roles:['karyawan'], fn:'openSetoran'},
   {scr:'kirim', ic:'📦', label:'Kirim Roti', roles:['master'], fn:'openKirim', cond:'canSendShipment'},
   {scr:'shipments', ic:'🔔', label:'Pengiriman', roles:['master','manager','karyawan'], fn:'openShipments'},
   {scr:'absen', ic:'🕒', label:'Absensi', roles:['manager','karyawan'], fn:'openAbsen'},
@@ -5588,6 +5631,7 @@ function renderSidebar(){
   });
   document.getElementById('sb-nav').innerHTML = html;
   renderFastActions();
+  renderUangTabs();
 }
 function navTo(scr, fn){
   if(fn && window[fn]) window[fn](); else show(scr);
@@ -5596,8 +5640,23 @@ function navTo(scr, fn){
 }
 function highlightNav(){
   const active = document.querySelector('.screen.active');
-  const id = active ? active.id.replace('screen-','') : '';
+  let id = active ? active.id.replace('screen-','') : '';
+  if ((id==='salesreport'||id==='setoran') && currentUser && currentUser.role!=='karyawan') id='keuangan';
   document.querySelectorAll('.sb-item').forEach(el=>el.classList.toggle('active', el.dataset.scr===id));
+}
+const UANG_TABS = [
+  {scr:'salesreport', label:'💰 Penjualan', roles:['master'], fn:'openSalesReport'},
+  {scr:'keuangan', label:'🧾 Keuangan', roles:['master','manager'], fn:'openKeuangan'},
+  {scr:'setoran', label:'💵 Setoran', roles:['master','manager','karyawan'], fn:'openSetoran'}
+];
+function renderUangTabs(){
+  if(!currentUser) return;
+  const tabs = UANG_TABS.filter(t=>t.roles.includes(currentUser.role));
+  document.querySelectorAll('.screen').forEach(sc=>{
+    const box = sc.querySelector('.uang-tabs'); if(!box) return;
+    const cur = sc.id.replace('screen-','');
+    box.innerHTML = tabs.length>1 ? tabs.map(t=>'<button class="'+(t.scr===cur?'active':'')+'" onclick="'+t.fn+'()">'+t.label+'</button>').join('') : '';
+  });
 }
 function renderFastActions(){
   let html='';
