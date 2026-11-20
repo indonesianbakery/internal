@@ -1049,7 +1049,7 @@ body{ max-width:none; }
   </div>
   <div class="uang-tabs"></div>
   <div style="background:var(--y-bg);color:var(--y);font-size:12px;padding:10px 16px;font-weight:500;border-bottom:1px solid var(--border)">
-    ⚠️ Angka ini <b>estimasi</b> (dihitung dari produksi − sisa). Belum tentu akurat, cuma buat gambaran kasar.
+    ℹ️ <b>Terjual</b> = yang tercatat di POS. <b>Masuk</b> dan <b>Sisa</b> dari catatan stok (sisa bisa berupa koreksi). Penjualan asli di toko bisa berbeda.
   </div>
   <div class="sub-body">
     <div class="period-row">
@@ -4274,7 +4274,7 @@ function exportSalesExcel(){
   XLSX.utils.book_append_sheet(wb, ws1, 'Roti Terlaris');
   // sheet harian
   const dailyRows = (window._lastSalesDaily||[]).map(r=>({
-    Tanggal:r.d, 'Roti Masuk':r.produksi, Sisa:r.sisa, 'Terjual (est)':r.terjual
+    Tanggal:r.d, 'Roti Masuk':r.produksi, Sisa:r.sisa, 'Terjual (POS)':r.terjual
   }));
   const ws2 = XLSX.utils.json_to_sheet(dailyRows);
   ws2['!cols']=[{wch:12},{wch:12},{wch:10},{wch:14}];
@@ -5249,10 +5249,26 @@ async function deleteKoreksi(id){
 let salesPeriod = 7;
 function openSalesReport(){ show('salesreport'); loadSalesReport(); }
 function setSalesPeriod(d,el){ salesPeriod=d; document.querySelectorAll('#screen-salesreport .period-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); loadSalesReport(); }
+async function fetchPosPcs(days){
+  const out={};
+  try{
+    const from=new Date(Date.now()-(days+1)*86400000).toISOString();
+    const { data } = await sb.from('pos_transactions').select('branch_id,created_at,pos_transaction_items(qty,is_gift)').gte('created_at',from).limit(5000);
+    (data||[]).forEach(t=>{
+      const d=new Date(t.created_at).toLocaleDateString('sv-SE',{timeZone:'Asia/Jakarta'});
+      const q=(t.pos_transaction_items||[]).reduce((s,i)=>s+(i.is_gift?0:(i.qty||0)),0);
+      (out[t.branch_id]=out[t.branch_id]||{})[d]=((out[t.branch_id]||{})[d]||0)+q;
+    });
+  }catch(_){}
+  return out;
+}
 async function loadSalesReport(){
   const { data: hist } = await sb.rpc('get_daily_summary',{p_branch_id:branch,p_days:salesPeriod});
   const { data: top } = await sb.rpc('get_top_sold',{p_branch_id:branch,p_days:salesPeriod});
   const rows = hist||[];
+  // terjual = HANYA yang tercatat di POS (pcs per hari per cabang), bukan tebakan dari stok
+  const posPcs = await fetchPosPcs(salesPeriod);
+  rows.forEach(r=>{ r.terjual = (posPcs[branch]&&posPcs[branch][r.d])||0; });
   window._lastSalesDaily = rows;
   window._lastSalesTop = top||[];
   const avgPriceFor = (bb)=> products.length ? products.reduce((s,p)=>s+priceFor(p,bb),0)/products.length : 0;
@@ -5266,7 +5282,7 @@ async function loadSalesReport(){
   try{ sheetAuto('sales'); }catch(_){}
   // ringkasan utama
   document.getElementById('sales-summary').innerHTML =
-    '<div class="ft-card" style="margin:0 0 12px;overflow:hidden"><div class="ft-eyebrow">Estimasi '+salesPeriod+' hari · '+BRANCHES[branch]+'</div>'
+    '<div class="ft-card" style="margin:0 0 12px;overflow:hidden"><div class="ft-eyebrow">Tercatat POS '+salesPeriod+' hari · '+BRANCHES[branch]+'</div>'
     +'<div style="display:flex;gap:12px;margin-top:10px">'
     +'<div style="flex:1;min-width:0"><div style="font-size:22px;font-weight:700;font-family:DM Mono,monospace;color:var(--g)">'+totalTerjual+'</div><div style="font-size:11px;color:var(--text3)">total roti terjual</div></div>'
     +'<div style="flex:1;min-width:0"><div style="font-size:22px;font-weight:700;font-family:DM Mono,monospace;color:var(--g)">'+avgPerDay+'</div><div style="font-size:11px;color:var(--text3)">rata-rata/hari</div></div>'
@@ -5298,8 +5314,7 @@ async function loadSalesReport(){
   const otherBranches = Object.keys(BRANCHES);
   let cmpRows = [];
   for(const b of otherBranches){
-    const { data: h } = await sb.rpc('get_daily_summary',{p_branch_id:b,p_days:salesPeriod});
-    const tj = (h||[]).reduce((s,r)=>s+r.terjual,0);
+    const tj = Object.values(posPcs[b]||{}).reduce((s,v)=>s+v,0);
     cmpRows.push({branch:b, terjual:tj, omzet:Math.round(tj*avgPriceFor(b)*sellMul)});
   }
   const maxCmp = Math.max(1,...cmpRows.map(c=>c.terjual));
@@ -5582,7 +5597,7 @@ function sheetSendFin(auto){
 function sheetSendSales(auto){
   const cab=BRANCHES[branch]||branch;
   const rows=(window._lastSalesDaily||[]).map(r=>[r.d,cab,r.produksi||0,r.sisa||0,r.terjual||0]);
-  sheetPush('Penjualan',['Tanggal','Cabang','Roti Masuk','Sisa','Terjual (estimasi)'],2,rows,'sheet-note-sales',auto);
+  sheetPush('Penjualan',['Tanggal','Cabang','Roti Masuk','Sisa','Terjual (POS)'],2,rows,'sheet-note-sales',auto);
 }
 
 function saveSheetUrl(){
