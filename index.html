@@ -1003,6 +1003,7 @@ body{ max-width:none; }
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">
       <button class="modal-save" onclick="unsavedSimpan()">💾 Simpan dulu</button>
       <button class="del-btn" style="padding:12px;border-radius:10px;font-size:14px;font-weight:600" onclick="unsavedBuang()">🗑️ Buang perubahan</button>
+      <button class="modal-cancel" style="background:var(--g-bg);color:var(--g);border-color:var(--g3)" onclick="unsavedDraft()">⏸ Simpan sementara (lanjut nanti)</button>
       <button class="modal-cancel" onclick="unsavedBatal()">← Batal (lanjut isi)</button>
     </div>
   </div>
@@ -5470,7 +5471,7 @@ let setoranData = {}; // {1000:0, 2000:0, ...}
 // URL Apps Script (diisi lewat Pengaturan; kalau kosong, kirim ke Sheet dilewati)
 function getSheetUrl(){ try{ return localStorage.getItem('ib_sheet_url')||''; }catch(e){ return ''; } }
 
-function openSetoran(){
+async function openSetoran(){
   show('setoran');
   document.getElementById('set-date').value = new Date().toISOString().slice(0,10);
   DENOMS.forEach(d=>setoranData[d]=0);
@@ -5478,7 +5479,8 @@ function openSetoran(){
   document.getElementById('set-qris').value='';
   document.getElementById('set-note').value='';
   renderDenoms();
-  loadSetoran();
+  await loadSetoran();
+  try{ if(window.draftRestoreSetoran) draftRestoreSetoran(); }catch(_){}
 }
 function renderDenoms(){
   const fmtD = n => n>=1000 ? (n/1000)+'rb' : n;
@@ -6442,5 +6444,107 @@ async function renderRiwayatAdmin(){
 }
 </script>
 
+<script>
+// ===== SIMPAN SEMENTARA (draf otomatis) =====
+// Isian form disimpan di perangkat ini tiap berubah. Kalau layar tertutup / sinyal putus / lupa, bisa dilanjutkan saat dibuka lagi.
+// Draf dihapus setelah berhasil disimpan sungguhan, atau kalau memilih "mulai baru". Kedaluwarsa 3 hari.
+(function(){
+  var TTL=3*86400000, blocked={}, timers={};
+  function uname(){ try{ return (currentUser&&currentUser.nama)||'x'; }catch(_){ return 'x'; } }
+  function K(k){ return 'ib_draft:'+uname()+':'+k; }
+  function dSave(k,obj){ if(blocked[k]&&Date.now()<blocked[k]) return; try{ localStorage.setItem(K(k),JSON.stringify({t:Date.now(),d:obj})); }catch(_){} }
+  function dGet(k){ try{ var r=JSON.parse(localStorage.getItem(K(k))||'null'); if(!r||Date.now()-r.t>TTL){ if(r) localStorage.removeItem(K(k)); return null; } return r; }catch(_){ return null; } }
+  function dClear(k){ blocked[k]=Date.now()+3000; try{ localStorage.removeItem(K(k)); }catch(_){} }
+  function later(k,fn){ clearTimeout(timers[k]); timers[k]=setTimeout(fn,600); }
+  function jam(t){ var d=new Date(t); return d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jakarta'}).replace('.',':'); }
+  function el(id){ return document.getElementById(id); }
+  function today(){ try{ return finTodayWIB(); }catch(_){ return new Date().toISOString().slice(0,10); } }
+  function note(msg){ try{ var n=document.createElement('div'); n.textContent=msg; n.style.cssText='position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#333;color:#fff;font-size:12px;padding:8px 14px;border-radius:20px;z-index:99999;opacity:.95'; document.body.appendChild(n); setTimeout(function(){ n.remove(); },1800); }catch(_){} }
+  window.draftNote=note;
+
+  // ---------- Catat Stok / Tutup Hari ----------
+  function stokKey(){ return 'stok:'+branch+':'+inputMode; }
+  function stokCollect(){
+    var st={}, n=0;
+    Object.keys(inputState).forEach(function(nm){ var v=inputState[nm], now=(stockNow[nm]&&stockNow[nm].now)||0;
+      if(v.iProduksi||v.iRetur||v.iSisa!==now||sisaTouched[nm]){ st[nm]=[v.iProduksi||0,v.iRetur||0,v.iSisa,sisaTouched[nm]?1:0]; n++; } });
+    return n?{date:today(),state:st}:null;
+  }
+  function stokSaveNow(){ try{ var c=stokCollect(); if(c) dSave(stokKey(),c); }catch(_){} }
+  var _mid=markInputDirty; markInputDirty=function(){ _mid(); later('stok',stokSaveNow); };
+  var _oi=openInput; openInput=async function(mode){
+    await _oi(mode);
+    try{
+      var r=dGet('stok:'+branch+':'+mode), d=r&&r.d; if(!d||d.date!==today()) return;
+      var names=Object.keys(d.state).filter(function(n){ return inputState[n]; }); if(!names.length) return;
+      if(confirm('Ada catatan stok yang belum disimpan ('+names.length+' roti, terakhir '+jam(r.t)+').\n\nOK = lanjutkan yang tadi\nBatal = mulai baru')){
+        names.forEach(function(n){ var a=d.state[n]; inputState[n].iProduksi=a[0]; inputState[n].iRetur=a[1]; inputState[n].iSisa=a[2]; if(a[3]) sisaTouched[n]=true; });
+        inputDirty=true; renderInput(el('input-search')?el('input-search').value:'');
+      } else dClear('stok:'+branch+':'+mode);
+    }catch(_){}
+  };
+  var _si=saveInput; saveInput=async function(){ var k=stokKey(); await _si(); try{ if(!el('screen-input').classList.contains('active')) dClear(k); }catch(_){} };
+  var _ub=unsavedBuang; unsavedBuang=function(){ try{ dClear(stokKey()); }catch(_){} _ub(); };
+  window.unsavedDraft=function(){ el('unsaved-modal').classList.remove('open'); stokSaveNow(); inputDirty=false; show('overview'); note('Disimpan sementara. Lanjutkan kapan saja.'); };
+
+  // ---------- Setoran ----------
+  function setCollect(){
+    var o={date:(el('set-date')||{}).value,modal:(el('set-modal')||{}).value,qris:(el('set-qris')||{}).value,note:(el('set-note')||{}).value,den:Object.assign({},setoranData)};
+    var any=o.modal||o.qris||o.note||Object.keys(o.den).some(function(k){ return o.den[k]>0; });
+    return any?o:null;
+  }
+  function setSave(){ try{ var c=setCollect(); if(c) dSave('setoran:'+branch,c); }catch(_){} }
+  window.draftRestoreSetoran=function(){
+    var r=dGet('setoran:'+branch), d=r&&r.d; if(!d) return;
+    if(!confirm('Ada isian setoran yang belum disimpan (terakhir '+jam(r.t)+').\n\nOK = lanjutkan yang tadi\nBatal = mulai baru')){ dClear('setoran:'+branch); return; }
+    if(d.date) el('set-date').value=d.date; el('set-modal').value=d.modal||''; el('set-qris').value=d.qris||''; el('set-note').value=d.note||'';
+    Object.keys(d.den||{}).forEach(function(k){ setoranData[k]=d.den[k]; }); renderDenoms(); calcSetoran();
+  };
+  var _ss=saveSetoran; saveSetoran=async function(){ var k='setoran:'+branch; await _ss(); try{ if((el('set-status').innerHTML||'').indexOf('Tersimpan')>=0) dClear(k); }catch(_){} };
+  ['input','change','click'].forEach(function(ev){ var s=el('screen-setoran'); if(s) s.addEventListener(ev,function(){ later('setoran',setSave); }); });
+
+  // ---------- Pengeluaran (baru) ----------
+  var EXP_IDS=['exp-date','exp-branch','exp-cat','exp-item','exp-qty','exp-amount','exp-note'];
+  function expCollect(){ var o={}; EXP_IDS.forEach(function(i){ var e=el(i); if(e) o[i]=e.value; }); var c=el('exp-stok'); if(c) o['exp-stok']=c.checked?1:0; return (o['exp-item']||o['exp-amount']||o['exp-qty'])?o:null; }
+  var _oe=openExpModal; openExpModal=function(row){
+    _oe(row);
+    try{
+      if(row) return; var r=dGet('pengeluaran'), d=r&&r.d; if(!d) return;
+      if(!confirm('Ada catatan pengeluaran yang belum disimpan ('+(d['exp-item']||'tanpa nama')+', terakhir '+jam(r.t)+').\n\nOK = lanjutkan yang tadi\nBatal = mulai baru')){ dClear('pengeluaran'); return; }
+      EXP_IDS.forEach(function(i){ if(d[i]!==undefined&&el(i)) el(i).value=d[i]; });
+      try{ expStokSync(); }catch(_){} try{ if(el('exp-stok')&&d['exp-stok']) el('exp-stok').checked=true; }catch(_){} try{ expHint(); }catch(_){}
+    }catch(_){}
+  };
+  var _se=saveExpense; saveExpense=async function(){ var edit=!!expEditRow; await _se(); try{ if(!edit&&!el('exp-modal').classList.contains('open')) dClear('pengeluaran'); }catch(_){} };
+  ['input','change'].forEach(function(ev){ var m=el('exp-modal'); if(m) m.addEventListener(ev,function(){ if(!expEditRow) later('pengeluaran',function(){ var c=expCollect(); if(c) dSave('pengeluaran',c); }); }); });
+
+  // ---------- Nota Barang Masuk (baru) ----------
+  var NR=['nr-item','nr-cat','nr-dest','nr-prodsel','nr-pack','nr-qty','nr-unit','nr-amt','nr-ppn','nr-npname','nr-npcat','nr-npprice','nr-npshelf'], NID=['nota-date','nota-branch','nota-inv','nota-supplier','nota-due','nota-ppn','nota-paid','nota-note'], notaBaru=false;
+  function notaCollect(){
+    var o={f:{},rows:[],st:'belum'}; NID.forEach(function(i){ var e=el(i); if(e) o.f[i]=e.value; });
+    var rs=document.querySelector('input[name="nota-status"]:checked'); if(rs) o.st=rs.value;
+    document.querySelectorAll('#nota-rows .nota-row').forEach(function(r){ var x={}; NR.forEach(function(c){ var e=r.querySelector('.'+c); if(e) x[c]=e.value; }); o.rows.push(x); });
+    var any=(o.f['nota-supplier']||o.f['nota-inv']||o.f['nota-note'])||o.rows.some(function(x){ return x['nr-item']||x['nr-amt']||x['nr-qty']; });
+    return any?o:null;
+  }
+  var _on=openNota; openNota=async function(id){
+    notaBaru=!id; await _on(id);
+    try{
+      if(id) return; var r=dGet('nota'), d=r&&r.d; if(!d) return;
+      if(!confirm('Ada nota barang masuk yang belum disimpan ('+(d.f['nota-supplier']||'tanpa supplier')+', '+d.rows.filter(function(x){return x['nr-item'];}).length+' barang, terakhir '+jam(r.t)+').\n\nOK = lanjutkan yang tadi\nBatal = mulai baru')){ dClear('nota'); return; }
+      NID.forEach(function(i){ if(d.f[i]!==undefined&&el(i)) el(i).value=d.f[i]; });
+      var rad=document.querySelector('input[name="nota-status"][value="'+d.st+'"]'); if(rad){ rad.checked=true; try{ notaStatusChange(); }catch(_){} }
+      var box=el('nota-rows'); while(box.querySelectorAll('.nota-row').length<d.rows.length) notaAddRow();
+      var rows=box.querySelectorAll('.nota-row');
+      d.rows.forEach(function(x,i){ var r2=rows[i]; if(!r2) return;
+        NR.forEach(function(c){ var e=r2.querySelector('.'+c); if(e&&x[c]!==undefined) e.value=x[c]; });
+        try{ notaDestChange(r2.querySelector('.nr-dest')); notaProdChange(r2.querySelector('.nr-prodsel')); }catch(_){} });
+      notaCalc();
+    }catch(_){}
+  };
+  var _sn=saveNota; saveNota=async function(id){ var neu=!id; await _sn(id); try{ if(neu&&!el('masuk-modal').classList.contains('open')) dClear('nota'); }catch(_){} };
+  ['input','change'].forEach(function(ev){ var m=el('masuk-modal'); if(m) m.addEventListener(ev,function(){ if(notaBaru) later('nota',function(){ var c=notaCollect(); if(c) dSave('nota',c); }); }); });
+})();
+</script>
 </body>
 </html>
