@@ -4058,7 +4058,7 @@ function waStockShort(o){
   let t='■ *LAPORAN STOK*\nCabang: '+o.cabang+'\n'+o.tglLong+(o.jam?' · '+o.jam:'')+'\n\n✅ '+ok+' cukup · ⚠️ '+low+' sedikit · ❌ '+zero+' habis';
   const lb=waLarisBlock(o.laris); if (lb) t+='\n\n'+lb;
   const pb=waPosBlock(o.pos,'PENJUALAN POS HARI INI'); if (pb) t+='\n\n'+pb;
-  return t+waLinkFooter(o.link);
+  return t+(o.live?'\n\n➜ *Kondisi rak terbaru (buka lagi untuk refresh):*\n'+o.link:waLinkFooter(o.link));
 }
 function waDayShort(o){
   let tm=0,tt=0,ts=0,tr=0; o.rows.forEach(r=>{ tm+=r.masuk; tt+=r.terjual; ts+=(r.sisa||0); tr+=r.retur; });
@@ -4102,8 +4102,9 @@ async function sendStokWA(ev){
     const base = { cabang:BRANCHES[branch], tglLong:waDateLong(todayStr), jam:jam, items:items, thr:thresholdSedikit };
     let pos=null; try { pos = await fetchPosDay(todayStr); } catch(_) {}
     let laris=null; try { laris = await fetchLarisHabis(); } catch(_) {}
-    let token=null; try { token = await createReportSnapshot('stok', todayStr, { kind:'stok', cabang:base.cabang, tgl:base.tglLong, jam:jam, thr:thresholdSedikit, items:items.map(i=>[i.cat,i.name,i.now]), pos:waPosPayload(pos), laris:laris?{days:laris.days,total:laris.total,habis:laris.habis.map(x=>[x.name,x.qty])}:null }); } catch(_) {}
-    const text = token ? waStockShort({ ...base, pos:pos, laris:laris, link:reportUrl(token) }) : waStockText({ ...base, pos:pos, laris:laris });   // cadangan: teks lengkap bila potret gagal dibuat
+    let live=null; try { const r=await sb.rpc('get_shelf_link',{p_branch_id:branch}); if(r&&!r.error&&typeof r.data==='string') live=r.data; } catch(_) {}
+    let token=null; if(!live) try { token = await createReportSnapshot('stok', todayStr, { kind:'stok', cabang:base.cabang, tgl:base.tglLong, jam:jam, thr:thresholdSedikit, items:items.map(i=>[i.cat,i.name,i.now]), pos:waPosPayload(pos), laris:laris?{days:laris.days,total:laris.total,habis:laris.habis.map(x=>[x.name,x.qty])}:null }); } catch(_) {}
+    const text = live ? waStockShort({ ...base, pos:pos, laris:laris, link:rakUrl(live), live:true }) : token ? waStockShort({ ...base, pos:pos, laris:laris, link:reportUrl(token) }) : waStockText({ ...base, pos:pos, laris:laris });   // cadangan: teks lengkap bila potret gagal dibuat
     waGo(win, waLink(text));
   } finally { _waBusy = false; if (link) link.style.opacity=''; }
 }

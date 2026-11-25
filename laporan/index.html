@@ -167,7 +167,7 @@ function loadLive(t){
   fetch(SB_URL+'/rest/v1/rpc/get_shelf_live',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})})
   .then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
   .then(function(j){if(!j||!j.items){message('⌛','Link tidak valid','Link ini sudah diganti atau salah. Minta link terbaru ke pemilik.');return;}
-    var keep=window.scrollY;D={kind:'stok',live:true,created_at:j.now,payload:{cabang:j.cabang,thr:j.thr,items:j.items,jam:new Date(j.now).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'})}};show();window.scrollTo(0,keep);})
+    var keep=window.scrollY;D={kind:'stok',live:true,created_at:j.now,payload:{cabang:j.cabang,thr:j.thr,items:j.items,pos:j.pos,laris:(j.laris?{days:j.laris.days,total:j.laris.total,habis:j.laris.habis}:null),jam:new Date(j.now).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'})}};show();window.scrollTo(0,keep);})
   .catch(function(){if(!D)message('📡','Tidak bisa memuat','Periksa koneksi internet, lalu coba lagi.',true);});
 }
 function load(){
