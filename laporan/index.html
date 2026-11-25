@@ -177,7 +177,7 @@ function load(){
   app.textContent='';for(var i=0;i<3;i++)app.appendChild(el('div','sk'));
   fetch(SB_URL+'/rest/v1/rpc/get_report_snapshot',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})})
   .then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
-  .then(function(j){if(!j||!j.payload){message('⌛','Laporan tidak ditemukan','Link ini tidak valid atau sudah lebih dari 60 hari.');return;}D=j;show();})
+  .then(function(j){if(!j||!j.payload){message('⌛','Laporan tidak ditemukan','Link ini tidak valid atau sudah lebih dari 60 hari.');return;}D=j;show();if(j.kind==='stok'){loadLive(t);RT=setInterval(function(){if(!document.hidden)loadLive(t);},60000);}})
   .catch(function(){message('📡','Tidak bisa memuat','Periksa koneksi internet, lalu coba lagi.',true);});
 }
 window.addEventListener('hashchange',load);
