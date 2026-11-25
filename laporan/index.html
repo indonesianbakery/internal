@@ -154,15 +154,25 @@ function renderHarian(){
 }
 function show(){
   var P=D.payload||{},cab=P.cabang||'',tgl=P.tgl||fmtDate(D.report_date);
-  document.getElementById('ttl').textContent=D.kind==='harian'?'Laporan Harian':'Laporan Stok';
+  document.getElementById('ttl').textContent=D.kind==='harian'?'Laporan Harian':(D.live?'Kondisi Rak Sekarang':'Laporan Stok');
   document.getElementById('sub').textContent=[cab,tgl,P.jam].filter(Boolean).join(' · ');
   document.title=(D.kind==='harian'?'Laporan Harian':'Laporan Stok')+' · '+cab;
-  document.getElementById('ft').textContent='Potret data saat dibuat'+(D.created_at?' ('+stamp(D.created_at)+')':'')+'. Link berlaku 60 hari. Indonesian Bakery.';
+  document.getElementById('ft').textContent=D.live?'Kondisi rak langsung dari database, diperbarui otomatis tiap 1 menit (terakhir '+stamp(D.created_at)+'). Link tetap. Indonesian Bakery.':'Potret data saat dibuat'+(D.created_at?' ('+stamp(D.created_at)+')':'')+'. Link berlaku 60 hari. Indonesian Bakery.';
   if(D.kind==='harian')renderHarian();else renderStok();
 }
 function token(){var h=(location.hash||'').replace(/^#/,'');if(!h){var m=/[?&]t=([^&]+)/.exec(location.search||'');h=m?decodeURIComponent(m[1]):'';}return h.trim();}
+var RT=null;
+function loadLive(t){
+  S=S||{q:'',f:'all',open:null};
+  fetch(SB_URL+'/rest/v1/rpc/get_shelf_live',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})})
+  .then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json();})
+  .then(function(j){if(!j||!j.items){message('⌛','Link tidak valid','Link ini sudah diganti atau salah. Minta link terbaru ke pemilik.');return;}
+    var keep=window.scrollY;D={kind:'stok',live:true,created_at:j.now,payload:{cabang:j.cabang,thr:j.thr,items:j.items,jam:new Date(j.now).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'})}};show();window.scrollTo(0,keep);})
+  .catch(function(){if(!D)message('📡','Tidak bisa memuat','Periksa koneksi internet, lalu coba lagi.',true);});
+}
 function load(){
-  var t=token();S={q:'',f:'all',open:null};
+  var t=token();S={q:'',f:'all',open:null};clearInterval(RT);
+  if(/^rak\.[0-9a-f]{32}$/i.test(t)){app.textContent='';for(var k=0;k<3;k++)app.appendChild(el('div','sk'));D=null;var tk=t.slice(4);loadLive(tk);RT=setInterval(function(){if(!document.hidden)loadLive(tk);},60000);return;}
   if(!/^[0-9a-f]{32}$/i.test(t)){message('🔗','Link tidak lengkap','Buka laporan lewat link yang dikirim di WhatsApp.');return;}
   app.textContent='';for(var i=0;i<3;i++)app.appendChild(el('div','sk'));
   fetch(SB_URL+'/rest/v1/rpc/get_report_snapshot',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_token:t})})

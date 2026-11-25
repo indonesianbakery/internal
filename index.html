@@ -962,6 +962,11 @@ body{ max-width:none; }
   </div>
 </div>
 
+<!-- MODAL LINK RAK TETAP -->
+<div class="modal-overlay" id="rak-modal" onclick="if(event.target===this)closeRakLinks()">
+  <div class="modal-sheet pp-sheet"><div id="rak-body"></div></div>
+</div>
+
 <!-- MODAL CATAT PENGELUARAN -->
 <div class="modal-overlay" id="exp-modal" onclick="if(event.target===this)closeExpModal()">
   <div class="modal-sheet pp-sheet"><div id="exp-body"></div></div>
@@ -1106,6 +1111,7 @@ body{ max-width:none; }
       <button class="period-btn" onclick="setPeriod(30,this)">Bulan ini</button>
     </div>
     <div style="text-align:center;margin-bottom:12px">
+      <button class="mini-btn rak-btn" style="display:none;margin-bottom:8px;width:100%" onclick="openRakLinks()">🔗 Link tetap kondisi rak (tiap cabang)</button>
       <a id="dash-wa-link" href="#" target="_blank" style="text-decoration:none;display:none">
         <button class="save-btn" style="background:#25D366;width:100%">📱 Kirim laporan via WhatsApp</button>
       </a>
@@ -4080,7 +4086,7 @@ async function createReportSnapshot(kind, dateStr, payload){
 }
 function reportUrl(token){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'laporan/#'+token; }
 // buka jendela WhatsApp SEKARANG (di dalam ketukan, agar tidak diblokir Safari), isinya diisi setelah data siap
-function waPreopen(){ try { return window.open('about:blank','_blank'); } catch(_) { return null; } }
+function waPreopen(){ try { if ((window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone) return null; return window.open('about:blank','_blank'); } catch(_) { return null; } }
 function waGo(win,url){ if (win && !win.closed) { win.location.href = url; } else { window.location.href = url; } }
 let _waBusy = false;
 async function sendStokWA(ev){
@@ -4101,7 +4107,27 @@ async function sendStokWA(ev){
     waGo(win, waLink(text));
   } finally { _waBusy = false; if (link) link.style.opacity=''; }
 }
+// ===== LINK TETAP KONDISI RAK (langsung dari database, tidak kedaluwarsa) =====
+function rakUrl(token){ return location.origin+location.pathname.replace(/[^/]*$/,'')+'laporan/#rak.'+token; }
+function closeRakLinks(){ document.getElementById('rak-modal').classList.remove('open'); }
+async function openRakLinks(reset){
+  const body=document.getElementById('rak-body'); document.getElementById('rak-modal').classList.add('open');
+  body.innerHTML='<div class="modal-title">🔗 Link tetap kondisi rak</div><div class="modal-sub">Link ini selalu menampilkan stok rak <b>saat dibuka</b> (bukan potret), tidak kedaluwarsa. Tempel di grup WhatsApp, lalu pin.</div><div class="loading"><div class="spinner"></div>Memuat...</div>';
+  let h='';
+  for(const b of Object.keys(BRANCHES)){
+    const { data, error } = await sb.rpc('get_shelf_link',{p_branch_id:b,p_reset:reset===b});
+    if(error||!data){ h+='<div class="fin-note">'+BRANCHES[b]+': gagal ('+(error?finEsc(error.message):'kosong')+'). Pastikan login sebagai Master/Manager.</div>'; continue; }
+    const u=rakUrl(data);
+    h+='<div style="border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:10px"><div style="font-weight:700;margin-bottom:6px">'+BRANCHES[b]+'</div>'
+      +'<input class="kor-input mono" readonly value="'+u+'" onclick="this.select()" style="font-size:11px">'
+      +'<div style="display:flex;gap:6px;margin-top:8px"><button class="mini-btn" style="flex:1" onclick="rakCopy(\''+u+'\')">📋 Salin</button><a class="mini-btn" style="flex:1;text-align:center;text-decoration:none" target="_blank" href="https://wa.me/?text='+encodeURIComponent('Kondisi rak '+BRANCHES[b]+' (selalu terbaru):\n'+u)+'">💬 Kirim WA</a><a class="mini-btn" style="flex:1;text-align:center;text-decoration:none" target="_blank" href="'+u+'">👁 Buka</a></div>'
+      +'<button class="del-btn" style="width:100%;margin-top:8px;font-size:11px;padding:6px" onclick="if(confirm(\'Ganti link '+BRANCHES[b]+'? Link lama langsung tidak berlaku.\'))openRakLinks(\''+b+'\')">Ganti link (kalau bocor)</button></div>';
+  }
+  body.innerHTML='<div class="modal-title">🔗 Link tetap kondisi rak</div><div class="modal-sub">Link ini selalu menampilkan stok rak <b>saat dibuka</b> (bukan potret) dan tidak kedaluwarsa. Tempel di grup WhatsApp, lalu pin. Siapa pun yang punya link bisa melihat stok, jadi jangan disebar ke luar tim.</div>'+h+'<button class="pp-close" onclick="closeRakLinks()">Tutup</button>';
+}
+async function rakCopy(u){ try{ await navigator.clipboard.writeText(u); draftNote&&draftNote('Link disalin'); }catch(_){ prompt('Salin link ini:',u); } }
 function buildWaReport() {
+  try{ const rb=document.querySelector('.rak-btn'); if(rb) rb.style.display=(currentUser&&(currentUser.role==='master'||currentUser.role==='manager'))?'block':'none'; }catch(_){}
   const link=document.getElementById('dash-wa-link'); if (!link) return;
   link.href='#'; link.removeAttribute('target'); link.onclick=sendStokWA; link.style.display='block';
 }
