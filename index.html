@@ -6655,6 +6655,7 @@ async function renderRiwayatAdmin(){
 </script>
 <script>
 // ===== PRODUKSI: plan → print → catat produksi → cek 15.00 → closing =====
+let prdBases={};
 let prdTab='hari', prdDay=[], prdLogs=[], prdIngs=[], prdRecipes={}, prdPlanDate=null, prdSug={}, prdShowAll=false;
 const PRD_NONBAKE_CATS=[6,8]; // Dll, Selai: disembunyikan kecuali ada resep/plan
 function prdBake(r){ return !PRD_NONBAKE_CATS.includes(r.category_id) || r.has_recipe || Number(r.plan_qty)>0 || (prdRecipes[r.product_id]&&prdRecipes[r.product_id].items.length); }
@@ -6777,8 +6778,9 @@ async function prdCekSave(kind){
 
 // ---------- PLAN (Super Admin) ----------
 async function prdLoadRecipes(){
-  const [r,i,g]=await Promise.all([ sb.from('product_recipes').select('*'), sb.from('recipe_items').select('product_id,ingredient_id,qty'), sb.rpc('get_ingredient_stock') ]);
+  const [r,i,g,bs,bi]=await Promise.all([ sb.from('product_recipes').select('*'), sb.from('recipe_items').select('product_id,ingredient_id,base_id,qty'), sb.rpc('get_ingredient_stock'), sb.from('recipe_bases').select('*'), sb.from('recipe_base_items').select('base_id,ingredient_id,qty') ]);
   if (r.error) throw r.error;
+  prdBases={}; (bs.data||[]).forEach(x=>{ prdBases[x.id]=Object.assign({items:[]},x); }); (bi.data||[]).forEach(x=>{ if(prdBases[x.base_id]) prdBases[x.base_id].items.push(x); });
   prdRecipes={}; (r.data||[]).forEach(x=>{ prdRecipes[x.product_id]={unit:x.unit,batch_yield:x.batch_yield,items:[]}; });
   (i.data||[]).forEach(x=>{ (prdRecipes[x.product_id]=prdRecipes[x.product_id]||{unit:'pcs',batch_yield:1,items:[]}).items.push(x); });
   prdIngs=g.data||[];
@@ -6817,7 +6819,7 @@ function prdNeedRender(){
     const q=bahanParse(inp.value); if(!(q>0)) return;
     const pid=Number(inp.dataset.pid), rc=prdRecipes[pid];
     if (!rc||!rc.items.length) { const r=prdDay.find(x=>x.product_id===pid); noRec.push(r?dn(r.name):pid); return; }
-    rc.items.forEach(it=>{ need[it.ingredient_id]=(need[it.ingredient_id]||0)+Number(it.qty)*q; });
+    const f=prdFlat(pid); Object.keys(f).forEach(k=>{ need[k]=(need[k]||0)+f[k]*q; });
   });
   const ids=Object.keys(need), el=document.getElementById('prd-need'); if(!el) return;
   let h = ids.length ? ids.map(id=>{
@@ -6881,27 +6883,116 @@ async function prdPrint(date){
 }
 
 // ---------- RESEP (Super Admin) ----------
+// prdBases: {id:{id,name,yield_qty,yield_unit,items:[{ingredient_id,qty}]}}
+function prdFlat(pid){
+  const rc=prdRecipes[pid], out={}; if(!rc) return out;
+  rc.items.forEach(it=>{
+    if (it.ingredient_id) out[it.ingredient_id]=(out[it.ingredient_id]||0)+Number(it.qty);
+    else if (it.base_id && prdBases[it.base_id]) { const b=prdBases[it.base_id]; b.items.forEach(bi=>{ out[bi.ingredient_id]=(out[bi.ingredient_id]||0)+Number(it.qty)*Number(bi.qty)/Number(b.yield_qty); }); }
+  });
+  return out;
+}
 async function prdLoadResep(){
   await prdLoadRecipes();
   const { data } = await sb.rpc('get_production_day',{p_date:finTodayWIB()}); prdDay=data||[];
-  let h='<div class="fin-note" style="margin:0 0 8px">🔒 Resep hanya bisa dilihat Super Admin. Takaran diisi per <b>1 batch</b> atau per <b>1 pcs</b>, sesuai cara order roti itu. Bahan diambil dari Stok Bahan.</div>'
-    +'<input class="form-input" id="prd-rs-q" placeholder="Cari roti (kategori Dll & Selai muncul lewat cari)..." oninput="prdRenderResep()" style="margin-bottom:8px"><div id="prd-rs-list"></div>';
+  let h='<div class="fin-note" style="margin:0 0 8px">🔒 Resep hanya bisa dilihat Super Admin. Takaran diisi per <b>1 batch</b> atau per <b>1 pcs</b>. Bahan diambil dari Stok Bahan.</div>'
+    +'<div class="pd-sec" style="display:flex;align-items:center;justify-content:space-between">Adonan dasar <button class="mini-btn" onclick="prdBaseOpen(null)">+ Adonan dasar</button></div>'
+    +'<div class="fin-note" style="margin:0 0 6px">Resep yang dipakai banyak roti (mis. adonan manis). Di resep roti cukup tulis "adonan manis 60 gram".</div>'
+    +(Object.values(prdBases).sort((a,b)=>a.name.localeCompare(b.name)).map(b=>'<div class="bhn-row" onclick="prdBaseOpen('+b.id+')"><div class="bhn-main"><div class="bhn-name">🥣 '+finEsc(b.name)+'</div><div class="bhn-sub">'+b.items.length+' bahan · 1 resep = '+bahanFmt(b.yield_qty)+' '+finEsc(b.yield_unit)+' · dipakai '+Object.values(prdRecipes).filter(rc=>rc.items.some(it=>it.base_id===b.id)).length+' roti</div></div></div>').join('')||'<div class="empty">Belum ada adonan dasar</div>')
+    +'<div class="pd-sec">Roti</div><input class="form-input" id="prd-rs-q" placeholder="Cari roti (kategori Dll & Selai muncul lewat cari)..." oninput="prdRenderResep()" style="margin-bottom:8px"><div id="prd-rs-list"></div>';
   document.getElementById('prd-body').innerHTML=h; prdRenderResep();
 }
 function prdRenderResep(){
   const q=(document.getElementById('prd-rs-q').value||'').toLowerCase();
   document.getElementById('prd-rs-list').innerHTML=prdDay.filter(r=>q?r.name.toLowerCase().includes(q):prdBake(r)).map(r=>{
     const rc=prdRecipes[r.product_id], n=rc?rc.items.length:0;
-    return '<div class="bhn-row" onclick="prdResepOpen('+r.product_id+')"><div class="bhn-main"><div class="bhn-name">'+finEsc(dn(r.name))+'</div><div class="bhn-sub">'+(n?n+' bahan · per '+(rc.unit==='batch'?'batch ('+rc.batch_yield+' pcs)':'pcs'):'belum ada resep')+'</div></div><div class="bhn-right"><span class="bhn-badge '+(n?'cukup':'belum')+'">'+(n?'Ada':'Kosong')+'</span></div></div>';
+    return '<div class="bhn-row" onclick="prdResepOpen('+r.product_id+')"><div class="bhn-main"><div class="bhn-name">'+finEsc(dn(r.name))+'</div><div class="bhn-sub">'+(n?n+' baris · per '+(rc.unit==='batch'?'batch ('+rc.batch_yield+' pcs)':'pcs'):'belum ada resep')+'</div></div><div class="bhn-right"><span class="bhn-badge '+(n?'cukup':'belum')+'">'+(n?'Ada':'Kosong')+'</span></div></div>';
   }).join('')||'<div class="empty">Tidak ada roti</div>';
 }
-function prdIngOpts(sel){ return '<option value="">— pilih bahan —</option>'+prdIngs.slice().sort((a,b)=>(a.category||'~').localeCompare(b.category||'~')||a.name.localeCompare(b.name)).map(g=>'<option value="'+g.id+'" data-u="'+finEsc(g.unit)+'"'+(g.id===sel?' selected':'')+'>'+finEsc((g.category?g.category+' · ':'')+g.name)+'</option>').join(''); }
-function prdRsRow(it){ it=it||{}; const g=prdIngs.find(x=>x.id===it.ingredient_id); return '<div class="pd-row prd-rs-row" style="margin-bottom:6px"><select class="kor-input prd-rs-ing" style="flex:1" onchange="this.parentNode.querySelector(\'.pm-pcs\').textContent=(this.selectedOptions[0]&&this.selectedOptions[0].dataset.u)||\'\'">'+prdIngOpts(it.ingredient_id)+'</select><input class="mini-input prd-rs-qty" type="text" inputmode="decimal" value="'+(it.qty!=null?bahanFmt(it.qty):'')+'" placeholder="0" style="width:72px"><span class="pm-pcs" style="min-width:34px">'+(g?finEsc(g.unit):'')+'</span><button class="var-del" type="button" onclick="this.closest(\'.prd-rs-row\').remove()">×</button></div>'; }
+function prdSrcList(withBases){
+  const L=[]; if (withBases) Object.values(prdBases).forEach(b=>L.push({v:'b:'+b.id,name:b.name,label:'🥣 '+b.name,unit:b.yield_unit,cat:'Adonan dasar'}));
+  prdIngs.forEach(g=>L.push({v:'i:'+g.id,name:g.name,label:g.name,unit:g.unit,cat:g.category||'Tanpa kategori'}));
+  return L;
+}
+function prdSrcOpts(sel,withBases){
+  const groups={}; prdSrcList(withBases).forEach(s=>(groups[s.cat]=groups[s.cat]||[]).push(s));
+  const cats=Object.keys(groups).sort((a,b)=>a==='Adonan dasar'?-1:b==='Adonan dasar'?1:a==='Tanpa kategori'?1:b==='Tanpa kategori'?-1:a.localeCompare(b));
+  return '<option value="">— pilih bahan —</option>'+cats.map(c=>'<optgroup label="'+finEsc(c)+'">'+groups[c].sort((a,b)=>a.name.localeCompare(b.name)).map(s=>'<option value="'+s.v+'" data-u="'+finEsc(s.unit)+'"'+(s.v===sel?' selected':'')+'>'+finEsc(s.label)+'</option>').join('')+'</optgroup>').join('');
+}
+let prdRsBases=true;
+function prdRsRow(it){
+  it=it||{}; const v=it.v||(it.base_id?'b:'+it.base_id:(it.ingredient_id?'i:'+it.ingredient_id:'')), s=prdSrcList(prdRsBases).find(x=>x.v===v);
+  return '<div class="prd-rs-row" style="margin-bottom:6px"><div class="pd-row" style="margin:0"><select class="kor-input prd-rs-ing" style="flex:1" onchange="this.closest(\'.prd-rs-row\').querySelector(\'.pm-pcs\').textContent=(this.selectedOptions[0]&&this.selectedOptions[0].dataset.u)||\'\';this.closest(\'.prd-rs-row\').querySelector(\'.prd-rs-note\').textContent=\'\'">'+prdSrcOpts(v,prdRsBases)+'</select><input class="mini-input prd-rs-qty" type="text" inputmode="decimal" value="'+(it.qty!=null&&it.qty!==''?bahanFmt(it.qty):'')+'" placeholder="0" style="width:72px"><span class="pm-pcs" style="min-width:34px">'+(s?finEsc(s.unit):'')+'</span><button class="var-del" type="button" onclick="this.closest(\'.prd-rs-row\').remove()">×</button></div><div class="pm2-sub prd-rs-note" style="color:#9A6700">'+finEsc(it.note||'')+'</div></div>';
+}
+function prdRsTools(selfKey){
+  const prods=prdDay.filter(r=>prdRecipes[r.product_id]&&prdRecipes[r.product_id].items.length&&('p:'+r.product_id)!==selfKey);
+  const bases=Object.values(prdBases).filter(b=>('b:'+b.id)!==selfKey);
+  return '<details style="margin:8px 0"><summary style="font-size:13px;font-weight:600;cursor:pointer">⚡ Isi cepat: tempel teks / salin resep</summary>'
+    +'<textarea class="kor-input" id="prd-rs-paste" rows="4" style="margin-top:6px" placeholder="tepung 1kg, telur 10 butir, gula 200gr\natau satu bahan per baris"></textarea>'
+    +'<button class="mini-btn" type="button" style="margin-top:4px" onclick="prdRsParse()">Baca teks → isi baris</button>'
+    +((prods.length||bases.length)?'<select class="kor-input" style="margin-top:8px" onchange="prdRsCopy(this.value);this.value=\'\'"><option value="">📋 Salin dari resep lain…</option>'+(bases.length?'<optgroup label="Adonan dasar">'+bases.map(b=>'<option value="b:'+b.id+'">'+finEsc(b.name)+'</option>').join('')+'</optgroup>':'')+(prods.length?'<optgroup label="Roti">'+prods.map(r=>'<option value="p:'+r.product_id+'">'+finEsc(dn(r.name))+'</option>').join('')+'</optgroup>':'')+'</select>':'')
+    +'</details>';
+}
+function prdRsSetRows(items,append){ const box=document.getElementById('prd-rs-rows'); if(!append) box.innerHTML=''; box.insertAdjacentHTML('beforeend',items.map(prdRsRow).join('')); }
+function prdRsCopy(v){
+  if (!v) return; let items=[];
+  if (v[0]==='b') { const b=prdBases[v.slice(2)]; if(!b) return; items=b.items.map(x=>({ingredient_id:x.ingredient_id,qty:x.qty})); }
+  else { const rc=prdRecipes[v.slice(2)]; if(!rc) return; items=rc.items.filter(x=>prdRsBases||x.ingredient_id).map(x=>({ingredient_id:x.ingredient_id,base_id:x.base_id,qty:x.qty}));
+    const u=document.getElementById('prd-rs-unit'); if(u){ u.value=rc.unit; u.onchange(); document.getElementById('prd-rs-yield').value=rc.batch_yield; } }
+  if (document.querySelectorAll('.prd-rs-row').length && [...document.querySelectorAll('.prd-rs-ing')].some(s=>s.value) && !confirm('Ganti baris yang sudah ada dengan resep ini?')) return;
+  prdRsSetRows(items.length?items:[{}]); prdMsg('✓ Disalin. Ubah yang beda, lalu simpan.',true);
+}
+const PRD_UNIT_ALIAS={g:'gram',gr:'gram',grm:'gram',gram:'gram',kg:'kg',kilo:'kg',ml:'ml',l:'liter',lt:'liter',ltr:'liter',liter:'liter',btr:'butir',butir:'butir',biji:'butir',pcs:'pcs',buah:'pcs'};
+function prdRsMatch(name){
+  const words=name.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>1); if(!words.length) return null;
+  let best=null, bestScore=0;
+  prdSrcList(prdRsBases).forEach(s=>{
+    const hay=(s.name+' '+(s.cat||'')).toLowerCase(), hit=words.filter(w=>hay.includes(w)).length; if(!hit) return;
+    const score=hit/words.length - Math.abs(s.name.length-name.length)/200 + (s.name.toLowerCase()===name.toLowerCase()?1:0);
+    if (score>bestScore) { bestScore=score; best=s; }
+  });
+  return best;
+}
+function prdRsParse(){
+  const txt=document.getElementById('prd-rs-paste').value; if(!txt.trim()) return;
+  const out=[]; let ok=0, warn=0;
+  txt.split(/[\n,;]+/).map(t=>t.trim()).filter(Boolean).forEach(part=>{
+    const m=part.match(/(\d+(?:[.,]\d+)?)\s*([a-zA-Z]*)/);
+    if (!m) { out.push({note:'Tidak ada angka: "'+part+'"'}); warn++; return; }
+    let q=parseFloat(m[1].replace(',','.')), u=PRD_UNIT_ALIAS[(m[2]||'').toLowerCase()]||'';
+    const name=(part.slice(0,m.index)+' '+part.slice(m.index+m[0].length)).replace(/\s+/g,' ').trim() || (u?'':m[2]);
+    const s=prdRsMatch(name||'');
+    if (!s) { out.push({qty:q,note:'Bahan tidak ketemu: "'+part+'" → pilih manual'}); warn++; return; }
+    let note='';
+    if (u && u!==s.unit) { const c=bahanConvert(q,u,s.unit); if(c!=null) q=c; else { note='Satuan "'+u+'" beda dari '+s.unit+', cek angkanya ("'+part+'")'; warn++; } }
+    if (!note) ok++;
+    out.push({v:s.v,qty:Math.round(q*10000)/10000,note:note||('dari "'+part+'"')});
+  });
+  const empty=[...document.querySelectorAll('.prd-rs-row')].filter(r=>!r.querySelector('.prd-rs-ing').value&&!r.querySelector('.prd-rs-qty').value.trim());
+  empty.forEach(r=>r.remove());
+  prdRsSetRows(out,true); document.getElementById('prd-rs-paste').value='';
+  prdMsg(ok+' baris terbaca'+(warn?', '+warn+' perlu dicek (tulisan kuning)':''),!warn);
+}
+function prdRsCollect(allowBase){
+  const items=[], seen={};
+  for (const row of document.querySelectorAll('.prd-rs-row')) {
+    const v=row.querySelector('.prd-rs-ing').value, q=bahanParse(row.querySelector('.prd-rs-qty').value);
+    if (!v && q==null) continue;
+    if (!v) { prdMsg('Pilih bahan untuk semua baris'); return null; }
+    if (!(q>0)) { prdMsg('Takaran harus lebih dari 0'); return null; }
+    if (seen[v]) { prdMsg('Ada bahan yang dobel'); return null; } seen[v]=1;
+    const id=Number(v.slice(2));
+    items.push(v[0]==='b' ? {base_id:id,ingredient_id:null,qty:q} : {ingredient_id:id,base_id:null,qty:q});
+  }
+  return items;
+}
 function prdResepOpen(pid){
+  prdRsBases=true;
   const r=prdDay.find(x=>x.product_id===pid), rc=prdRecipes[pid]||{unit:'pcs',batch_yield:1,items:[]};
   prdOpen('<div class="modal-title">📖 Resep</div><div class="modal-sub">'+finEsc(dn(r.name))+'</div>'
     +'<div style="display:flex;gap:8px"><div style="flex:1"><label class="kor-lbl">Order per</label><select class="kor-input" id="prd-rs-unit" onchange="document.getElementById(\'prd-rs-yw\').style.display=this.value===\'batch\'?\'\':\'none\';document.getElementById(\'prd-rs-per\').textContent=this.value===\'batch\'?\'1 batch\':\'1 pcs\'"><option value="pcs"'+(rc.unit==='pcs'?' selected':'')+'>pcs</option><option value="batch"'+(rc.unit==='batch'?' selected':'')+'>batch</option></select></div>'
     +'<div style="flex:1;display:'+(rc.unit==='batch'?'':'none')+'" id="prd-rs-yw"><label class="kor-lbl">1 batch = ? pcs</label><input class="kor-input mono" id="prd-rs-yield" type="number" inputmode="numeric" value="'+rc.batch_yield+'"></div></div>'
+    +prdRsTools('p:'+pid)
     +'<div class="pd-sec">Bahan untuk <span id="prd-rs-per">'+(rc.unit==='batch'?'1 batch':'1 pcs')+'</span></div><div id="prd-rs-rows">'+(rc.items.length?rc.items:[{}]).map(prdRsRow).join('')+'</div>'
     +'<button class="mini-btn" type="button" onclick="document.getElementById(\'prd-rs-rows\').insertAdjacentHTML(\'beforeend\',prdRsRow())">+ Tambah bahan</button>'
     +'<div id="prd-msg" class="price-save-status" style="display:block;margin:6px 0"></div>'
@@ -6910,20 +7001,76 @@ function prdResepOpen(pid){
 async function prdResepSave(pid){
   const unit=document.getElementById('prd-rs-unit').value, y=unit==='batch'?parseInt(document.getElementById('prd-rs-yield').value,10):1;
   if (unit==='batch' && !(y>=1)) return prdMsg('Isi 1 batch = berapa pcs');
-  const items=[], seen={};
-  for (const row of document.querySelectorAll('.prd-rs-row')) {
-    const iid=row.querySelector('.prd-rs-ing').value, q=bahanParse(row.querySelector('.prd-rs-qty').value);
-    if (!iid && q==null) continue;
-    if (!iid) return prdMsg('Pilih bahan untuk semua baris');
-    if (!(q>0)) return prdMsg('Takaran harus lebih dari 0');
-    if (seen[iid]) return prdMsg('Ada bahan yang dobel'); seen[iid]=1;
-    items.push({product_id:pid,ingredient_id:Number(iid),qty:q});
-  }
+  const items=prdRsCollect(true); if(!items) return;
   document.getElementById('prd-go').disabled=true;
   const fail=e=>{ document.getElementById('prd-go').disabled=false; prdMsg('Gagal: '+e.message); };
   let r=await sb.from('product_recipes').upsert({product_id:pid,unit:unit,batch_yield:y,updated_at:new Date().toISOString()}); if(r.error) return fail(r.error);
   r=await sb.from('recipe_items').delete().eq('product_id',pid); if(r.error) return fail(r.error);
-  if (items.length) { r=await sb.from('recipe_items').insert(items); if(r.error) return fail(r.error); }
+  if (items.length) { r=await sb.from('recipe_items').insert(items.map(x=>Object.assign({product_id:pid},x))); if(r.error) return fail(r.error); }
+  prdClose(); await prdLoadResep();
+}
+const PRD_YIELD_UNITS=['gram','kg','pcs','ml','liter'];
+function prdBaseOpen(id){
+  prdRsBases=false;
+  const b=id?prdBases[id]:{name:'',yield_qty:'',yield_unit:'gram',items:[]};
+  prdOpen('<div class="modal-title">🥣 '+(id?'Edit':'Tambah')+' adonan dasar</div><div class="modal-sub">Isi bahan untuk 1 resep adonan, lalu hasil jadinya berapa.</div>'
+    +'<label class="kor-lbl">Nama</label><input class="kor-input" id="prd-b-name" value="'+finEsc(b.name)+'" placeholder="mis. Adonan manis">'
+    +'<label class="kor-lbl" style="margin-top:10px">1 resep jadi</label><div style="display:flex;gap:6px"><input class="kor-input mono" id="prd-b-yq" type="text" inputmode="decimal" value="'+(b.yield_qty!==''?bahanFmt(b.yield_qty):'')+'" placeholder="mis. 5000" style="flex:1"><select class="kor-input" id="prd-b-yu" style="flex:1" onchange="document.querySelectorAll(\'.prd-bu-u\').forEach(e=>e.textContent=this.value)">'+PRD_YIELD_UNITS.map(u=>'<option'+(u===b.yield_unit?' selected':'')+'>'+u+'</option>').join('')+'</select></div>'
+    +'<div class="fin-note" style="margin-top:4px">Biasanya pakai berat total adonan (gram). Di resep roti nanti tinggal tulis berapa gram adonan per pcs/batch.</div>'
+    +prdRsTools(id?'b:'+id:'')
+    +'<div class="pd-sec">Bahan untuk 1 resep</div><div id="prd-rs-rows">'+(b.items.length?b.items:[{}]).map(prdRsRow).join('')+'</div>'
+    +'<button class="mini-btn" type="button" onclick="document.getElementById(\'prd-rs-rows\').insertAdjacentHTML(\'beforeend\',prdRsRow())">+ Tambah bahan</button>'
+    +'<div class="pd-sec">Dipakai untuk roti</div><div class="fin-note" style="margin:0 0 6px">Isi berapa adonan per 1 pcs/batch roti itu (satuan ikut hasil jadi di atas).</div>'
+    +'<div id="prd-bu-rows">'+prdBaseUsers(id).map(prdBuRow).join('')+'</div>'
+    +'<select class="kor-input" style="margin-top:4px" onchange="if(this.value){document.getElementById(\'prd-bu-rows\').insertAdjacentHTML(\'beforeend\',prdBuRow({product_id:Number(this.value)}));this.value=\'\';}"><option value="">+ Tambah roti…</option>'+prdDay.filter(prdBake).map(r=>'<option value="'+r.product_id+'">'+finEsc(dn(r.name))+'</option>').join('')+'</select>'
+    +'<div id="prd-msg" class="price-save-status" style="display:block;margin:6px 0"></div>'
+    +'<div class="ta-actions"><button class="pp-close" style="margin-top:0;flex:1" onclick="prdClose()">Batal</button><button class="save-btn save-in" id="prd-go" style="flex:2" onclick="prdBaseSave('+(id||'null')+')">💾 Simpan</button></div>'
+    +(id?'<button class="del-btn" style="width:100%;margin-top:10px" onclick="prdBaseDel('+id+')">🗑️ Hapus adonan</button>':''));
+}
+function prdBaseUsers(id){
+  if (!id) return [];
+  return Object.keys(prdRecipes).map(pid=>{ const it=prdRecipes[pid].items.find(x=>x.base_id===id); return it?{product_id:Number(pid),qty:it.qty}:null; }).filter(Boolean)
+    .sort((a,b)=>{ const A=prdDay.find(r=>r.product_id===a.product_id), B=prdDay.find(r=>r.product_id===b.product_id); return (A?A.name:'').localeCompare(B?B.name:''); });
+}
+function prdBuRow(u){
+  const r=prdDay.find(x=>x.product_id===u.product_id), rc=prdRecipes[u.product_id];
+  const per=rc&&rc.unit==='batch'?'per batch':'per pcs';
+  return '<div class="pd-row prd-bu-row" data-pid="'+u.product_id+'" style="margin-bottom:6px"><div style="flex:1;font-size:13px;font-weight:600">'+finEsc(r?dn(r.name):'#'+u.product_id)+'<div class="pm2-sub">'+per+'</div></div><input class="mini-input prd-bu-qty" type="text" inputmode="decimal" value="'+(u.qty!=null?bahanFmt(u.qty):'')+'" placeholder="0" style="width:72px"><span class="pm-pcs prd-bu-u">'+finEsc((document.getElementById('prd-b-yu')||{}).value||'gram')+'</span><button class="var-del" type="button" onclick="this.closest(\'.prd-bu-row\').remove()">×</button></div>';
+}
+async function prdBaseSave(id){
+  const name=document.getElementById('prd-b-name').value.trim(), yq=bahanParse(document.getElementById('prd-b-yq').value), yu=document.getElementById('prd-b-yu').value;
+  if (!name) return prdMsg('Isi nama adonan'); if (!(yq>0)) return prdMsg('Isi hasil jadi 1 resep');
+  const items=prdRsCollect(false); if(!items) return; if(!items.length) return prdMsg('Isi minimal satu bahan');
+  document.getElementById('prd-go').disabled=true;
+  const fail=e=>{ document.getElementById('prd-go').disabled=false; prdMsg('Gagal: '+e.message); };
+  const row={name:name,yield_qty:yq,yield_unit:yu,updated_at:new Date().toISOString()};
+  let r = id ? await sb.from('recipe_bases').update(row).eq('id',id).select('id').single() : await sb.from('recipe_bases').insert(row).select('id').single();
+  if (r.error) return fail(r.error); const bid=r.data.id;
+  r=await sb.from('recipe_base_items').delete().eq('base_id',bid); if(r.error) return fail(r.error);
+  r=await sb.from('recipe_base_items').insert(items.map(x=>({base_id:bid,ingredient_id:x.ingredient_id,qty:x.qty}))); if(r.error) return fail(r.error);
+  // roti yang memakai adonan ini
+  const users=[], seenP={};
+  for (const row of document.querySelectorAll('.prd-bu-row')) {
+    const pid=Number(row.dataset.pid), q=bahanParse(row.querySelector('.prd-bu-qty').value);
+    if (seenP[pid]) continue; seenP[pid]=1;
+    if (!(q>0)) { document.getElementById('prd-go').disabled=false; return prdMsg('Isi jumlah adonan untuk semua roti (atau hapus barisnya)'); }
+    users.push({product_id:pid,qty:q});
+  }
+  const before=prdBaseUsers(id).map(u=>u.product_id), now=users.map(u=>u.product_id);
+  const removed=before.filter(pid=>!now.includes(pid));
+  if (removed.length) { r=await sb.from('recipe_items').delete().eq('base_id',bid).in('product_id',removed); if(r.error) return fail(r.error); }
+  if (users.length) {
+    const missing=now.filter(pid=>!prdRecipes[pid]);
+    if (missing.length) { r=await sb.from('product_recipes').upsert(missing.map(pid=>({product_id:pid,unit:'pcs',batch_yield:1})),{onConflict:'product_id',ignoreDuplicates:true}); if(r.error) return fail(r.error); }
+    r=await sb.from('recipe_items').delete().eq('base_id',bid).in('product_id',now); if(r.error) return fail(r.error);
+    r=await sb.from('recipe_items').insert(users.map(u=>({product_id:u.product_id,base_id:bid,ingredient_id:null,qty:u.qty}))); if(r.error) return fail(r.error);
+  }
+  prdClose(); await prdLoadResep();
+}
+async function prdBaseDel(id){
+  const n=Object.values(prdRecipes).filter(rc=>rc.items.some(it=>it.base_id===id)).length;
+  if (!confirm('Hapus adonan ini?'+(n?'\n\n⚠️ Dipakai di '+n+' resep roti — baris adonan di resep itu ikut terhapus.':''))) return;
+  const { error } = await sb.from('recipe_bases').delete().eq('id',id); if (error) return alert('Gagal: '+error.message);
   prdClose(); await prdLoadResep();
 }
 </script>
