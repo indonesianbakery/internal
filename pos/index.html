@@ -897,6 +897,12 @@ function denomSync(k){
   inp.value = any ? t.toLocaleString('id-ID') : '';
   if(k==='close'){ calcShiftDiff(); calcSetor(); }
 }
+function fillEstDenoms(){
+  if(!drawerEst){ toast('Perkiraan belum ada'); return; }
+  const o = {}; NOTE_LIST.forEach(v=>{ if(drawerEst[v]>0) o[v]=drawerEst[v]; });
+  denomState.close = o; renderDenoms('close');
+  toast('Diisi dari perkiraan · cocokin sama uang fisik ya');
+}
 function realDenoms(o){ if(!o || typeof o!=='object') return null; const r={}; DENOMS.forEach(v=>{ const q=parseInt(o[v]); if(q>0) r[v]=q; }); return Object.keys(r).length ? r : null; }
 async function fillPrevDenoms(k){
   let src = null, from = '';
@@ -980,6 +986,13 @@ async function openCloseShift(){
     <div class="shift-row"><span>Jumlah transaksi</span><b>${data.tx_count}</b></div>`;
   (data.per_kasir||[]).forEach(k=>{ html += `<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;· ${k.nama} (${k.n} trx)</span><b>${rp(k.total)}</b></div>`; });
   html += `<div class="shift-row tot"><span>Harusnya di laci</span><b>${rp(expected)}</b></div>`;
+  const est = await loadDrawerEst();
+  if(est){
+    const rows = NOTE_LIST.filter(v=>est[v]).map(v=>`<div class="shift-row" style="font-size:12px;"><span>&nbsp;&nbsp;${v>=1000?(v/1000)+'rb':v} x ${est[v]}</span><b>${rp(v*est[v])}</b></div>`).join('');
+    html += `<div class="shift-row" style="margin-top:6px;"><span>🔮 Perkiraan isi laci per lembar</span><button class="gf-edit" style="font-size:12px;padding:5px 10px;" onclick="fillEstDenoms()">↺ Isi dari perkiraan</button></div>` + rows;
+  } else {
+    html += `<div class="shift-row" style="font-size:12px;color:var(--text3);"><span>🔮 Perkiraan per lembar belum ada (kas awal gak dihitung per lembar)</span></div>`;
+  }
   document.getElementById('shift-close-summary').innerHTML = html;
   document.getElementById('shift-close-note').value = '';
   denomState.close = {}; renderDenoms('close');
@@ -1563,6 +1576,7 @@ function saveDiscountTotal(){
 // ===== PAYMENT =====
 let cashInputStr = '';
 function openPayment(){
+  loadDrawerEst().then(()=>{ try{ calcChange(); }catch(_){} });
   payRef = newPayRef();
   closeSheet('sheet-cart');
   payMethod = 'cash';
@@ -1631,6 +1645,42 @@ function setExactCash(){
   document.getElementById('cash-display').textContent = Number(cashInputStr).toLocaleString('id-ID');
   calcChange();
 }
+// Saran pecahan kembalian: 20rb & 10rb maks 1 lembar (kebiasaan toko), sisanya pecahan terbesar dulu
+const NOTE_LIST = [100000,50000,20000,10000,5000,2000,1000,500,200,100];
+let drawerEst = null; // perkiraan isi laci per lembar {nominal: jumlah}, null = belum diketahui
+function greedyNotes(amt, limit, stock){
+  const out = []; let r = Math.round(amt);
+  NOTE_LIST.forEach(v=>{ let n = Math.floor(r/v); if(limit && limit[v]!=null) n = Math.min(n, limit[v]); if(stock) n = Math.min(n, Math.max(0, stock[v]||0)); for(let i=0;i<n;i++) out.push(v); r -= n*v; });
+  return { notes: out, rest: r };
+}
+function changeNotes(amt){
+  const pref = {20000:1, 10000:1};
+  if(drawerEst){
+    let g = greedyNotes(amt, pref, drawerEst); if(g.rest===0) return g.notes;   // kebiasaan toko + sesuai isi laci
+    g = greedyNotes(amt, null, drawerEst); if(g.rest===0) return g.notes;        // sesuai isi laci aja
+  }
+  return greedyNotes(amt, pref, null).notes;                                     // isi laci gak diketahui
+}
+function notesToObj(arr){ const o={}; arr.forEach(v=>{ o[v]=(o[v]||0)+1; }); return o; }
+async function loadDrawerEst(){
+  drawerEst = null;
+  if(!currentShift) return null;
+  const base = realDenoms(currentShift.opening_denoms);
+  if(!base) return null;
+  const est = Object.assign({}, base);
+  const { data } = await sb.from('pos_transactions').select('cash_in_notes, cash_out_notes').eq('shift_id', currentShift.id).eq('payment_method','cash');
+  (data||[]).forEach(t=>{
+    Object.entries(t.cash_in_notes||{}).forEach(([v,q])=>{ est[v]=(est[v]||0)+Number(q); });
+    Object.entries(t.cash_out_notes||{}).forEach(([v,q])=>{ est[v]=(est[v]||0)-Number(q); });
+  });
+  drawerEst = est; return est;
+}
+function renderChangeNotes(change){
+  let el = document.getElementById('change-notes');
+  if(!el){ el = document.createElement('div'); el.id='change-notes'; el.style.cssText='display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:8px;'; document.getElementById('change-box').appendChild(el); }
+  if(!(change>0)){ el.innerHTML=''; return; }
+  el.innerHTML = changeNotes(change).map(v=>`<span style="background:#fff;border:1.5px solid var(--g3);color:var(--g);border-radius:8px;padding:3px 9px;font-size:13px;font-weight:800;font-family:'DM Mono',monospace;">${v>=1000?(v/1000)+'rb':v}</span>`).join('');
+}
 function calcChange(){
   const received = parseInt(cashInputStr)||0;
   const total = calcGrandTotal();
@@ -1639,6 +1689,7 @@ function calcChange(){
   box.querySelector('.lbl').textContent = change<0 ? 'Kurang' : 'Kembalian';
   document.getElementById('change-val').textContent = rp(Math.abs(change));
   box.classList.toggle('neg', change<0);
+  renderChangeNotes(change);
   document.getElementById('btn-confirm-pay').disabled = (payMethod==='cash' && change<0);
 }
 
@@ -1687,6 +1738,13 @@ async function _confirmPayment(){
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     const wasMode = txMode;
+    if(payMethod==='cash' && cashReceived!=null && !(wasMode && wasMode.type==='edit')){
+      const chg = cashReceived - total;
+      const inNotes = notesToObj(greedyNotes(cashReceived, null, null).notes);
+      const outNotes = chg>0 ? notesToObj(changeNotes(chg)) : {};
+      sb.from('pos_transactions').update({ cash_in_notes: inNotes, cash_out_notes: outNotes }).eq('id', data).then(()=>{});
+      if(drawerEst){ Object.entries(inNotes).forEach(([v,q])=>drawerEst[v]=(drawerEst[v]||0)+q); Object.entries(outNotes).forEach(([v,q])=>drawerEst[v]=(drawerEst[v]||0)-q); }
+    }
     const { data: tkr } = await sb.from('pos_transactions').select('receipt_token').eq('id', data).maybeSingle();
     lastReceiptData = { token: tkr ? tkr.receipt_token : null, items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
       ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: custName || (wasMode && wasMode.customer) || null };
@@ -1918,10 +1976,11 @@ async function printBLE(){
 }
 // ===== EXPORT PDF STRUK (bagikan ke WA / Gmail) =====
 function renderReceiptCanvas(){
-  const S = 2, W = 384*S, PAD = 14*S;
+  // 1:1 dengan titik printer 58mm (384 dot) biar tajam, gak di-scale Thermer
+  const S = 1, W = 384*S, PAD = 6*S;
   const lines = buildReceiptText().replace(/\n+$/,'').split('\n');
   const c = document.createElement('canvas'), ctx = c.getContext('2d');
-  ctx.font = 'bold '+(20*S)+'px "Courier New", monospace';
+  ctx.font = '700 '+(20*S)+'px \"Roboto Mono\",\"Droid Sans Mono\",\"DejaVu Sans Mono\",\"Courier New\",monospace';
   const cw = ctx.measureText('M').width;
   const fs = Math.floor(20*S*(W-PAD*2)/(cw*32));
   const lh = Math.round(fs*1.35);
@@ -1939,7 +1998,7 @@ function renderReceiptCanvas(){
   const tmp = document.createElement('canvas'); tmp.width=LOGO_W; tmp.height=LOGO_H; tmp.getContext('2d').putImageData(id,0,0);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(tmp, (W-logoW)/2, PAD, logoW, logoH);
-  ctx.fillStyle = '#000'; ctx.font = 'bold '+fs+'px "Courier New", monospace'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#000'; ctx.font = '700 '+fs+'px "Roboto Mono","Droid Sans Mono","DejaVu Sans Mono","Courier New",monospace'; ctx.textBaseline = 'top';
   let y = PAD + logoH + 12*S;
   lines.forEach(l=>{ ctx.fillText(l, PAD, y); y += lh; });
   if(qrPx){ y += lh*0.5; drawQrTo(ctx, qrUrl, (W-qrPx)/2, y, qrPx); y += qrPx; ctx.fillStyle='#000'; const cap='Scan untuk struk digital'; ctx.fillText(cap, (W-ctx.measureText(cap).width)/2, y+lh*0.3); }
