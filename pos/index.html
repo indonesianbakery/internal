@@ -293,6 +293,9 @@ body.public-receipt .sheet-overlay#sheet-receipt{background:var(--bg);align-item
 body.public-receipt #sheet-receipt .sheet{max-height:none;min-height:100vh;border-radius:0;}
 body.public-receipt #sheet-receipt .sheet-close, body.public-receipt #rc-next, body.public-receipt #btn-edit-tx,
 body.public-receipt #btn-thermal, body.public-receipt #btn-ble, body.public-receipt #sheet-receipt button[onclick="window.print()"]{display:none !important;}
+.sp-row{display:grid;grid-template-columns:110px 1fr 1fr 34px;gap:6px;align-items:center;margin-bottom:6px;}
+.sp-row select,.sp-row input{width:100%;padding:9px 8px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:14px;}
+.sp-row input.amt{font-family:'DM Mono',monospace;font-weight:800;text-align:right;}
 </style>
 </head>
 <body>
@@ -453,6 +456,16 @@ body.public-receipt #btn-thermal, body.public-receipt #btn-ble, body.public-rece
       <div class="pay-method" data-m="qris" onclick="selectPayMethod('qris')"><span class="ic">📱</span>QRIS</div>
       <div class="pay-method" data-m="transfer" onclick="selectPayMethod('transfer')"><span class="ic">🏦</span>Transfer</div>
       <div class="pay-method" data-m="debit" onclick="selectPayMethod('debit')"><span class="ic">💳</span>Debit</div>
+      <div class="pay-method" data-m="split" onclick="selectPayMethod('split')"><span class="ic">🔀</span>Split</div>
+    </div>
+    <div id="split-block" class="hidden" style="margin-bottom:10px;">
+      <div id="split-lines"></div>
+      <div style="display:flex;gap:6px;margin-top:6px;">
+        <button class="sheet-btn ghost" style="margin:0;flex:1;" onclick="splitAdd()">➕ Tambah</button>
+        <button class="sheet-btn ghost" style="margin:0;flex:1;" onclick="splitEven()">➗ Bagi rata</button>
+      </div>
+      <div class="change-box" id="split-rest-box" style="margin-top:8px;"><div class="lbl" id="split-rest-lbl">Sisa</div><div class="val" id="split-rest-val">Rp0</div></div>
+      <div id="split-cash-note" style="font-size:12px;color:var(--text2);margin-top:6px;"></div>
     </div>
     <div id="cash-block">
       <div class="form-row">
@@ -1183,9 +1196,12 @@ function renderProducts(){
   _vGroups = [];
   if(activeCategoryId!=='fav' && activeCategoryId!=='top'){
     const out = [], seen = {};
+    const qWords = q ? q.split(/\s+/).filter(Boolean) : [];
     list.forEach(p=>{
       const a = vParts(p);
       if(!a){ out.push(p); return; }
+      // lagi cari & yang cocok nama variannya (misal "mint") -> tampil langsung, gak perlu buka popup
+      if(qWords.length && !qWords.every(w=>(a[0]+' '+(catNames[p.category_id]||'')).toLowerCase().includes(w))){ out.push(p); return; }
       if(seen[a[0]]!=null) return;
       const vars = products.filter(x=>{ const b=vParts(x); return b && b[0]===a[0] && visibleNow(x) && (activeCategoryId!=='plmenu' || inPlMenu(x)); });
       const prices = vars.map(priceOf).filter(x=>x!=null);
@@ -1576,6 +1592,7 @@ function saveDiscountTotal(){
 // ===== PAYMENT =====
 let cashInputStr = '';
 function openPayment(){
+  splitLines = []; if(document.getElementById('split-lines')) renderSplit();
   loadDrawerEst().then(()=>{ try{ calcChange(); }catch(_){} });
   payRef = newPayRef();
   closeSheet('sheet-cart');
@@ -1602,9 +1619,38 @@ function openPayment(){
 function selectPayMethod(m){
   payMethod = m;
   document.querySelectorAll('.pay-method').forEach(el=>el.classList.toggle('active', el.dataset.m===m));
-  document.getElementById('cash-block').classList.toggle('hidden', m!=='cash');
+  document.getElementById('split-block').classList.toggle('hidden', m!=='split');
+  if(m==='split' && !splitLines.length) splitEven(2);
+  syncSplitCash();
   calcChange();
 }
+// ===== SPLIT BAYAR (per orang / per cara bayar) =====
+let splitLines = [];
+const SPLIT_M = {cash:'💵 Cash', qris:'📱 QRIS', transfer:'🏦 Transfer', debit:'💳 Debit'};
+function splitSum(){ return splitLines.reduce((t,l)=>t+(Number(l.amount)||0),0); }
+function splitCash(){ return splitLines.filter(l=>l.method==='cash').reduce((t,l)=>t+(Number(l.amount)||0),0); }
+function renderSplit(){
+  document.getElementById('split-lines').innerHTML = splitLines.map((l,i)=>`<div class="sp-row">
+    <select onchange="splitLines[${i}].method=this.value;syncSplitCash();calcChange();">${Object.entries(SPLIT_M).map(([k,v])=>`<option value="${k}"${l.method===k?' selected':''}>${v}</option>`).join('')}</select>
+    <input class="amt" inputmode="numeric" value="${l.amount?Number(l.amount).toLocaleString('id-ID'):''}" placeholder="0" oninput="fmtMoneyInp(this);splitLines[${i}].amount=parseMoney(this.value);syncSplitCash();calcChange();">
+    <input value="${(l.name||'').replace(/"/g,'&quot;')}" placeholder="Nama (opsional)" oninput="splitLines[${i}].name=this.value">
+    <button class="ci-del" onclick="splitLines.splice(${i},1);renderSplit();syncSplitCash();calcChange();">✕</button></div>`).join('');
+}
+function splitAdd(){ const rest = calcGrandTotal()-splitSum(); splitLines.push({ method:'qris', amount: Math.max(0,rest), name:'' }); renderSplit(); syncSplitCash(); calcChange(); }
+function splitEven(n){
+  n = n || parseInt(prompt('Bagi rata ke berapa orang?', String(Math.max(2, splitLines.length||2))))||0;
+  if(n<2) return;
+  const tot = calcGrandTotal(), base = Math.floor(tot/n/100)*100;
+  splitLines = Array.from({length:n},(_,i)=>({ method: (splitLines[i]&&splitLines[i].method)||'cash', amount: i===n-1 ? tot-base*(n-1) : base, name: (splitLines[i]&&splitLines[i].name)||('Orang '+(i+1)) }));
+  renderSplit(); syncSplitCash(); calcChange();
+}
+function syncSplitCash(){
+  const isSplit = payMethod==='split', cash = splitCash();
+  document.getElementById('cash-block').classList.toggle('hidden', !(payMethod==='cash' || (isSplit && cash>0)));
+  const n = document.getElementById('split-cash-note');
+  if(n) n.textContent = (isSplit && cash>0) ? 'Bagian cash: '+rp(cash)+' · isi uang cash yang diterima di bawah buat hitung kembalian' : '';
+}
+function payTarget(){ return payMethod==='split' ? splitCash() : calcGrandTotal(); }
 function calcInput(digit){
   if(cashInputStr.length>=9) return;
   cashInputStr += digit;
@@ -1668,7 +1714,7 @@ async function loadDrawerEst(){
   const base = realDenoms(currentShift.opening_denoms);
   if(!base) return null;
   const est = Object.assign({}, base);
-  const { data } = await sb.from('pos_transactions').select('cash_in_notes, cash_out_notes').eq('shift_id', currentShift.id).eq('payment_method','cash');
+  const { data } = await sb.from('pos_transactions').select('cash_in_notes, cash_out_notes').eq('shift_id', currentShift.id).in('payment_method',['cash','split']);
   (data||[]).forEach(t=>{
     Object.entries(t.cash_in_notes||{}).forEach(([v,q])=>{ est[v]=(est[v]||0)+Number(q); });
     Object.entries(t.cash_out_notes||{}).forEach(([v,q])=>{ est[v]=(est[v]||0)-Number(q); });
@@ -1683,14 +1729,21 @@ function renderChangeNotes(change){
 }
 function calcChange(){
   const received = parseInt(cashInputStr)||0;
-  const total = calcGrandTotal();
+  const total = payTarget();
   const change = received - total;
   const box = document.getElementById('change-box');
   box.querySelector('.lbl').textContent = change<0 ? 'Kurang' : 'Kembalian';
   document.getElementById('change-val').textContent = rp(Math.abs(change));
   box.classList.toggle('neg', change<0);
   renderChangeNotes(change);
-  document.getElementById('btn-confirm-pay').disabled = (payMethod==='cash' && change<0);
+  let dis = (payMethod==='cash' && change<0);
+  if(payMethod==='split'){
+    const rest = calcGrandTotal() - splitSum();
+    const lbl = document.getElementById('split-rest-lbl'), val = document.getElementById('split-rest-val'), bx = document.getElementById('split-rest-box');
+    lbl.textContent = rest===0 ? 'Pas ✅' : (rest>0 ? 'Sisa belum dibagi' : 'Kelebihan'); val.textContent = rp(Math.abs(rest)); bx.classList.toggle('neg', rest!==0);
+    dis = rest!==0 || splitLines.some(l=>!(Number(l.amount)>0)) || (splitCash()>0 && cashInputStr!=='' && change<0);
+  }
+  document.getElementById('btn-confirm-pay').disabled = dis;
 }
 
 let _paying = false, payRef = null;
@@ -1713,6 +1766,13 @@ async function _confirmPayment(){
   if(payMethod==='cash'){
     cashReceived = parseInt(cashInputStr)||0;
     if(cashReceived < total){ toast('Uang diterima kurang dari total'); return; }
+  }
+  const isSplit = payMethod==='split';
+  const payLines = isSplit ? splitLines.map(l=>({ method:l.method, amount:Number(l.amount)||0, name:(l.name||'').trim() })) : null;
+  if(isSplit){
+    if(splitSum()!==total){ toast('Total split belum sama dengan total belanja'); return; }
+    const cashPart = splitCash();
+    if(cashPart>0){ cashReceived = cashInputStr==='' ? cashPart : (parseInt(cashInputStr)||0); if(cashReceived < cashPart){ toast('Uang cash diterima kurang'); return; } }
   }
   btn.disabled = true; btn.textContent = 'Memproses...';
   try{
@@ -1738,15 +1798,20 @@ async function _confirmPayment(){
     const { data, error } = await sb.rpc(rpcName, args);
     if(error){ toast('Gagal simpan transaksi: '+error.message); btn.disabled=false; btn.textContent='Konfirmasi Bayar'; return; }
     const wasMode = txMode;
-    if(payMethod==='cash' && cashReceived!=null && !(wasMode && wasMode.type==='edit')){
-      const chg = cashReceived - total;
+    if(isSplit || (wasMode && wasMode.type==='edit')){
+      const r2 = await sb.rpc('set_tx_payments', { p_tx_id: (wasMode && wasMode.type==='edit') ? wasMode.id : data, p_payments: isSplit ? payLines : null, p_cash_received: isSplit ? cashReceived : null });
+      if(r2.error) toast('Transaksi tersimpan, tapi rincian split gagal: '+r2.error.message);
+    }
+    const cashBase = isSplit ? splitCash() : total;
+    if((payMethod==='cash' || (isSplit && cashBase>0)) && cashReceived!=null && !(wasMode && wasMode.type==='edit')){
+      const chg = cashReceived - cashBase;
       const inNotes = notesToObj(greedyNotes(cashReceived, null, null).notes);
       const outNotes = chg>0 ? notesToObj(changeNotes(chg)) : {};
       sb.from('pos_transactions').update({ cash_in_notes: inNotes, cash_out_notes: outNotes }).eq('id', data).then(()=>{});
       if(drawerEst){ Object.entries(inNotes).forEach(([v,q])=>drawerEst[v]=(drawerEst[v]||0)+q); Object.entries(outNotes).forEach(([v,q])=>drawerEst[v]=(drawerEst[v]||0)-q); }
     }
     const { data: tkr } = await sb.from('pos_transactions').select('receipt_token').eq('id', data).maybeSingle();
-    lastReceiptData = { token: tkr ? tkr.receipt_token : null, items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-total:null, txId:data,
+    lastReceiptData = { token: tkr ? tkr.receipt_token : null, payments: payLines, items:[...cart], subtotal:calcSubtotal(), discountTotal, grand:total, payMethod, cashReceived, change: cashReceived!=null?cashReceived-(isSplit?splitCash():total):null, txId:data,
       ts: wasMode ? wasMode.ts : new Date(), cashier: (wasMode && wasMode.cashier) || undefined, customer: custName || (wasMode && wasMode.customer) || null };
     closeSheet('sheet-payment');
     showReceipt();
@@ -1780,7 +1845,7 @@ async function openRiwayat(){
     const items = (r.pos_transaction_items||[]).map(i=>i.qty+'x '+i.product_name+(i.is_gift?' (GRATIS)':'')).join(', ');
     return `<div class="cart-item">
       <div class="ci-main" style="cursor:pointer;" onclick="lihatStruk(${r.id})">
-        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',debit:'💳',gofood:'🟢'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.customer_name?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">☕ '+r.customer_name+'</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
+        <div class="ci-nm">#${r.id} · ${jam} · ${{cash:'💵',qris:'📱',transfer:'🏦',debit:'💳',gofood:'🟢',split:'🔀'}[r.payment_method]||''} ${r.payment_method}${r.is_manual?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">MANUAL</span>':''}${r.customer_name?'<span class="gift-tag" style="background:#E3F2FD;color:#1565C0">☕ '+r.customer_name+'</span>':''}${r.edited_by?'<span class="gift-tag" style="background:#FEF3C7;color:#B45309">DIEDIT</span>':''}</div>
         <div class="ci-price">${items}</div>
         <div class="ci-price">Kasir: ${r.cashier_name}${r.edited_by?' · diedit '+r.edited_by+' '+new Date(r.edited_at).toLocaleTimeString('id-ID',{timeZone:'Asia/Jakarta',hour:'2-digit',minute:'2-digit'}):''}</div>
       </div>
@@ -1808,7 +1873,7 @@ function lihatStruk(id){
     subtotal: Number(r.subtotal), discountTotal: Number(r.discount_total), grand: Number(r.grand_total),
     payMethod: r.payment_method, cashReceived: r.cash_received!=null?Number(r.cash_received):null,
     change: r.cash_change!=null?Number(r.cash_change):null,
-    txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true, customer: r.customer_name || null, token: r.receipt_token || null
+    payments: r.payments || null, txId: r.id, ts: new Date(r.created_at), cashier: r.cashier_name, fromHistory: true, customer: r.customer_name || null, token: r.receipt_token || null
   };
   closeSheet('sheet-riwayat');
   showReceipt();
@@ -1822,7 +1887,8 @@ function showReceipt(){
   document.getElementById('btn-edit-tx').style.display = (canManageTx() && r.fromHistory) ? '' : 'none';
   document.getElementById('btn-thermal').style.display = /Android/i.test(navigator.userAgent) ? '' : 'none';
   document.getElementById('btn-ble').style.display = navigator.bluetooth ? '' : 'none';
-  const payLabel = {cash:'Cash', qris:'QRIS', transfer:'Transfer', debit:'Debit', gofood:'GoFood'}[r.payMethod];
+  const PL = {cash:'Cash', qris:'QRIS', transfer:'Transfer', debit:'Debit', gofood:'GoFood', split:'Split'};
+  const payLabel = PL[r.payMethod];
   let html = `<div class="rc-hd"><b>Indonesian Bakery</b>${BRANCHES[currentBranch]}<br>${r.ts.toLocaleString('id-ID')}<br>Kasir: ${r.cashier||currentUser.nama} · #${r.txId}${r.customer?'<br><br>NOTA<br>Kepada: '+r.customer:''}</div><hr>`;
   r.items.forEach(c=>{
     html += `<div class="rc-item">${c.name}${c.is_gift?' (GRATIS)':''}</div>`;
@@ -1832,7 +1898,10 @@ function showReceipt(){
   html += `<hr><div class="rc-row"><span>Subtotal</span><span>${rp(r.subtotal)}</span></div>`;
   if(r.discountTotal>0) html += `<div class="rc-row"><span>Diskon</span><span>-${rp(r.discountTotal)}</span></div>`;
   html += `<div class="rc-row rc-tot"><span>TOTAL</span><span>${rp(r.grand)}</span></div>`;
-  html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):rp(r.grand)}</span></div>`;
+  if(r.payments && r.payments.length){
+    r.payments.forEach(pp=>{ html += `<div class="rc-row"><span>Bayar ${PL[pp.method]||pp.method}${pp.name?' ('+pp.name+')':''}</span><span>${rp(pp.amount)}</span></div>`; });
+    if(r.cashReceived!=null && r.change>0) html += `<div class="rc-row rc-sub"><span>Uang cash diterima</span><span>${rp(r.cashReceived)}</span></div>`;
+  } else html += `<div class="rc-row"><span>Bayar (${payLabel})</span><span>${r.cashReceived!=null?rp(r.cashReceived):rp(r.grand)}</span></div>`;
   if(r.change!=null) html += `<div class="rc-row"><span>Kembali</span><span>${rp(r.change)}</span></div>`;
   html += `<hr><div style="text-align:center;">Terima kasih! 🍞</div>`;
   document.getElementById('receipt-body').innerHTML = html;
@@ -1863,7 +1932,7 @@ async function openPublicReceipt(tok){
     subtotal:Number(data.subtotal), discountTotal:Number(data.discount_total), grand:Number(data.grand_total),
     payMethod:data.payment_method, cashReceived:data.cash_received!=null?Number(data.cash_received):null,
     change:data.cash_change!=null?Number(data.cash_change):null, txId:data.id, ts:new Date(data.created_at),
-    cashier:data.cashier_name, customer:data.customer_name||null, token:null
+    cashier:data.cashier_name, customer:data.customer_name||null, token:null, payments:data.payments||null
   };
   showReceipt();
   document.getElementById('rc-title').textContent = '🧾 Struk Digital';
