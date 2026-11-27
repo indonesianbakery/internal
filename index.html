@@ -2337,6 +2337,9 @@ function renderProdProfile(prod, batches, moves){
   if (canEdit()) {
     h += '<button class="pp-toggle" onclick="ppToggleCatat()">✏️ Catat stok produk ini</button><div class="pp-catat" id="pp-catat" style="display:none"></div>';
   }
+  if (currentUser && (currentUser.role==='master'||currentUser.role==='manager')) {
+    h += '<div class="pp-sec">Dijual di cabang</div><div class="pd-row" style="gap:8px">'+Object.keys(BRANCHES).map(b=>{ const on=!(branchOff[b]&&branchOff[b].has(prod.id)); return '<button class="br-chip'+(on?' on':'')+'" onclick="ppProfBranch(\''+b+'\','+(!on)+','+prod.id+')">'+finEsc(BRANCHES[b])+(on?' ✓':' ✗')+'</button>'; }).join('')+'</div>';
+  }
   if (EXPIRY_ON) {
   h += '<div class="pp-sec">Batch masuk</div>';
   if(!batches.length) h += '<div class="pp-empty">Belum ada catatan batch</div>';
@@ -4653,6 +4656,13 @@ async function setBranchActive(ids, branchId, active){
   if (error) { alert('Gagal: '+error.message); return false; }
   await loadProducts(); await loadStockNow();
   return true;
+}
+async function ppProfBranch(b,on,pid){
+  const p=products.find(x=>x.id===pid);
+  if (!on && !confirm('Matikan '+(p?dn(p.name):'produk ini')+' di '+BRANCHES[b]+'? Produk tidak tampil di stok & POS cabang itu.')) return;
+  if (!(await setBranchActive([pid],b,on))) return;
+  if (!on && b===branch) { closeProdProfile(); try{ renderOverview(); }catch(_){} return; }
+  if (p && stockNow[p.name]) openProdProfile(p.name); else closeProdProfile();
 }
 async function pdBranch(b,on){ if (await setBranchActive([pmDetailId],b,on)) { renderProdManageList(); refreshPmDetail(); } }
 async function ppBranch(b,on){ const { ps } = parentVariants(pmParentKey); if (await setBranchActive(ps.map(p=>p.id),b,on)) { renderProdManageList(); refreshPmDetail(); } }
